@@ -1,0 +1,10 @@
+[package]
+name = "examples"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+publish = false
+
+[[example]]
+name = "rest"
+path = "rest.rs"

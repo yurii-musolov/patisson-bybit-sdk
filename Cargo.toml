@@ -1,0 +1,18 @@
+[package]
+name = "patisson-bybit-sdk"
+version = "0.1.0"
+edition = "2024"
+authors = ["Yurii Musolov <yurii.musolov@gmail.com>"]
+description = "Unofficial Rust SDK for the Bybit exchange API"
+keywords = ["bybit", "sdk", "crypto", "api", "trading", "cryptocurrency"]
+categories = ["api-bindings", "cryptography::cryptocurrencies"]
+documentation = "https://docs.rs/crate/patisson-bybit-sdk"
+repository = "https://github.com/yurii-musolov/patisson-bybit-sdk"
+license = "MIT"
+readme = "README.md"
+
+[lib]
+name = "bybit"
+path = "src/lib.rs"
+
+[dependencies]
