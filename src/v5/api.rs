@@ -262,7 +262,7 @@ pub struct GetTradesParams {
     pub limit: Option<u64>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 #[serde(tag = "category")]
 pub enum Trade {
     #[serde(rename = "inverse")]
@@ -275,42 +275,62 @@ pub enum Trade {
     Spot { list: Vec<InverseLinearSpotTrade> },
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct InverseLinearSpotTrade {
+    /// Execution ID
     pub exec_id: String,
+    /// Symbol name
     pub symbol: String,
-    #[serde(deserialize_with = "number")]
-    pub price: f64,
-    #[serde(deserialize_with = "number")]
-    pub size: f64,
+    /// Trade price
+    pub price: Decimal,
+    /// Trade size
+    pub size: Decimal,
+    /// Side of taker Buy, Sell
     pub side: Side,
+    /// Trade time (ms)
     #[serde(deserialize_with = "number")]
-    pub time: u64,
+    pub time: Timestamp,
+    /// boolean	Whether the trade is block trade
     pub is_block_trade: bool,
+    /// Whether the trade is RPI trade
+    #[serde(rename = "isRPITrade")]
+    pub is_rpi_trade: bool,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct OptionTrade {
+    /// Execution ID
     pub exec_id: String,
+    /// Symbol name
     pub symbol: String,
-    #[serde(deserialize_with = "number")]
-    pub price: f64,
-    #[serde(deserialize_with = "number")]
-    pub size: f64,
+    /// Trade price
+    pub price: Decimal,
+    /// Trade size
+    pub size: Decimal,
+    /// Side of taker Buy, Sell
     pub side: Side,
+    /// Trade time (ms)
     #[serde(deserialize_with = "number")]
-    pub time: u64,
+    pub time: Timestamp,
+    /// boolean	Whether the trade is block trade
     pub is_block_trade: bool,
-    #[serde(rename = "mP", deserialize_with = "number")]
-    pub mark_price: f64,
-    #[serde(rename = "iP", deserialize_with = "number")]
-    pub index_price: f64,
-    #[serde(rename = "mIv", deserialize_with = "number")]
-    pub mark_iv: f64,
-    #[serde(rename = "iv", deserialize_with = "number")]
-    pub iv: f64,
+    /// Whether the trade is RPI trade
+    #[serde(rename = "isRPITrade")]
+    pub is_rpi_trade: bool,
+    /// Mark price
+    #[serde(rename = "mP")]
+    pub mark_price: Decimal,
+    /// Index price
+    #[serde(rename = "iP")]
+    pub index_price: Decimal,
+    /// Mark iv
+    #[serde(rename = "mIv")]
+    pub mark_iv: Decimal,
+    /// iv
+    #[serde(rename = "iv")]
+    pub iv: Decimal,
 }
 
 #[derive(Serialize)]
@@ -711,6 +731,51 @@ mod tests {
                 }],
             },
             time: 1672376496682,
+            ret_ext_info: RetExtInfo {},
+        };
+        assert_eq!(message, expected);
+    }
+
+    #[test]
+    fn deserialize_response_trad_spot() {
+        let json = r#"{
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+                "category": "spot",
+                "list": [
+                    {
+                        "execId": "2100000000007764263",
+                        "symbol": "BTCUSDT",
+                        "price": "16618.49",
+                        "size": "0.00012",
+                        "side": "Buy",
+                        "time": "1672052955758",
+                        "isBlockTrade": false,
+                        "isRPITrade": true
+                    }
+                ]
+            },
+            "retExtInfo": {},
+            "time": 1672053054358
+        }"#;
+        let message: Response<Trade> = serde_json::from_str(json).unwrap();
+        let expected = Response {
+            ret_code: 0,
+            ret_msg: String::from("OK"),
+            result: Trade::Spot {
+                list: vec![InverseLinearSpotTrade {
+                    exec_id: String::from("2100000000007764263"),
+                    symbol: String::from("BTCUSDT"),
+                    price: dec!(16618.49),
+                    size: dec!(0.00012),
+                    side: Side::Buy,
+                    time: 1672052955758,
+                    is_block_trade: false,
+                    is_rpi_trade: true,
+                }],
+            },
+            time: 1672053054358,
             ret_ext_info: RetExtInfo {},
         };
         assert_eq!(message, expected);
