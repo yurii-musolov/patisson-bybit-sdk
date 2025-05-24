@@ -83,7 +83,7 @@ pub struct GetTickersParams {
     pub exp_date: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 #[serde(tag = "category")]
 pub enum Ticker {
     #[serde(rename = "inverse")]
@@ -96,53 +96,40 @@ pub enum Ticker {
     Spot { list: Vec<SpotTicker> },
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct LinearInverseTicker {
     /// Symbol name
     pub symbol: String,
     /// Last price
-    #[serde(deserialize_with = "number")]
-    pub last_price: f64,
+    pub last_price: Decimal,
     /// Mark price
-    #[serde(deserialize_with = "number")]
-    pub mark_price: f64,
+    pub mark_price: Decimal,
     /// Index price
-    #[serde(deserialize_with = "number")]
-    pub index_price: f64,
+    pub index_price: Decimal,
     /// Market price 24 hours ago
-    #[serde(deserialize_with = "number")]
-    pub prev_price24h: f64,
+    pub prev_price24h: Decimal,
     /// Percentage change of market price in the last 24 hours
-    #[serde(deserialize_with = "number")]
-    pub price24h_pcnt: f64,
+    pub price24h_pcnt: Decimal,
     /// The highest price in the last 24 hours
-    #[serde(deserialize_with = "number")]
-    pub high_price24h: f64,
+    pub high_price24h: Decimal,
     /// The lowest price in the last 24 hours
-    #[serde(deserialize_with = "number")]
-    pub low_price24h: f64,
+    pub low_price24h: Decimal,
     /// Market price an hour ago
-    #[serde(deserialize_with = "number")]
-    pub prev_price1h: f64,
+    pub prev_price1h: Decimal,
     /// Open interest size
-    #[serde(deserialize_with = "number")]
-    pub open_interest: f64,
+    pub open_interest: Decimal,
     /// Open interest value
-    #[serde(deserialize_with = "number")]
-    pub open_interest_value: f64,
+    pub open_interest_value: Decimal,
     /// Turnover for 24h
-    #[serde(deserialize_with = "number")]
-    pub turnover24h: f64,
+    pub turnover24h: Decimal,
     /// Volume for 24h
-    #[serde(deserialize_with = "number")]
-    pub volume24h: f64,
+    pub volume24h: Decimal,
     /// Funding rate
-    #[serde(deserialize_with = "number")]
-    pub funding_rate: f64,
+    pub funding_rate: Decimal,
     /// Next funding timestamp (ms)
     #[serde(deserialize_with = "number")]
-    pub next_funding_time: u64,
+    pub next_funding_time: Timestamp,
     /// Predicated delivery price. It has value when 30 min before delivery
     pub predicted_delivery_price: String,
     /// Basis rate. Unique field for inverse futures & USDC futures
@@ -154,148 +141,108 @@ pub struct LinearInverseTicker {
     /// Delivery date time (UTC+0). Unique field for inverse futures & USDC futures
     pub delivery_time: String,
     /// Best bid price
-    #[serde(deserialize_with = "number")]
-    pub bid1_price: f64,
+    pub bid1_price: Decimal,
     /// Best bid size
-    #[serde(deserialize_with = "number")]
-    pub bid1_size: f64,
+    pub bid1_size: Decimal,
     /// Best ask price
-    #[serde(deserialize_with = "number")]
-    pub ask1_price: f64,
+    pub ask1_price: Decimal,
     /// Best ask size
-    #[serde(deserialize_with = "number")]
-    pub ask1_size: f64,
+    pub ask1_size: Decimal,
     /// Estimated pre-market contract open price. The value is meaningless when entering continuous trading phase.
-    pub pre_open_price: String,
+    pub pre_open_price: Option<String>,
     /// Estimated pre-market contract open qty. The value is meaningless when entering continuous trading phase.
-    pub pre_qty: String,
+    pub pre_qty: Option<String>,
     /// Enum: NotStarted, Finished, CallAuction, CallAuctionNoCancel, CrossMatching, ContinuousTrading.
-    pub cur_pre_listing_phase: String,
+    pub cur_pre_listing_phase: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct OptionTicker {
     /// Symbol name
     pub symbol: String,
     /// Best bid price
-    #[serde(deserialize_with = "number")]
-    pub bid1_price: f64,
+    pub bid1_price: Decimal,
     /// Best bid size
-    #[serde(deserialize_with = "number")]
-    pub bid1_size: f64,
+    pub bid1_size: Decimal,
     /// Best bid iv
-    #[serde(deserialize_with = "number")]
-    pub bid1_iv: f64,
+    pub bid1_iv: Decimal,
     /// Best ask price
-    #[serde(deserialize_with = "number")]
-    pub ask1_price: f64,
+    pub ask1_price: Decimal,
     /// Best ask size
-    #[serde(deserialize_with = "number")]
-    pub ask1_size: f64,
+    pub ask1_size: Decimal,
     /// Best ask iv
-    #[serde(deserialize_with = "number")]
-    pub ask1_iv: f64,
+    pub ask1_iv: Decimal,
     /// Last price
-    #[serde(deserialize_with = "number")]
-    pub last_price: f64,
+    pub last_price: Decimal,
     /// The highest price in the last 24 hours
-    #[serde(deserialize_with = "number")]
-    pub high_price24h: f64,
+    pub high_price24h: Decimal,
     /// The lowest price in the last 24 hours
-    #[serde(deserialize_with = "number")]
-    pub low_price24h: f64,
+    pub low_price24h: Decimal,
     /// Mark price
-    #[serde(deserialize_with = "number")]
-    pub mark_price: f64,
+    pub mark_price: Decimal,
     /// Index price
-    #[serde(deserialize_with = "number")]
-    pub index_price: f64,
+    pub index_price: Decimal,
     /// Mark price iv
-    #[serde(deserialize_with = "number")]
-    pub mark_iv: f64,
+    pub mark_iv: Decimal,
     /// Underlying price
-    #[serde(deserialize_with = "number")]
-    pub underlying_price: f64,
+    pub underlying_price: Decimal,
     /// Open interest size
-    #[serde(deserialize_with = "number")]
-    pub open_interest: f64,
+    pub open_interest: Decimal,
     /// Turnover for 24h
-    #[serde(deserialize_with = "number")]
-    pub turnover24h: f64,
+    pub turnover24h: Decimal,
     /// Volume for 24h
-    #[serde(deserialize_with = "number")]
-    pub volume24h: f64,
+    pub volume24h: Decimal,
     /// Total volume
-    #[serde(deserialize_with = "number")]
-    pub total_volume: f64,
+    pub total_volume: Decimal,
     /// Total turnover
-    #[serde(deserialize_with = "number")]
-    pub total_turnover: f64,
+    pub total_turnover: Decimal,
     /// Delta
-    #[serde(deserialize_with = "number")]
-    pub delta: f64,
+    pub delta: Decimal,
     /// Gamma
-    #[serde(deserialize_with = "number")]
-    pub gamma: f64,
+    pub gamma: Decimal,
     /// Vega
-    #[serde(deserialize_with = "number")]
-    pub vega: f64,
+    pub vega: Decimal,
     /// Theta
-    #[serde(deserialize_with = "number")]
-    pub theta: f64,
+    pub theta: Decimal,
     /// Predicated delivery price. It has value when 30 min before delivery
-    #[serde(deserialize_with = "number")]
-    pub predicted_delivery_price: f64,
+    pub predicted_delivery_price: Decimal,
     /// The change in the last 24 hous
-    #[serde(deserialize_with = "number")]
-    pub change24h: f64,
+    pub change24h: Decimal,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct SpotTicker {
     /// Symbol name
     pub symbol: String,
     /// Best bid price
-    #[serde(deserialize_with = "number")]
-    pub bid1_price: f64,
+    pub bid1_price: Decimal,
     /// Best bid size
-    #[serde(deserialize_with = "number")]
-    pub bid1_size: f64,
+    pub bid1_size: Decimal,
     /// Best ask price
-    #[serde(deserialize_with = "number")]
-    pub ask1_price: f64,
+    pub ask1_price: Decimal,
     /// Best ask size
-    #[serde(deserialize_with = "number")]
-    pub ask1_size: f64,
+    pub ask1_size: Decimal,
     /// Last price
-    #[serde(deserialize_with = "number")]
-    pub last_price: f64,
+    pub last_price: Decimal,
     /// Market price 24 hours ago
-    #[serde(deserialize_with = "number")]
-    pub prev_price24h: f64,
+    pub prev_price24h: Decimal,
     /// Percentage change of market price in the last 24 hours
-    #[serde(deserialize_with = "number")]
-    pub price24h_pcnt: f64,
+    pub price24h_pcnt: Decimal,
     /// The highest price in the last 24 hours
-    #[serde(deserialize_with = "number")]
-    pub high_price24h: f64,
+    pub high_price24h: Decimal,
     /// The lowest price in the last 24 hours
-    #[serde(deserialize_with = "number")]
-    pub low_price24h: f64,
+    pub low_price24h: Decimal,
     /// Turnover for 24h
-    #[serde(deserialize_with = "number")]
-    pub turnover24h: f64,
+    pub turnover24h: Decimal,
     /// Volume for 24h
-    #[serde(deserialize_with = "number")]
-    pub volume24h: f64,
+    pub volume24h: Decimal,
     /// USD index price
     /// - used to calculate USD value of the assets in Unified account
     /// - non-collateral margin coin returns ""
     /// - Only those trading pairs like "XXX/USDT" or "XXX/USDC" have the value
-    #[serde(deserialize_with = "number")]
-    pub usd_index_price: f64,
+    pub usd_index_price: Decimal,
 }
 
 #[derive(Serialize)]
@@ -684,6 +631,86 @@ mod tests {
                 ],
             },
             time: 1672025956592,
+            ret_ext_info: RetExtInfo {},
+        };
+        assert_eq!(message, expected);
+    }
+
+    #[test]
+    fn deserialize_response_ticker_inverse() {
+        let json = r#"{
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+                "category": "inverse",
+                "list": [
+                    {
+                        "symbol": "BTCUSD",
+                        "lastPrice": "16597.00",
+                        "indexPrice": "16598.54",
+                        "markPrice": "16596.00",
+                        "prevPrice24h": "16464.50",
+                        "price24hPcnt": "0.008047",
+                        "highPrice24h": "30912.50",
+                        "lowPrice24h": "15700.00",
+                        "prevPrice1h": "16595.50",
+                        "openInterest": "373504107",
+                        "openInterestValue": "22505.67",
+                        "turnover24h": "2352.94950046",
+                        "volume24h": "49337318",
+                        "fundingRate": "-0.001034",
+                        "nextFundingTime": "1672387200000",
+                        "predictedDeliveryPrice": "",
+                        "basisRate": "",
+                        "deliveryFeeRate": "",
+                        "deliveryTime": "0",
+                        "ask1Size": "1",
+                        "bid1Price": "16596.00",
+                        "ask1Price": "16597.50",
+                        "bid1Size": "1",
+                        "basis": ""
+                    }
+                ]
+            },
+            "retExtInfo": {},
+            "time": 1672376496682
+        }"#;
+        let message: Response<Ticker> = serde_json::from_str(json).unwrap();
+        let expected = Response {
+            ret_code: 0,
+            ret_msg: String::from("OK"),
+            result: Ticker::Inverse {
+                list: vec![LinearInverseTicker {
+                    symbol: String::from("BTCUSD"),
+                    last_price: dec!(16597.00),
+                    mark_price: dec!(16596.00),
+                    index_price: dec!(16598.54),
+                    prev_price24h: dec!(16464.50),
+                    price24h_pcnt: dec!(0.008047),
+                    high_price24h: dec!(30912.50),
+                    low_price24h: dec!(15700.00),
+                    prev_price1h: dec!(16595.50),
+                    open_interest: dec!(373504107),
+                    open_interest_value: dec!(22505.67),
+                    turnover24h: dec!(2352.94950046),
+                    volume24h: dec!(49337318),
+                    funding_rate: dec!(-0.001034),
+                    next_funding_time: 1672387200000,
+                    predicted_delivery_price: String::new(),
+                    basis_rate: String::new(),
+                    basis: String::new(),
+                    delivery_fee_rate: String::new(),
+                    delivery_time: String::from("0"),
+                    bid1_price: dec!(16596.00),
+                    bid1_size: dec!(1),
+                    ask1_price: dec!(16597.50),
+                    ask1_size: dec!(1),
+                    pre_open_price: None,
+                    pre_qty: None,
+                    cur_pre_listing_phase: None,
+                }],
+            },
+            time: 1672376496682,
             ret_ext_info: RetExtInfo {},
         };
         assert_eq!(message, expected);
