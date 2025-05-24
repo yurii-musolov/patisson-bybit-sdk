@@ -971,6 +971,11 @@ pub enum CurAuctionPhase {
     /// There is no restriction to create, amend, cancel orders
     /// orderbook, public trade data is released from this stage
     ContinuousTrading,
+    /// As Option::None
+    /// Deprecated!
+    /// TODO: write deserializer from ""
+    #[serde(rename = "")]
+    None,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]

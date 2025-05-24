@@ -1,4 +1,4 @@
-use rust_decimal::Decimal;
+use rust_decimal::{Decimal, dec, serde::str_option::deserialize as option_decimal};
 use serde::{Deserialize, Serialize};
 use serde_aux::prelude::{
     deserialize_number_from_string as number,
@@ -131,15 +131,20 @@ pub struct LinearInverseTicker {
     #[serde(deserialize_with = "number")]
     pub next_funding_time: Timestamp,
     /// Predicated delivery price. It has value when 30 min before delivery
-    pub predicted_delivery_price: String,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub predicted_delivery_price: Option<Decimal>,
     /// Basis rate. Unique field for inverse futures & USDC futures
-    pub basis_rate: String,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub basis_rate: Option<Decimal>,
     /// Basis. Unique field for inverse futures & USDC futures
-    pub basis: String,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub basis: Option<Decimal>,
     /// Delivery fee rate. Unique field for inverse futures & USDC futures
-    pub delivery_fee_rate: String,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub delivery_fee_rate: Option<Decimal>,
     /// Delivery date time (UTC+0). Unique field for inverse futures & USDC futures
-    pub delivery_time: String,
+    #[serde(deserialize_with = "option_number")]
+    pub delivery_time: Option<Timestamp>,
     /// Best bid price
     pub bid1_price: Decimal,
     /// Best bid size
@@ -149,11 +154,13 @@ pub struct LinearInverseTicker {
     /// Best ask size
     pub ask1_size: Decimal,
     /// Estimated pre-market contract open price. The value is meaningless when entering continuous trading phase.
-    pub pre_open_price: Option<String>,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub pre_open_price: Option<Decimal>,
     /// Estimated pre-market contract open qty. The value is meaningless when entering continuous trading phase.
-    pub pre_qty: Option<String>,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub pre_qty: Option<Decimal>,
     /// Enum: NotStarted, Finished, CallAuction, CallAuctionNoCancel, CrossMatching, ContinuousTrading.
-    pub cur_pre_listing_phase: Option<String>,
+    pub cur_pre_listing_phase: Option<CurAuctionPhase>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -242,7 +249,8 @@ pub struct SpotTicker {
     /// - used to calculate USD value of the assets in Unified account
     /// - non-collateral margin coin returns ""
     /// - Only those trading pairs like "XXX/USDT" or "XXX/USDC" have the value
-    pub usd_index_price: Decimal,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub usd_index_price: Option<Decimal>,
 }
 
 #[derive(Serialize)]
@@ -716,11 +724,11 @@ mod tests {
                     volume24h: dec!(49337318),
                     funding_rate: dec!(-0.001034),
                     next_funding_time: 1672387200000,
-                    predicted_delivery_price: String::new(),
-                    basis_rate: String::new(),
-                    basis: String::new(),
-                    delivery_fee_rate: String::new(),
-                    delivery_time: String::from("0"),
+                    predicted_delivery_price: None,
+                    basis_rate: None,
+                    basis: None,
+                    delivery_fee_rate: None,
+                    delivery_time: Some(0),
                     bid1_price: dec!(16596.00),
                     bid1_size: dec!(1),
                     ask1_price: dec!(16597.50),
