@@ -3,6 +3,7 @@ mod client;
 mod enums;
 mod incoming_message;
 mod outgoing_message;
+mod serde;
 mod url;
 
 pub use api::*;
