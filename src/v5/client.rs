@@ -36,7 +36,7 @@ impl Client {
 
     pub async fn get_tickers(&self, params: GetTickersParams) -> anyhow::Result<Ticker> {
         let url = format!("{}{}", self.base_url, Path::MarketTickers);
-        println!("{url}");
+
         let client = reqwest::Client::builder().build()?;
         let request_builder = client.request(Method::GET, url).query(&params);
 
