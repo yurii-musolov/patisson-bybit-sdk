@@ -1,3 +1,4 @@
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_aux::prelude::{
     deserialize_number_from_string as number,
@@ -9,14 +10,16 @@ use super::{
     enums::{Category, Interval},
 };
 
-#[derive(Debug, Deserialize)]
+type Timestamp = u64;
+
+#[derive(Debug, Deserialize, PartialEq)]
 pub struct Response<T> {
     #[serde(rename = "retCode")]
     pub ret_code: i64,
     #[serde(rename = "retMsg")]
     pub ret_msg: String,
     pub result: T,
-    pub time: i64,
+    pub time: Timestamp,
     #[serde(rename = "retExtInfo")]
     pub ret_ext_info: RetExtInfo,
 }
@@ -29,12 +32,12 @@ pub struct GetKLinesParams {
     pub category: Category,
     pub symbol: String,
     pub interval: Interval,
-    pub start: Option<u64>,
-    pub end: Option<u64>,
+    pub start: Option<Timestamp>,
+    pub end: Option<Timestamp>,
     pub limit: Option<u64>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 #[serde(tag = "category")]
 pub enum KLine {
     #[serde(rename = "inverse")]
@@ -47,29 +50,29 @@ pub enum KLine {
     Spot { symbol: String, list: Vec<KLineRow> },
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, PartialEq)]
 pub struct KLineRow {
     /// Start time of the candle (ms)
     #[serde(rename = "startTime", deserialize_with = "number")]
-    pub start_time: u64,
+    pub start_time: Timestamp,
     /// Open price
-    #[serde(rename = "openPrice", deserialize_with = "number")]
-    pub open_price: f64,
+    #[serde(rename = "openPrice")]
+    pub open_price: Decimal,
     /// Highest price
-    #[serde(rename = "highPrice", deserialize_with = "number")]
-    pub high_price: f64,
+    #[serde(rename = "highPrice")]
+    pub high_price: Decimal,
     /// Lowest price
-    #[serde(rename = "lowPrice", deserialize_with = "number")]
-    pub low_price: f64,
+    #[serde(rename = "lowPrice")]
+    pub low_price: Decimal,
     /// Close price. Is the last traded price when the candle is not closed
-    #[serde(rename = "closePrice", deserialize_with = "number")]
-    pub close_price: f64,
+    #[serde(rename = "closePrice")]
+    pub close_price: Decimal,
     /// Trade volume. Unit of contract: pieces of contract. Unit of spot: quantity of coins
-    #[serde(rename = "volume", deserialize_with = "number")]
-    pub volume: f64,
+    #[serde(rename = "volume")]
+    pub volume: Decimal,
     /// Turnover. Unit of figure: quantity of quota coin
-    #[serde(rename = "turnover", deserialize_with = "number")]
-    pub turnover: f64,
+    #[serde(rename = "turnover")]
+    pub turnover: Decimal,
 }
 
 #[derive(Serialize)]
@@ -595,4 +598,94 @@ pub struct AuctionFeeInfo {
     pub taker_fee_rate: f64,
     #[serde(deserialize_with = "number")]
     pub maker_fee_rate: f64,
+}
+
+#[cfg(test)]
+mod tests {
+    use rust_decimal::dec;
+
+    use super::*;
+
+    #[test]
+    fn deserialize_response_kline_inverse() {
+        let json = r#"{
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+                "symbol": "BTCUSD",
+                "category": "inverse",
+                "list": [
+                    [
+                        "1670608800000",
+                        "17071",
+                        "17073",
+                        "17027",
+                        "17055.5",
+                        "268611",
+                        "15.74462667"
+                    ],
+                    [
+                        "1670605200000",
+                        "17071.5",
+                        "17071.5",
+                        "17061",
+                        "17071",
+                        "4177",
+                        "0.24469757"
+                    ],
+                    [
+                        "1670601600000",
+                        "17086.5",
+                        "17088",
+                        "16978",
+                        "17071.5",
+                        "6356",
+                        "0.37288112"
+                    ]
+                ]
+            },
+            "retExtInfo": {},
+            "time": 1672025956592
+        }"#;
+        let message: Response<KLine> = serde_json::from_str(json).unwrap();
+        let expected = Response {
+            ret_code: 0,
+            ret_msg: String::from("OK"),
+            result: KLine::Inverse {
+                symbol: String::from("BTCUSD"),
+                list: vec![
+                    KLineRow {
+                        start_time: 1670608800000,
+                        open_price: dec!(17071),
+                        high_price: dec!(17073),
+                        low_price: dec!(17027),
+                        close_price: dec!(17055.5),
+                        volume: dec!(268611),
+                        turnover: dec!(15.74462667),
+                    },
+                    KLineRow {
+                        start_time: 1670605200000,
+                        open_price: dec!(17071.5),
+                        high_price: dec!(17071.5),
+                        low_price: dec!(17061),
+                        close_price: dec!(17071),
+                        volume: dec!(4177),
+                        turnover: dec!(0.24469757),
+                    },
+                    KLineRow {
+                        start_time: 1670601600000,
+                        open_price: dec!(17086.5),
+                        high_price: dec!(17088),
+                        low_price: dec!(16978),
+                        close_price: dec!(17071.5),
+                        volume: dec!(6356),
+                        turnover: dec!(0.37288112),
+                    },
+                ],
+            },
+            time: 1672025956592,
+            ret_ext_info: RetExtInfo {},
+        };
+        assert_eq!(message, expected);
+    }
 }
