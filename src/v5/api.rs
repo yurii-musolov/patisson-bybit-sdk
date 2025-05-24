@@ -1,4 +1,4 @@
-use rust_decimal::{Decimal, dec, serde::str_option::deserialize as option_decimal};
+use rust_decimal::{Decimal, serde::str_option::deserialize as option_decimal};
 use serde::{Deserialize, Serialize};
 use serde_aux::prelude::{
     deserialize_number_from_string as number,
@@ -8,6 +8,7 @@ use serde_aux::prelude::{
 use super::{
     ContractType, CopyTrading, CurAuctionPhase, Innovation, Side, Status,
     enums::{Category, Interval},
+    serde::invalid_as_none,
 };
 
 type Timestamp = u64;
@@ -160,9 +161,9 @@ pub struct LinearInverseTicker {
     #[serde(default, deserialize_with = "option_decimal")]
     pub pre_qty: Option<Decimal>,
     /// Enum: NotStarted, Finished, CallAuction, CallAuctionNoCancel, CrossMatching, ContinuousTrading.
+    #[serde(default, deserialize_with = "invalid_as_none")]
     pub cur_pre_listing_phase: Option<CurAuctionPhase>,
 }
-
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct OptionTicker {

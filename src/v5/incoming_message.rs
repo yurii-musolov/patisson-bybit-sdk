@@ -8,7 +8,7 @@ use super::{
     AutoAddMargin, CancelType, Category, CreateType, Interval, OcoTriggerBy, OrderStatus,
     OrderType, PlaceType, PositionIdx, PositionStatus, RejectReason, Side, SlippageToleranceType,
     SmpType, StopOrderType, TickDirection, TimeInForce, TpslMode, TradeMode, TriggerBy,
-    TriggerDirection,
+    TriggerDirection, serde::invalid_as_none,
 };
 
 #[derive(PartialEq, Deserialize, Debug)]
@@ -381,7 +381,8 @@ pub struct OrderUpdateMsg {
     /// Order type. Market,Limit. For TP/SL order, it means the order type after triggered
     pub order_type: OrderType,
     /// Stop order type
-    pub stop_order_type: StopOrderType,
+    #[serde(default, deserialize_with = "invalid_as_none")]
+    pub stop_order_type: Option<StopOrderType>,
     /// The trigger type of Spot OCO order.OcoTriggerByUnknown, OcoTriggerByTp, OcoTriggerByBySl. Classic spot is not supported
     pub oco_trigger_by: Option<OcoTriggerBy>,
     /// Implied volatility
@@ -403,7 +404,8 @@ pub struct OrderUpdateMsg {
     #[serde(deserialize_with = "option_number")]
     pub stop_loss: Option<f64>,
     /// TP/SL mode, Full: entire position for TP/SL. Partial: partial position tp/sl. Spot does not have this field, and Option returns always ""
-    pub tpsl_mode: TpslMode,
+    #[serde(default, deserialize_with = "invalid_as_none")]
+    pub tpsl_mode: Option<TpslMode>,
     /// The limit order price when take profit price is triggered
     #[serde(deserialize_with = "option_number")]
     pub tp_limit_price: Option<f64>,
@@ -411,12 +413,15 @@ pub struct OrderUpdateMsg {
     #[serde(deserialize_with = "option_number")]
     pub sl_limit_price: Option<f64>,
     /// The price type to trigger take profit
+    #[serde(default, deserialize_with = "invalid_as_none")]
     pub tp_trigger_by: Option<TriggerBy>,
     /// The price type to trigger stop loss
+    #[serde(default, deserialize_with = "invalid_as_none")]
     pub sl_trigger_by: Option<TriggerBy>,
     /// Trigger direction. 1: rise, 2: fall
     pub trigger_direction: TriggerDirection,
     /// The price type of trigger price
+    #[serde(default, deserialize_with = "invalid_as_none")]
     pub trigger_by: Option<TriggerBy>,
     /// Last price when place the order, Spot is not applicable
     #[serde(deserialize_with = "option_number")]
@@ -464,8 +469,8 @@ pub struct PositionUpdateMsg {
     /// Position side. Buy: long, Sell: short
     /// one-way mode: classic & UTA1.0(inverse), an empty position returns None.
     /// UTA2.0(linear, inverse) & UTA1.0(linear): either one-way or hedge mode returns an empty string "" for an empty position.
-    // TODO: write deserializer from ""
-    // pub side: Option<Side>,
+    #[serde(default, deserialize_with = "invalid_as_none")]
+    pub side: Option<Side>,
     /// Position size
     #[serde(deserialize_with = "number")]
     pub size: f64,
@@ -523,7 +528,8 @@ pub struct PositionUpdateMsg {
     #[serde(deserialize_with = "option_number")]
     pub bust_price: Option<f64>,
     /// deprecated, meaningless here, always "Full"
-    pub tpsl_mode: TpslMode,
+    #[serde(default, deserialize_with = "invalid_as_none")]
+    pub tpsl_mode: Option<TpslMode>,
     /// Take profit price
     #[serde(deserialize_with = "number")]
     pub take_profit: f64,
@@ -534,9 +540,8 @@ pub struct PositionUpdateMsg {
     #[serde(deserialize_with = "number")]
     pub trailing_stop: f64,
     /// Unrealised profit and loss
-    // TODO: write deserializer from undefined
-    // #[serde(deserialize_with = "option_number")]
-    // pub unrealized_pnl: Option<f64>,
+    #[serde(default, deserialize_with = "option_number")]
+    pub unrealized_pnl: Option<f64>,
     /// The realised PnL for the current holding position
     #[serde(deserialize_with = "number")]
     pub cur_realised_pnl: f64,
@@ -916,7 +921,7 @@ mod tests {
                 fee_currency: None,
                 time_in_force: TimeInForce::IOC,
                 order_type: OrderType::Market,
-                stop_order_type: StopOrderType::None,
+                stop_order_type: None,
                 oco_trigger_by: None,
                 order_iv: None,
                 market_unit: None,
@@ -925,13 +930,13 @@ mod tests {
                 trigger_price: None,
                 take_profit: None,
                 stop_loss: None,
-                tpsl_mode: TpslMode::None,
+                tpsl_mode: None,
                 tp_limit_price: None,
                 sl_limit_price: None,
-                tp_trigger_by: Some(TriggerBy::None),
-                sl_trigger_by: Some(TriggerBy::None),
+                tp_trigger_by: None,
+                sl_trigger_by: None,
                 trigger_direction: TriggerDirection::UNKNOWN,
-                trigger_by: Some(TriggerBy::None),
+                trigger_by: None,
                 last_price_on_created: None,
                 reduce_only: false,
                 close_on_trigger: false,
@@ -999,8 +1004,7 @@ mod tests {
             data: vec![PositionUpdateMsg {
                 category: Category::Linear,
                 symbol: String::from("BTCUSDT"),
-                // TODO: write deserializer from ""
-                // side: None,
+                side: None,
                 size: 0.0,
                 position_idx: PositionIdx::Sell,
                 trade_mode: TradeMode::CrossMargin,
@@ -1016,12 +1020,11 @@ mod tests {
                 position_m_m: 0.0,
                 liq_price: 0.0,
                 bust_price: None,
-                tpsl_mode: TpslMode::Full,
+                tpsl_mode: Some(TpslMode::Full),
                 take_profit: 0.0,
                 stop_loss: 0.0,
                 trailing_stop: 0.0,
-                // TODO: write deserializer from undefined
-                // unrealized_pnl: None,
+                unrealized_pnl: None,
                 cur_realised_pnl: 1.26,
                 session_avg_price: 0.0,
                 delta: None,

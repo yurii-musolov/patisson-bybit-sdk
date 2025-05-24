@@ -256,11 +256,6 @@ pub enum StopOrderType {
     MmRateClose,
     /// Spot bidirectional tpsl order
     BidirectionalTpslOrder,
-    /// As Option::None
-    /// Deprecated!
-    /// TODO: write deserializer from ""
-    #[serde(rename = "")]
-    None,
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
@@ -535,11 +530,6 @@ pub enum TriggerBy {
     LastPrice,
     IndexPrice,
     MarkPrice,
-    /// As Option::None
-    /// Deprecated!
-    /// TODO: write deserializer from ""
-    #[serde(rename = "")]
-    None,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -918,11 +908,6 @@ pub enum SmpType {
 pub enum TpslMode {
     Full,
     Partial,
-    /// As Option::None
-    /// Deprecated!
-    /// TODO: write deserializer from ""
-    #[serde(rename = "")]
-    None,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -971,11 +956,6 @@ pub enum CurAuctionPhase {
     /// There is no restriction to create, amend, cancel orders
     /// orderbook, public trade data is released from this stage
     ContinuousTrading,
-    /// As Option::None
-    /// Deprecated!
-    /// TODO: write deserializer from ""
-    #[serde(rename = "")]
-    None,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
