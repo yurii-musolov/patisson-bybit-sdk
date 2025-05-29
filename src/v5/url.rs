@@ -56,6 +56,7 @@ pub const HEADER_TIME_NOW: &str = "timenow";
 
 pub enum Path {
     // Candlestick, orderbook, ticker, platform transaction data, underlying financial rules, risk control rules
+    MarketServerTime,
     MarketKline,
     MarketMarkPriceKline,
     MarketIndexPriceKline,
@@ -152,6 +153,7 @@ pub enum Path {
 impl fmt::Display for Path {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let s = match self {
+            Path::MarketServerTime => "/v5/market/time",
             Path::MarketKline => "/v5/market/kline",
             Path::MarketMarkPriceKline => "/v5/market/mark-price-kline",
             Path::MarketIndexPriceKline => "/v5/market/index-price-kline",

@@ -4,7 +4,7 @@ This directory contains a number of examples showcasing various capabilities of 
 
 ## Example list
 
-`instruments-info`, `kline`, `recent-trading-history`, `ticker`
+`instruments-info`, `kline`, `recent-trading-history`, `ticker`, `server-time`
 
 All examples can be executed with:
 

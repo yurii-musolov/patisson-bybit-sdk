@@ -3,7 +3,7 @@ use serde_json::{Value, from_value};
 
 use super::{
     Error, GetInstrumentsInfoParams, GetKLinesParams, GetTickersParams, GetTradesParams, Headers,
-    InstrumentsInfo, KLine, Resp, Response, Ticker, Trade,
+    InstrumentsInfo, KLine, Resp, Response, ServerTime, Ticker, Trade,
     url::{Path, *},
 };
 
@@ -27,6 +27,28 @@ impl Client {
 
 // Market.
 impl Client {
+    pub async fn get_server_time(&self) -> Result<Response<ServerTime>, Error> {
+        let url = format!("{}{}", self.cfg.base_url, Path::MarketServerTime);
+
+        let client = reqwest::Client::builder().build()?;
+        let request = client.request(Method::GET, url);
+
+        let response = request.send().await?;
+        let headers = parse_headers(&response.headers());
+        let response: Resp<Value> = response.json().await?;
+        if response.ret_code != 0 {
+            return Err(response.into());
+        }
+
+        let result = from_value(response.result)?;
+        let response = Response {
+            result,
+            time: response.time,
+            headers,
+        };
+        Ok(response)
+    }
+
     pub async fn get_kline(&self, params: GetKLinesParams) -> Result<Response<KLine>, Error> {
         let url = format!("{}{}", self.cfg.base_url, Path::MarketKline);
 
@@ -123,8 +145,6 @@ impl Client {
 }
 
 fn parse_headers(headers: &reqwest::header::HeaderMap) -> Headers {
-    println!("{headers:#?}");
-
     let ret_code = headers
         .get(HEADER_RET_CODE)
         .map(|h| h.to_str().unwrap_or_default().parse().ok())
