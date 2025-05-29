@@ -1,6 +1,7 @@
 mod api;
 mod client;
 mod enums;
+mod error;
 mod incoming_message;
 mod outgoing_message;
 mod serde;
@@ -9,6 +10,7 @@ mod url;
 pub use api::*;
 pub use client::Client;
 pub use enums::*;
+pub use error::*;
 pub use incoming_message::*;
 pub use outgoing_message::*;
 pub use url::{
