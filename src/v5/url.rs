@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::fmt;
 
 // Mainnet.
@@ -47,6 +49,10 @@ pub const HEADER_X_BAPI_LIMIT_STATUS: &str = "X-Bapi-Limit-Status";
 pub const HEADER_X_BAPI_LIMIT_RESET_TIMESTAMP: &str = "X-Bapi-Limit-Reset-Timestamp";
 ///  To assist in diagnosing advanced network problems. Its value should be unique for each request.
 pub const HEADER_CDN_REQUEST_ID: &str = "cdn-request-id";
+
+pub const HEADER_RET_CODE: &str = "ret_code";
+pub const HEADER_TRACE_ID: &str = "traceid";
+pub const HEADER_TIME_NOW: &str = "timenow";
 
 pub enum Path {
     // Candlestick, orderbook, ticker, platform transaction data, underlying financial rules, risk control rules

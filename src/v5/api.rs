@@ -14,7 +14,7 @@ use super::{
 type Timestamp = u64;
 
 #[derive(Debug, Deserialize, PartialEq)]
-pub struct Response<T> {
+pub struct Resp<T> {
     #[serde(rename = "retCode")]
     pub ret_code: i64,
     #[serde(rename = "retMsg")]
@@ -23,6 +23,23 @@ pub struct Response<T> {
     pub time: Timestamp,
     #[serde(rename = "retExtInfo")]
     pub ret_ext_info: RetExtInfo,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Response<T> {
+    pub result: T,
+    pub time: Timestamp,
+    pub headers: Headers,
+}
+
+#[derive(Debug, PartialEq)]
+pub struct Headers {
+    pub ret_code: Option<i32>,
+    pub trace_id: Option<String>,
+    pub time_now: Option<u64>,
+    pub api_limit: Option<u64>,
+    pub api_limit_status: Option<String>,
+    pub api_limit_reset_timestamp: Option<u64>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -623,8 +640,8 @@ mod tests {
             "retExtInfo": {},
             "time": 1672025956592
         }"#;
-        let message: Response<KLine> = serde_json::from_str(json).unwrap();
-        let expected = Response {
+        let message: Resp<KLine> = serde_json::from_str(json).unwrap();
+        let expected = Resp {
             ret_code: 0,
             ret_msg: String::from("OK"),
             result: KLine::Inverse {
@@ -704,8 +721,8 @@ mod tests {
             "retExtInfo": {},
             "time": 1672376496682
         }"#;
-        let message: Response<Ticker> = serde_json::from_str(json).unwrap();
-        let expected = Response {
+        let message: Resp<Ticker> = serde_json::from_str(json).unwrap();
+        let expected = Resp {
             ret_code: 0,
             ret_msg: String::from("OK"),
             result: Ticker::Inverse {
@@ -768,8 +785,8 @@ mod tests {
             "retExtInfo": {},
             "time": 1672053054358
         }"#;
-        let message: Response<Trade> = serde_json::from_str(json).unwrap();
-        let expected = Response {
+        let message: Resp<Trade> = serde_json::from_str(json).unwrap();
+        let expected = Resp {
             ret_code: 0,
             ret_msg: String::from("OK"),
             result: Trade::Spot {
