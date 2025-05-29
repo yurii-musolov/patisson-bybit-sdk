@@ -8,7 +8,7 @@ mod serde;
 mod url;
 
 pub use api::*;
-pub use client::Client;
+pub use client::{Client, ClientConfig};
 pub use enums::*;
 pub use error::*;
 pub use incoming_message::*;

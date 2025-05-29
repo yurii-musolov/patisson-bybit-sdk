@@ -6,11 +6,17 @@
 
 use tokio;
 
-use bybit::v5::{BASE_URL_API_MAINNET_1, Category, Client, GetInstrumentsInfoParams};
+use bybit::v5::{BASE_URL_API_MAINNET_1, Category, Client, ClientConfig, GetInstrumentsInfoParams};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let client = Client::new(BASE_URL_API_MAINNET_1);
+    let cfg = ClientConfig {
+        base_url: BASE_URL_API_MAINNET_1.to_string(),
+        api_key: String::from("API-KEY-XXXX"),
+        api_secret: String::from("API-SECRET-XXXX"),
+        recv_window: 5000, // Milliseconds.
+    };
+    let client = Client::new(cfg);
     let params = GetInstrumentsInfoParams {
         category: Category::Linear,
         symbol: Some(String::from("BTCUSDT")),
