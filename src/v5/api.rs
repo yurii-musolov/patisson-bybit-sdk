@@ -359,6 +359,16 @@ pub struct OptionTrade {
     pub iv: Decimal,
 }
 
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerTime {
+    /// Bybit server timestamp (sec)
+    #[serde(deserialize_with = "number")]
+    pub time_second: u64,
+    /// Bybit server timestamp (nano)
+    #[serde(deserialize_with = "number")]
+    pub time_nano: u64,
+}
 #[derive(Serialize)]
 pub struct GetInstrumentsInfoParams {
     pub category: Category,
@@ -403,9 +413,9 @@ pub struct InverseLinearInstrumentsInfo {
     pub base_coin: String,
     pub quote_coin: String,
     #[serde(deserialize_with = "number")]
-    pub launch_time: i64,
+    pub launch_time: Timestamp,
     #[serde(deserialize_with = "number")]
-    pub delivery_time: i64,
+    pub delivery_time: Timestamp,
     #[serde(deserialize_with = "option_number")]
     pub delivery_fee_rate: Option<f64>,
     #[serde(deserialize_with = "number")]

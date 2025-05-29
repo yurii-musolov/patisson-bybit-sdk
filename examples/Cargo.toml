@@ -18,5 +18,9 @@ name = "recent-trading-history"
 path = "recent-trading-history.rs"
 
 [[example]]
+name = "server-time"
+path = "server-time.rs"
+
+[[example]]
 name = "ticker"
 path = "ticker.rs"
