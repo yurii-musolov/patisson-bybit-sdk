@@ -8,9 +8,10 @@ use std::time::Duration;
 
 use tokio::{self, time::sleep};
 
-use bybit::v5::{BASE_URL_STREAM_MAINNET_1, Interval, OutgoingMessage, Path, Topic, stream};
-
-const WEBSOCKET_PING_INTERVAL: Duration = Duration::from_secs(10);
+use bybit::v5::{
+    BASE_URL_STREAM_MAINNET_1, DEFAULT_PING_INTERVAL, Interval, OutgoingMessage, Path, Topic,
+    stream,
+};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -53,7 +54,7 @@ async fn main() -> anyhow::Result<()> {
         ]
     };
 
-    let (tx, mut rx, response) = stream(&url, WEBSOCKET_PING_INTERVAL).await?;
+    let (tx, mut rx, response) = stream(&url, DEFAULT_PING_INTERVAL).await?;
     println!("{response:#?}");
 
     tokio::spawn(async move {

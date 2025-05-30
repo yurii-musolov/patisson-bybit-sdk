@@ -12,6 +12,9 @@ use tokio_tungstenite::{
 
 use super::{IncomingMessage, OutgoingMessage};
 
+/// Default websocket ping interval (10seconds).
+pub const DEFAULT_PING_INTERVAL: Duration = Duration::from_secs(10);
+
 pub async fn stream(
     url: &str,
     ping_interval: Duration,
