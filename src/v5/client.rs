@@ -71,6 +71,9 @@ impl Client {
         Ok(response)
     }
 
+    /// Get Tickers
+    /// Query for the latest price snapshot, best bid/ask price, and trading volume in the last 24 hours.
+    /// If category=option, symbol or baseCoin must be passed.
     pub async fn get_tickers(&self, params: GetTickersParams) -> Result<Response<Ticker>, Error> {
         let url = format!("{}{}", self.cfg.base_url, Path::MarketTickers);
 
