@@ -14,7 +14,7 @@ pub use enums::*;
 pub use error::*;
 pub use incoming_message::*;
 pub use outgoing_message::*;
-pub use stream::stream;
+pub use stream::{DEFAULT_PING_INTERVAL, stream};
 pub use url::{
     BASE_URL_API_DEMO_TRADING, BASE_URL_API_MAINNET_1, BASE_URL_API_MAINNET_2,
     BASE_URL_API_MAINNET_3, BASE_URL_API_MAINNET_4, BASE_URL_API_MAINNET_5, BASE_URL_API_MAINNET_6,
