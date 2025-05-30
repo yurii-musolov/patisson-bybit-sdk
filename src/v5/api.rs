@@ -144,7 +144,8 @@ pub struct LinearInverseTicker {
     /// Volume for 24h
     pub volume24h: Decimal,
     /// Funding rate
-    pub funding_rate: Decimal,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub funding_rate: Option<Decimal>,
     /// Next funding timestamp (ms)
     #[serde(deserialize_with = "number")]
     pub next_funding_time: Timestamp,
@@ -750,7 +751,7 @@ mod tests {
                     open_interest_value: dec!(22505.67),
                     turnover24h: dec!(2352.94950046),
                     volume24h: dec!(49337318),
-                    funding_rate: dec!(-0.001034),
+                    funding_rate: Some(dec!(-0.001034)),
                     next_funding_time: 1672387200000,
                     predicted_delivery_price: None,
                     basis_rate: None,
