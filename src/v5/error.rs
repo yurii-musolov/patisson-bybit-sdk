@@ -1,20 +1,22 @@
 #[derive(Debug)]
 pub enum Error {
+    Api { code: i64, msg: String },
     Io(std::io::Error),
+    Msg(String),
     Reqwest(reqwest::Error),
     SerdeJson(serde_json::Error),
-    Msg(String),
-    Api { code: i64, msg: String },
+    SerdeUrlEncoded(serde_urlencoded::ser::Error),
 }
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Error::Api { code, msg } => write!(f, "Bybit API error: code: {code}, message: {msg}"),
             Error::Io(error) => write!(f, "I/O error: {error}"),
             Error::Msg(msg) => write!(f, "{msg}"),
-            Error::Api { code, msg } => write!(f, "Bybit API error: code: {code}, message: {msg}"),
             Error::Reqwest(error) => write!(f, "reqwest error: {error}"),
             Error::SerdeJson(error) => write!(f, "serde_json error: {error}"),
+            Error::SerdeUrlEncoded(error) => write!(f, "serde_urlencoded error: {error}"),
         }
     }
 }
@@ -57,5 +59,11 @@ impl From<reqwest::Error> for Error {
 impl From<serde_json::Error> for Error {
     fn from(err: serde_json::Error) -> Self {
         Error::SerdeJson(err)
+    }
+}
+
+impl From<serde_urlencoded::ser::Error> for Error {
+    fn from(err: serde_urlencoded::ser::Error) -> Self {
+        Error::SerdeUrlEncoded(err)
     }
 }
