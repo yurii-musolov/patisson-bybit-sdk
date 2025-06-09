@@ -6,6 +6,10 @@ authors.workspace = true
 publish = false
 
 [[example]]
+name = "get-open-orders"
+path = "get-open-orders.rs"
+
+[[example]]
 name = "instruments-info"
 path = "instruments-info.rs"
 
