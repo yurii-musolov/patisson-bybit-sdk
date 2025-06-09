@@ -256,6 +256,11 @@ pub enum StopOrderType {
     MmRateClose,
     /// Spot bidirectional tpsl order
     BidirectionalTpslOrder,
+    UNKNOWN,
+    // TODO: parse empty string as invalid value for 'String', or 'enum'
+    // ""
+    #[serde(rename = "")]
+    None,
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
@@ -530,6 +535,11 @@ pub enum TriggerBy {
     LastPrice,
     IndexPrice,
     MarkPrice,
+    UNKNOWN,
+    // TODO: parse empty string as invalid value for 'String', or 'enum'
+    // ""
+    #[serde(rename = "")]
+    None,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -908,6 +918,10 @@ pub enum SmpType {
 pub enum TpslMode {
     Full,
     Partial,
+    // TODO: parse empty string as invalid value for 'String', or 'enum'
+    // ""
+    #[serde(rename = "")]
+    None,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -974,6 +988,10 @@ pub enum PlaceType {
     Iv,
     #[serde(rename = "price")]
     Price,
+    // TODO: parse empty string as invalid value for 'String', or 'enum'
+    // ""
+    #[serde(rename = "")]
+    None,
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
