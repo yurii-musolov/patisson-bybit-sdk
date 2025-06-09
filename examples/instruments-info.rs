@@ -12,9 +12,10 @@ use bybit::v5::{BASE_URL_API_MAINNET_1, Category, Client, ClientConfig, GetInstr
 async fn main() -> anyhow::Result<()> {
     let cfg = ClientConfig {
         base_url: BASE_URL_API_MAINNET_1.to_string(),
-        api_key: String::from("API-KEY-XXXX"),
-        api_secret: String::from("API-SECRET-XXXX"),
-        recv_window: 5000, // Milliseconds.
+        api_key: None,
+        api_secret: None,
+        recv_window: 5000,
+        referer: None,
     };
     let client = Client::new(cfg);
     let params = GetInstrumentsInfoParams {
