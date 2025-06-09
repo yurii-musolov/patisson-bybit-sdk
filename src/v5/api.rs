@@ -5,23 +5,26 @@ use serde_aux::prelude::{
     deserialize_option_number_from_string as option_number,
 };
 
+use crate::v5::{
+    CancelType, CreateType, OcoTriggerBy, OrderStatus, OrderType, PlaceType, PositionIdx,
+    RejectReason, SmpType, StopOrderType, TimeInForce, TpslMode, TriggerBy, TriggerDirection,
+};
+
 use super::{
     ContractType, CopyTrading, CurAuctionPhase, Innovation, Side, Status,
     enums::{Category, Interval},
     serde::invalid_as_none,
 };
 
-type Timestamp = u64;
+pub type Timestamp = u64;
 
 #[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct Resp<T> {
-    #[serde(rename = "retCode")]
     pub ret_code: i64,
-    #[serde(rename = "retMsg")]
     pub ret_msg: String,
     pub result: T,
     pub time: Timestamp,
-    #[serde(rename = "retExtInfo")]
     pub ret_ext_info: RetExtInfo,
 }
 
@@ -32,14 +35,22 @@ pub struct Response<T> {
     pub headers: Headers,
 }
 
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CursorPagination<T> {
+    pub category: Category,
+    pub next_page_cursor: Option<String>,
+    pub list: Vec<T>,
+}
+
 #[derive(Debug, PartialEq)]
 pub struct Headers {
     pub ret_code: Option<i32>,
     pub trace_id: Option<String>,
-    pub time_now: Option<u64>,
+    pub time_now: Option<Timestamp>,
     pub api_limit: Option<u64>,
     pub api_limit_status: Option<String>,
-    pub api_limit_reset_timestamp: Option<u64>,
+    pub api_limit_reset_timestamp: Option<Timestamp>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -588,9 +599,9 @@ pub struct PreListingInfo {
 pub struct Phase {
     pub phase: CurAuctionPhase,
     #[serde(deserialize_with = "option_number")]
-    pub start_time: Option<i64>,
+    pub start_time: Option<Timestamp>,
     #[serde(deserialize_with = "option_number")]
-    pub end_time: Option<i64>,
+    pub end_time: Option<Timestamp>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -602,6 +613,178 @@ pub struct AuctionFeeInfo {
     pub taker_fee_rate: f64,
     #[serde(deserialize_with = "number")]
     pub maker_fee_rate: f64,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetOpenClosedOrdersParams {
+    /// Product type
+    /// UTA2.0, UTA1.0: linear, inverse, spot, option
+    /// classic account: linear, inverse, spot
+    pub category: Category,
+    /// Symbol name, like BTCUSDT, uppercase only. For linear, either symbol, baseCoin, settleCoin is required
+    pub symbol: Option<String>,
+    /// Base coin, uppercase only
+    /// Supports linear, inverse & option
+    /// option: it returns all option open orders by default
+    pub base_coin: Option<String>,
+    /// Settle coin, uppercase only
+    /// linear: either symbol, baseCoin or settleCoin is required
+    /// spot: not supported
+    /// option: USDT or USDC
+    pub settle_coin: Option<String>,
+    /// Order ID
+    pub order_id: Option<String>,
+    /// User customised order ID
+    pub order_link_id: Option<String>,
+    /// 0(default): UTA2.0, UTA1.0, classic account query open status orders (e.g., New, PartiallyFilled) only
+    /// 1: UTA2.0, UTA1.0(except inverse)
+    /// 2: UTA1.0(inverse), classic account
+    /// Query a maximum of recent 500 closed status records are kept under each account each category (e.g., Cancelled, Rejected, Filled orders).
+    /// If the Bybit service is restarted due to an update, this part of the data will be cleared and accumulated again, but the order records will still be queried in order history
+    /// openOnly param will be ignored when query by orderId or orderLinkId
+    /// Classic spot: not supported
+    pub open_only: Option<i32>,
+    /// Order: active order,
+    /// StopOrder: conditional order for Futures and Spot,
+    /// tpslOrder: spot TP/SL order,
+    /// OcoOrder: Spot oco order,
+    /// BidirectionalTpslOrder: Spot bidirectional TPSL order
+    /// - classic account spot: return Order active order by default
+    /// - Others: all kinds of orders by default
+    pub order_filter: Option<OrderFilter>,
+    /// Limit for data size per page. [1, 50]. Default: 20
+    pub limit: Option<i32>,
+    /// Cursor. Use the nextPageCursor token from the response to retrieve the next page of the result set
+    pub cursor: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum OrderFilter {
+    /// active order,
+    Order,
+    /// conditional order for Futures and Spot,
+    StopOrder,
+    /// spot TP/SL order,
+    TpslOrder,
+    /// Spot oco order,
+    OcoOrder,
+    /// Spot bidirectional TPSL order
+    /// - classic account spot: return Order active order by default
+    /// - Others: all kinds of orders by default
+    BidirectionalTpslOrder,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Order {
+    /// Order ID
+    pub order_id: String,
+    /// User customised order ID
+    pub order_link_id: Option<String>,
+    /// Paradigm block trade ID
+    pub block_trade_id: Option<String>,
+    /// Symbol name
+    pub symbol: String,
+    /// Order price
+    pub price: Decimal,
+    /// Order qty
+    pub qty: Decimal,
+    /// Side. Buy,Sell
+    pub side: Side,
+    /// Whether to borrow. Unified spot only. 0: false, 1: true. Classic spot is not supported, always 0
+    pub is_leverage: Option<String>,
+    /// Position index. Used to identify positions in different position modes.
+    pub position_idx: PositionIdx,
+    /// Order status
+    pub order_status: OrderStatus,
+    /// Order create type
+    /// Only for category=linear or inverse
+    /// Spot, Option do not have this key
+    pub create_type: Option<CreateType>,
+    /// Cancel type
+    pub cancel_type: CancelType,
+    /// Reject reason. Classic spot is not supported
+    pub reject_reason: RejectReason,
+    /// Average filled price
+    /// UTA: returns "" for those orders without avg price
+    /// classic account: returns "0" for those orders without avg price, and also for those orders have partilly filled but cancelled at the end
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub avg_price: Option<Decimal>,
+    /// The remaining qty not executed. Classic spot is not supported
+    pub leaves_qty: Decimal,
+    /// The estimated value not executed. Classic spot is not supported
+    pub leaves_value: Decimal,
+    /// Cumulative executed order qty
+    pub cum_exec_qty: Decimal,
+    /// Cumulative executed order value. Classic spot is not supported
+    pub cum_exec_value: Decimal,
+    /// Cumulative executed trading fee. Classic spot is not supported
+    pub cum_exec_fee: Decimal,
+    /// Time in force
+    pub time_in_force: TimeInForce,
+    /// Order type. Market,Limit. For TP/SL order, it means the order type after triggered
+    pub order_type: OrderType,
+    /// Stop order type
+    pub stop_order_type: Option<StopOrderType>,
+    /// Implied volatility
+    pub order_iv: Option<String>,
+    /// The unit for qty when create Spot market orders for UTA account. baseCoin, quoteCoin
+    pub market_unit: Option<String>,
+    /// Trigger price. If stopOrderType=TrailingStop, it is activate price. Otherwise, it is trigger price
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub trigger_price: Option<Decimal>,
+    /// Take profit price
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub take_profit: Option<Decimal>,
+    /// Stop loss price
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub stop_loss: Option<Decimal>,
+    /// TP/SL mode, Full: entire position for TP/SL. Partial: partial position tp/sl. Spot does not have this field, and Option returns always ""
+    pub tpsl_mode: Option<TpslMode>,
+    /// The trigger type of Spot OCO order.OcoTriggerByUnknown, OcoTriggerByTp, OcoTriggerByBySl. Classic spot is not supported
+    pub oco_trigger_by: Option<OcoTriggerBy>,
+    /// The limit order price when take profit price is triggered
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub tp_limit_price: Option<Decimal>,
+    /// The limit order price when stop loss price is triggered
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub sl_limit_price: Option<Decimal>,
+    /// The price type to trigger take profit
+    #[serde(default)]
+    pub tp_trigger_by: Option<TriggerBy>,
+    /// The price type to trigger stop loss
+    #[serde(default)]
+    pub sl_trigger_by: Option<TriggerBy>,
+    /// Trigger direction. 1: rise, 2: fall
+    pub trigger_direction: TriggerDirection,
+    /// The price type of trigger price
+    pub trigger_by: TriggerBy,
+    /// Last price when place the order, Spot is not applicable
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub last_price_on_created: Option<Decimal>,
+    /// Last price when place the order, Spot has this field only
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub base_price: Option<Decimal>,
+    /// Reduce only. true means reduce position size
+    pub reduce_only: bool,
+    /// Close on trigger. What is a close on trigger order?
+    pub close_on_trigger: bool,
+    /// Place type, option used. iv, price
+    pub place_type: Option<PlaceType>,
+    /// SMP execution type
+    pub smp_type: SmpType,
+    /// Smp group ID. If the UID has no group, it is 0 by default
+    pub smp_group: i64,
+    /// The counterparty's orderID which triggers this SMP execution
+    pub smp_order_id: Option<String>,
+    /// Order created timestamp (ms)
+    #[serde(deserialize_with = "number")]
+    pub created_time: Timestamp,
+    /// Order updated timestamp (ms)
+    #[serde(deserialize_with = "number")]
+    pub updated_time: Timestamp,
 }
 
 #[cfg(test)]
@@ -813,6 +996,128 @@ mod tests {
                 }],
             },
             time: 1672053054358,
+            ret_ext_info: RetExtInfo {},
+        };
+        assert_eq!(message, expected);
+    }
+
+    #[test]
+    fn deserialize_response_get_open_closed_orders_linear() {
+        let json = r#"{
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+                "list": [
+                    {
+                        "orderId": "fd4300ae-7847-404e-b947-b46980a4d140",
+                        "orderLinkId": "test-000005",
+                        "blockTradeId": "",
+                        "symbol": "ETHUSDT",
+                        "price": "1600.00",
+                        "qty": "0.10",
+                        "side": "Buy",
+                        "isLeverage": "",
+                        "positionIdx": 1,
+                        "orderStatus": "New",
+                        "cancelType": "UNKNOWN",
+                        "rejectReason": "EC_NoError",
+                        "avgPrice": "0",
+                        "leavesQty": "0.10",
+                        "leavesValue": "160",
+                        "cumExecQty": "0.00",
+                        "cumExecValue": "0",
+                        "cumExecFee": "0",
+                        "timeInForce": "GTC",
+                        "orderType": "Limit",
+                        "stopOrderType": "UNKNOWN",
+                        "orderIv": "",
+                        "triggerPrice": "0.00",
+                        "takeProfit": "2500.00",
+                        "stopLoss": "1500.00",
+                        "tpTriggerBy": "LastPrice",
+                        "slTriggerBy": "LastPrice",
+                        "triggerDirection": 0,
+                        "triggerBy": "UNKNOWN",
+                        "lastPriceOnCreated": "",
+                        "reduceOnly": false,
+                        "closeOnTrigger": false,
+                        "smpType": "None",
+                        "smpGroup": 0,
+                        "smpOrderId": "",
+                        "tpslMode": "Full",
+                        "tpLimitPrice": "",
+                        "slLimitPrice": "",
+                        "placeType": "",
+                        "createdTime": "1684738540559",
+                        "updatedTime": "1684738540561"
+                    }
+                ],
+                "nextPageCursor": "page_args%3Dfd4300ae-7847-404e-b947-b46980a4d140%26symbol%3D6%26",
+                "category": "linear"
+            },
+            "retExtInfo": {},
+            "time": 1684765770483
+        }"#;
+        let message: Resp<CursorPagination<Order>> = serde_json::from_str(json).unwrap();
+        // TODO: parse empty string as invalid value for 'String', or 'enum'
+        // ""
+        let expected = Resp {
+            ret_code: 0,
+            ret_msg: String::from("OK"),
+            result: CursorPagination {
+                category: Category::Linear,
+                next_page_cursor: Some(String::from(
+                    "page_args%3Dfd4300ae-7847-404e-b947-b46980a4d140%26symbol%3D6%26",
+                )),
+                list: vec![Order {
+                    order_id: String::from("fd4300ae-7847-404e-b947-b46980a4d140"),
+                    order_link_id: Some(String::from("test-000005")), // ""
+                    block_trade_id: Some(String::from("")),           // ""
+                    symbol: String::from("ETHUSDT"),
+                    price: dec!(1600.00),
+                    qty: dec!(0.10),
+                    side: Side::Buy,
+                    is_leverage: Some(String::from("")), // ""
+                    position_idx: PositionIdx::Buy,
+                    order_status: OrderStatus::New,
+                    create_type: None, // ""
+                    cancel_type: CancelType::UNKNOWN,
+                    reject_reason: RejectReason::EcNoError,
+                    avg_price: Some(dec!(0.0)),
+                    leaves_qty: dec!(0.10),
+                    leaves_value: dec!(160),
+                    cum_exec_qty: dec!(0.00),
+                    cum_exec_value: dec!(0),
+                    cum_exec_fee: dec!(0),
+                    time_in_force: TimeInForce::GTC,
+                    order_type: OrderType::Limit,
+                    stop_order_type: Some(StopOrderType::UNKNOWN), // ""
+                    order_iv: Some(String::from("")),              // ""
+                    market_unit: None,                             // ""
+                    trigger_price: Some(dec!(0.00)),
+                    take_profit: Some(dec!(2500.00)),
+                    stop_loss: Some(dec!(1500.00)),
+                    tpsl_mode: Some(TpslMode::Full), // ""
+                    oco_trigger_by: None,            // ""
+                    tp_limit_price: None,
+                    sl_limit_price: None,
+                    tp_trigger_by: Some(TriggerBy::LastPrice), // ""
+                    sl_trigger_by: Some(TriggerBy::LastPrice), // ""
+                    trigger_direction: TriggerDirection::UNKNOWN,
+                    trigger_by: TriggerBy::UNKNOWN,
+                    last_price_on_created: None, // ""
+                    base_price: None,            // ""
+                    reduce_only: false,
+                    close_on_trigger: false,
+                    place_type: Some(PlaceType::None), // ""
+                    smp_type: SmpType::None,           // ""
+                    smp_group: 0,
+                    smp_order_id: Some(String::from("")), // ""
+                    created_time: 1684738540559,
+                    updated_time: 1684738540561,
+                }],
+            },
+            time: 1684765770483,
             ret_ext_info: RetExtInfo {},
         };
         assert_eq!(message, expected);
