@@ -1,5 +1,6 @@
 mod api;
 mod client;
+mod crypto;
 mod enums;
 mod error;
 mod incoming_message;
@@ -10,6 +11,7 @@ mod url;
 
 pub use api::*;
 pub use client::{Client, ClientConfig};
+pub use crypto::*;
 pub use enums::*;
 pub use error::*;
 pub use incoming_message::*;

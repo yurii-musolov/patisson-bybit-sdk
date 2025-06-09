@@ -7,7 +7,7 @@ use serde_aux::prelude::{
 use super::{
     AutoAddMargin, CancelType, Category, CreateType, Interval, OcoTriggerBy, OrderStatus,
     OrderType, PlaceType, PositionIdx, PositionStatus, RejectReason, Side, SlippageToleranceType,
-    SmpType, StopOrderType, TickDirection, TimeInForce, TpslMode, TradeMode, TriggerBy,
+    SmpType, StopOrderType, TickDirection, TimeInForce, Timestamp, TpslMode, TradeMode, TriggerBy,
     TriggerDirection, serde::invalid_as_none,
 };
 
@@ -123,7 +123,7 @@ pub struct TickerSnapshotMsg {
     #[serde(deserialize_with = "number")]
     pub funding_rate: f64,
     #[serde(deserialize_with = "number")]
-    pub next_funding_time: u64,
+    pub next_funding_time: Timestamp,
     #[serde(deserialize_with = "number")]
     pub bid1_price: f64,
     #[serde(deserialize_with = "number")]
@@ -133,7 +133,7 @@ pub struct TickerSnapshotMsg {
     #[serde(deserialize_with = "number")]
     pub ask1_size: f64,
     #[serde(default, deserialize_with = "option_number")]
-    pub delivery_time: Option<u64>,
+    pub delivery_time: Option<Timestamp>,
     #[serde(default, deserialize_with = "option_number")]
     pub basis_rate: Option<f64>,
     #[serde(default, deserialize_with = "option_number")]
@@ -179,7 +179,7 @@ pub struct TickerDeltaMsg {
     #[serde(default, deserialize_with = "option_number")]
     pub funding_rate: Option<f64>,
     #[serde(default, deserialize_with = "option_number")]
-    pub next_funding_time: Option<u64>,
+    pub next_funding_time: Option<Timestamp>,
     #[serde(default, deserialize_with = "option_number")]
     pub bid1_price: Option<f64>,
     #[serde(default, deserialize_with = "option_number")]
@@ -189,7 +189,7 @@ pub struct TickerDeltaMsg {
     #[serde(default, deserialize_with = "option_number")]
     pub ask1_size: Option<f64>,
     #[serde(default, deserialize_with = "option_number")]
-    pub delivery_time: Option<u64>,
+    pub delivery_time: Option<Timestamp>,
     #[serde(default, deserialize_with = "option_number")]
     pub basis_rate: Option<f64>,
     #[serde(default, deserialize_with = "option_number")]
@@ -205,7 +205,7 @@ pub enum TradeMsg {
     Snapshot {
         id: Option<String>,
         topic: String,
-        ts: u64,
+        ts: Timestamp,
         data: Vec<TradeSnapshotMsg>,
     },
 }
@@ -213,7 +213,7 @@ pub enum TradeMsg {
 #[derive(PartialEq, Deserialize, Debug)]
 pub struct TradeSnapshotMsg {
     #[serde(rename = "T")]
-    pub time: u64,
+    pub time: Timestamp,
     #[serde(rename = "s")]
     pub symbol: String,
     #[serde(rename = "S")]
@@ -253,8 +253,8 @@ pub enum KLineMsg {
 
 #[derive(PartialEq, Deserialize, Debug)]
 pub struct KLineSnapshotMsg {
-    pub start: u64,
-    pub end: u64,
+    pub start: Timestamp,
+    pub end: Timestamp,
     pub interval: Interval,
     #[serde(deserialize_with = "number")]
     pub open: f64,
@@ -269,7 +269,7 @@ pub struct KLineSnapshotMsg {
     #[serde(deserialize_with = "number")]
     pub turnover: f64,
     pub confirm: bool,
-    pub timestamp: u64,
+    pub timestamp: Timestamp,
 }
 
 #[derive(PartialEq, Deserialize, Debug)]
@@ -278,7 +278,7 @@ pub enum AllLiquidationMsg {
     #[serde(rename = "snapshot")]
     Snapshot {
         topic: String,
-        ts: u64,
+        ts: Timestamp,
         data: Vec<AllLiquidationSnapshotMsg>,
     },
 }
@@ -286,7 +286,7 @@ pub enum AllLiquidationMsg {
 #[derive(PartialEq, Deserialize, Debug)]
 pub struct AllLiquidationSnapshotMsg {
     #[serde(rename = "T")]
-    pub time: u64,
+    pub time: Timestamp,
     #[serde(rename = "s")]
     pub symbol: String,
     /// When you receive a Buy update, this means that a long position has been liquidated
@@ -304,7 +304,7 @@ pub enum OrderMsg {
     #[serde(rename = "order", rename_all = "camelCase")]
     Update {
         id: String,
-        creation_time: u64,
+        creation_time: Timestamp,
         data: Vec<OrderUpdateMsg>,
     },
 }
@@ -441,10 +441,10 @@ pub struct OrderUpdateMsg {
     pub smp_order_id: String,
     /// Order created timestamp (ms)
     #[serde(deserialize_with = "number")]
-    pub created_time: u64,
+    pub created_time: Timestamp,
     /// Order updated timestamp (ms)
     #[serde(deserialize_with = "number")]
-    pub updated_time: u64,
+    pub updated_time: Timestamp,
 }
 
 #[derive(PartialEq, Deserialize, Debug)]
@@ -455,7 +455,7 @@ pub struct PositionMsg {
     /// Topic name
     topic: String,
     /// Data created timestamp (ms)
-    creation_time: u64,
+    creation_time: Timestamp,
     data: Vec<PositionUpdateMsg>,
 }
 
@@ -578,7 +578,7 @@ pub struct PositionUpdateMsg {
     /// Keeps "" by default, if there was a lower risk limit system adjustment previously, it shows that system operation timestamp
     /// Only meaningful for isolated margin & cross margin of USDT Perp, USDC Perp, USDC Futures, Inverse Perp and Inverse Futures, meaningless for others
     #[serde(deserialize_with = "option_number")]
-    pub mmr_sys_updated_time: Option<i64>,
+    pub mmr_sys_updated_time: Option<Timestamp>,
     /// Useful when Bybit lower the risk limit
     /// When isReduceOnly=true: the timestamp (ms) when the leverage will be forcibly adjusted by the system
     /// When isReduceOnly=false: the timestamp when the leverage had been adjusted by system
@@ -586,13 +586,13 @@ pub struct PositionUpdateMsg {
     /// Keeps "" by default, if there was a lower risk limit system adjustment previously, it shows that system operation timestamp
     /// Only meaningful for isolated margin & cross margin of USDT Perp, USDC Perp, USDC Futures, Inverse Perp and Inverse Futures, meaningless for others
     #[serde(deserialize_with = "option_number")]
-    pub leverage_sys_updated_time: Option<i64>,
+    pub leverage_sys_updated_time: Option<Timestamp>,
     /// Timestamp of the first time a position was created on this symbol (ms)
     #[serde(deserialize_with = "number")]
-    pub created_time: i64,
+    pub created_time: Timestamp,
     /// Position data updated timestamp (ms)
     #[serde(deserialize_with = "number")]
-    pub updated_time: i64,
+    pub updated_time: Timestamp,
     /// Cross sequence, used to associate each fill and each position update
     /// Different symbols may have the same seq, please use seq + symbol to check unique
     /// Returns "-1" if the symbol has never been traded
