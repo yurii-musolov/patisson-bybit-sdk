@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::fmt;
 
 // Mainnet.
@@ -37,8 +35,6 @@ pub const HEADER_X_BAPI_TIMESTAMP: &str = "X-BAPI-TIMESTAMP";
 pub const HEADER_X_BAPI_SIGN: &str = "X-BAPI-SIGN";
 /// The header for broker users only.
 pub const HEADER_X_REFERER: &str = "X-Referer";
-/// The header for broker users only.
-pub const HEADER_REFERER: &str = "Referer";
 /// The header for specify how long an HTTP request is valid (unit in millisecond and default value is 5,000). It is also used to prevent replay attacks..
 pub const HEADER_X_BAPI_RECV_WINDOW: &str = "X-BAPI-RECV-WINDOW";
 /// Your remaining requests for current endpoint.
@@ -48,6 +44,7 @@ pub const HEADER_X_BAPI_LIMIT_STATUS: &str = "X-Bapi-Limit-Status";
 /// The timestamp indicating when your request limit resets if you have exceeded your rate_limit. Otherwise, this is just the current timestamp (it may not exactly match timeNow).
 pub const HEADER_X_BAPI_LIMIT_RESET_TIMESTAMP: &str = "X-Bapi-Limit-Reset-Timestamp";
 ///  To assist in diagnosing advanced network problems. Its value should be unique for each request.
+#[allow(dead_code)]
 pub const HEADER_CDN_REQUEST_ID: &str = "cdn-request-id";
 
 pub const HEADER_RET_CODE: &str = "ret_code";
