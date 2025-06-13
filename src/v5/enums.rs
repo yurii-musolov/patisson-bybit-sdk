@@ -905,6 +905,18 @@ pub enum VipLevel {
     PRO5,
 }
 
+#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq)]
+#[repr(u8)]
+pub enum AdlRankIndicator {
+    /// default value of empty position
+    Zero = 0,
+    One = 1,
+    Two = 2,
+    Three = 3,
+    Four = 4,
+    Five = 5,
+}
+
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum SmpType {
     /// default
@@ -998,6 +1010,10 @@ pub enum PlaceType {
 pub enum Side {
     Buy,
     Sell,
+    // TODO: parse empty string as invalid value for 'String', or 'enum'
+    // ""
+    #[serde(rename = "")]
+    None,
 }
 
 #[derive(Debug, PartialEq)]
