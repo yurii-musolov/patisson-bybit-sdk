@@ -6,6 +6,7 @@ pub enum Error {
     Reqwest(reqwest::Error),
     SerdeJson(serde_json::Error),
     SerdeUrlEncoded(serde_urlencoded::ser::Error),
+    SerdePathToError(serde_path_to_error::Error<serde_json::Error>),
 }
 
 impl std::fmt::Display for Error {
@@ -17,6 +18,12 @@ impl std::fmt::Display for Error {
             Error::Reqwest(error) => write!(f, "reqwest error: {error}"),
             Error::SerdeJson(error) => write!(f, "serde_json error: {error}"),
             Error::SerdeUrlEncoded(error) => write!(f, "serde_urlencoded error: {error}"),
+            Error::SerdePathToError(error) => write!(
+                f,
+                "serde_path_to_error error: path: {}, msg: {}",
+                error.path(),
+                error.inner()
+            ),
         }
     }
 }
@@ -41,8 +48,8 @@ impl From<&str> for Error {
     }
 }
 
-impl<T> From<super::Resp<T>> for Error {
-    fn from(resp: super::Resp<T>) -> Self {
+impl From<super::APIErrorResponse> for Error {
+    fn from(resp: super::APIErrorResponse) -> Self {
         Self::Api {
             code: resp.ret_code,
             msg: resp.ret_msg.into(),
@@ -65,5 +72,11 @@ impl From<serde_json::Error> for Error {
 impl From<serde_urlencoded::ser::Error> for Error {
     fn from(err: serde_urlencoded::ser::Error) -> Self {
         Error::SerdeUrlEncoded(err)
+    }
+}
+
+impl From<serde_path_to_error::Error<serde_json::Error>> for Error {
+    fn from(err: serde_path_to_error::Error<serde_json::Error>) -> Self {
+        Error::SerdePathToError(err)
     }
 }
