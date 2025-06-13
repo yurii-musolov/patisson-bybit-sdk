@@ -10,6 +10,10 @@ name = "get-open-orders"
 path = "get-open-orders.rs"
 
 [[example]]
+name = "get-position-info"
+path = "get-position-info.rs"
+
+[[example]]
 name = "instruments-info"
 path = "instruments-info.rs"
 
