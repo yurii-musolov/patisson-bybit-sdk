@@ -1,7 +1,9 @@
-use reqwest::{self, Method, header::HeaderMap};
+use reqwest::{self, Method, RequestBuilder, header::HeaderMap};
 use serde_json::{Value, from_value};
 
-use crate::v5::crypto::Signer;
+use crate::v5::{
+    APIErrorResponse, GetPositionInfoParams, Position, crypto::Signer, serde::deserialize_str,
+};
 
 use super::{
     CursorPagination, Error, GetInstrumentsInfoParams, GetKLinesParams, GetOpenClosedOrdersParams,
@@ -75,19 +77,7 @@ impl Client {
         let client = reqwest::Client::builder().build()?;
         let request = client.request(Method::GET, url);
 
-        let response = request.send().await?;
-        let headers = parse_headers(&response.headers());
-        let response: Resp<Value> = response.json().await?;
-        if response.ret_code != 0 {
-            return Err(response.into());
-        }
-
-        let result = from_value(response.result)?;
-        let response = Response {
-            result,
-            time: response.time,
-            headers,
-        };
+        let response = send(request).await?;
         Ok(response)
     }
 
@@ -97,19 +87,7 @@ impl Client {
         let client = reqwest::Client::builder().build()?;
         let request = client.request(Method::GET, url).query(&params);
 
-        let response = request.send().await?;
-        let headers = parse_headers(&response.headers());
-        let response: Resp<Value> = response.json().await?;
-        if response.ret_code != 0 {
-            return Err(response.into());
-        }
-
-        let result = from_value(response.result)?;
-        let response = Response {
-            result,
-            time: response.time,
-            headers,
-        };
+        let response = send(request).await?;
         Ok(response)
     }
 
@@ -122,19 +100,7 @@ impl Client {
         let client = reqwest::Client::builder().build()?;
         let request = client.request(Method::GET, url).query(&params);
 
-        let response = request.send().await?;
-        let headers = parse_headers(&response.headers());
-        let response: Resp<Value> = response.json().await?;
-        if response.ret_code != 0 {
-            return Err(response.into());
-        }
-
-        let result = from_value(response.result)?;
-        let response = Response {
-            result,
-            time: response.time,
-            headers,
-        };
+        let response = send(request).await?;
         Ok(response)
     }
 
@@ -147,19 +113,7 @@ impl Client {
         let client = reqwest::Client::builder().build()?;
         let request = client.request(Method::GET, url).query(&params);
 
-        let response = request.send().await?;
-        let headers = parse_headers(&response.headers());
-        let response: Resp<Value> = response.json().await?;
-        if response.ret_code != 0 {
-            return Err(response.into());
-        }
-
-        let result = from_value(response.result)?;
-        let response = Response {
-            result,
-            time: response.time,
-            headers,
-        };
+        let response = send(request).await?;
         Ok(response)
     }
 
@@ -172,19 +126,7 @@ impl Client {
         let client = reqwest::Client::builder().build()?;
         let request = client.request(Method::GET, url).query(&params);
 
-        let response = request.send().await?;
-        let headers = parse_headers(&response.headers());
-        let response: Resp<Value> = response.json().await?;
-        if response.ret_code != 0 {
-            return Err(response.into());
-        }
-
-        let result = from_value(response.result)?;
-        let response = Response {
-            result,
-            time: response.time,
-            headers,
-        };
+        let response = send(request).await?;
         Ok(response)
     }
 }
@@ -213,26 +155,60 @@ impl Client {
         let headers = self.get_signed_headers(&query);
 
         let client = reqwest::Client::builder().build()?;
-        let request = client
-            .request(Method::GET, url)
-            // .query(&query)
-            .headers(headers);
+        let request = client.request(Method::GET, url).headers(headers);
 
-        let response = request.send().await?;
-        let headers = parse_headers(&response.headers());
-        let response: Resp<Value> = response.json().await?;
-        if response.ret_code != 0 {
-            return Err(response.into());
-        }
-
-        let result = from_value(response.result)?;
-        let response = Response {
-            result,
-            time: response.time,
-            headers,
-        };
+        let response = send(request).await?;
         Ok(response)
     }
+}
+
+// Position.
+impl Client {
+    /// Query real-time position data, such as position size, cumulative realized PNL, etc.
+    /// Query real-time position data, such as position size, cumulative realized PNL, etc.
+    ///
+    /// INFO
+    // UTA2.0(inverse)
+    // You can query all open positions with /v5/position/list?category=inverse;
+    // Cannot query multiple symbols in one request
+    // UTA1.0(inverse) & Classic (inverse)
+    // You can query all open positions with /v5/position/list?category=inverse;
+    // symbol parameter can pass up to 10 symbols, e.g., symbol=BTCUSD,ETHUSD
+    pub async fn get_position_info(
+        &self,
+        params: GetPositionInfoParams,
+    ) -> Result<Response<CursorPagination<Position>>, Error> {
+        let query = serde_urlencoded::to_string(&params)?;
+        let url = format!("{}{}?{query}", self.base_url, Path::PositionList);
+        let headers = self.get_signed_headers(&query);
+
+        let client = reqwest::Client::builder().build()?;
+        let request = client.request(Method::GET, url).headers(headers);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+}
+
+async fn send<T>(request: RequestBuilder) -> Result<Response<T>, Error>
+where
+    T: serde::de::DeserializeOwned,
+{
+    let response = request.send().await?;
+    let headers = parse_headers(&response.headers());
+    let json = response.text().await?;
+    if !headers.is_ret_code_ok() {
+        let msg: APIErrorResponse = deserialize_str(&json)?;
+        return Err(msg.into());
+    }
+
+    let response: Resp<_> = deserialize_str(&json)?;
+    let response = Response {
+        result: response.result,
+        time: response.time,
+        headers,
+    };
+    Ok(response)
 }
 
 /// Parse response headers: ret_code, traceid, timenow, X-Bapi-Limit, X-Bapi-Limit-Status, X-Bapi-Limit-Reset-Timestamp
@@ -256,7 +232,7 @@ fn parse_headers(headers: &HeaderMap) -> Headers {
         .flatten();
     let api_limit_status = headers
         .get(HEADER_X_BAPI_LIMIT_STATUS)
-        .map(|h| h.to_str().map(|str| str.into()).ok())
+        .map(|h| h.to_str().unwrap_or_default().parse().ok())
         .flatten();
     let api_limit_reset_timestamp = headers
         .get(HEADER_X_BAPI_LIMIT_RESET_TIMESTAMP)
