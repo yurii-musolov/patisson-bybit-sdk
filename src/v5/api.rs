@@ -7,9 +7,9 @@ use serde_aux::prelude::{
 
 use crate::v5::{
     AdlRankIndicator, CancelType, ContractType, CopyTrading, CreateType, CurAuctionPhase,
-    OcoTriggerBy, OrderStatus, OrderType, PlaceType, PositionIdx, PositionStatus, RejectReason,
-    Side, SmpType, Status, StopOrderType, TimeInForce, TpslMode, TradeMode, TriggerBy,
-    TriggerDirection,
+    OcoTriggerBy, OrderStatus, OrderType, OrderUpdateMsg, PlaceType, PositionIdx, PositionStatus,
+    RejectReason, Side, SmpType, Status, StopOrderType, TimeInForce, TpslMode, TradeMode,
+    TriggerBy, TriggerDirection,
     enums::{Category, Interval},
     serde::{
         empty_string_as_none, int_to_bool, invalid_as_none, string_to_bool, string_to_option_bool,
@@ -446,8 +446,8 @@ pub struct InverseLinearInstrumentsInfo {
     pub launch_time: Timestamp,
     #[serde(deserialize_with = "number")]
     pub delivery_time: Timestamp,
-    #[serde(deserialize_with = "option_number")]
-    pub delivery_fee_rate: Option<f64>,
+    #[serde(deserialize_with = "option_decimal")]
+    pub delivery_fee_rate: Option<Decimal>,
     #[serde(deserialize_with = "number")]
     pub price_scale: i64,
     pub leverage_filter: LeverageFilter,
@@ -457,10 +457,8 @@ pub struct InverseLinearInstrumentsInfo {
     pub funding_interval: i64,
     pub settle_coin: String,
     pub copy_trading: CopyTrading,
-    #[serde(deserialize_with = "number")]
-    pub upper_funding_rate: f64,
-    #[serde(deserialize_with = "number")]
-    pub lower_funding_rate: f64,
+    pub upper_funding_rate: Decimal,
+    pub lower_funding_rate: Decimal,
     pub risk_parameters: RiskParameters,
     pub is_pre_listing: bool,
     pub pre_listing_info: Option<PreListingInfo>,
@@ -478,8 +476,8 @@ pub struct OptionInstrumentsInfo {
     pub launch_time: i64,
     #[serde(deserialize_with = "number")]
     pub delivery_time: i64,
-    #[serde(deserialize_with = "option_number")]
-    pub delivery_fee_rate: Option<f64>,
+    #[serde(deserialize_with = "option_decimal")]
+    pub delivery_fee_rate: Option<Decimal>,
     #[serde(deserialize_with = "number")]
     pub price_scale: i64,
     pub leverage_filter: LeverageFilter,
@@ -489,10 +487,8 @@ pub struct OptionInstrumentsInfo {
     pub funding_interval: i64,
     pub settle_coin: String,
     pub copy_trading: CopyTrading,
-    #[serde(deserialize_with = "number")]
-    pub upper_funding_rate: f64,
-    #[serde(deserialize_with = "number")]
-    pub lower_funding_rate: f64,
+    pub upper_funding_rate: Decimal,
+    pub lower_funding_rate: Decimal,
     pub risk_parameters: RiskParameters,
     pub is_pre_listing: bool,
     pub pre_listing_info: Option<PreListingInfo>,
@@ -530,80 +526,59 @@ pub struct SpotInstrumentsInfo {
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct LeverageFilter {
-    #[serde(deserialize_with = "number")]
-    pub min_leverage: f64,
-    #[serde(deserialize_with = "number")]
-    pub max_leverage: f64,
-    #[serde(deserialize_with = "number")]
-    pub leverage_step: f64,
+    pub min_leverage: Decimal,
+    pub max_leverage: Decimal,
+    pub leverage_step: Decimal,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PriceFilter {
-    #[serde(deserialize_with = "number")]
-    pub min_price: f64,
-    #[serde(deserialize_with = "number")]
-    pub max_price: f64,
-    #[serde(deserialize_with = "number")]
-    pub tick_size: f64,
+    pub min_price: Decimal,
+    pub max_price: Decimal,
+    pub tick_size: Decimal,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct SpotPriceFilter {
     /// The step to increase/reduce order price
-    #[serde(deserialize_with = "number")]
-    pub tick_size: f64,
+    pub tick_size: Decimal,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct LotSizeFilter {
-    #[serde(deserialize_with = "number")]
-    pub min_notional_value: f64,
-    #[serde(deserialize_with = "number")]
-    pub max_order_qty: f64,
-    #[serde(deserialize_with = "number")]
-    pub max_mkt_order_qty: f64,
-    #[serde(deserialize_with = "number")]
-    pub min_order_qty: f64,
-    #[serde(deserialize_with = "number")]
-    pub qty_step: f64,
-    #[serde(deserialize_with = "number")]
-    pub post_only_max_order_qty: f64,
+    pub min_notional_value: Decimal,
+    pub max_order_qty: Decimal,
+    pub max_mkt_order_qty: Decimal,
+    pub min_order_qty: Decimal,
+    pub qty_step: Decimal,
+    pub post_only_max_order_qty: Decimal,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct SpotLotSizeFilter {
     /// The precision of base coin
-    #[serde(deserialize_with = "number")]
-    pub base_precision: f64,
+    pub base_precision: Decimal,
     /// The precision of quote coin
-    #[serde(deserialize_with = "number")]
-    pub quote_precision: f64,
+    pub quote_precision: Decimal,
     /// Minimum order quantity
-    #[serde(deserialize_with = "number")]
-    pub min_order_qty: f64,
+    pub min_order_qty: Decimal,
     /// Maximum order quantity
-    #[serde(deserialize_with = "number")]
-    pub max_order_qty: f64,
+    pub max_order_qty: Decimal,
     /// Minimum order amount
-    #[serde(deserialize_with = "number")]
-    pub min_order_amt: f64,
+    pub min_order_amt: Decimal,
     /// Maximum order amount
-    #[serde(deserialize_with = "number")]
-    pub max_order_amt: f64,
+    pub max_order_amt: Decimal,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RiskParameters {
-    #[serde(deserialize_with = "number")]
-    pub price_limit_ratio_x: f64,
-    #[serde(deserialize_with = "number")]
-    pub price_limit_ratio_y: f64,
+    pub price_limit_ratio_x: Decimal,
+    pub price_limit_ratio_y: Decimal,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -627,12 +602,9 @@ pub struct Phase {
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AuctionFeeInfo {
-    #[serde(deserialize_with = "number")]
-    pub auction_fee_rate: f64,
-    #[serde(deserialize_with = "number")]
-    pub taker_fee_rate: f64,
-    #[serde(deserialize_with = "number")]
-    pub maker_fee_rate: f64,
+    pub auction_fee_rate: Decimal,
+    pub taker_fee_rate: Decimal,
+    pub maker_fee_rate: Decimal,
 }
 
 #[derive(Serialize)]
@@ -755,8 +727,8 @@ pub struct Order {
     #[serde(default, deserialize_with = "invalid_as_none")]
     pub stop_order_type: Option<StopOrderType>,
     /// Implied volatility
-    #[serde(default, deserialize_with = "empty_string_as_none")]
-    pub order_iv: Option<String>,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub order_iv: Option<Decimal>,
     /// The unit for qty when create Spot market orders for UTA account. baseCoin, quoteCoin
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub market_unit: Option<String>,
