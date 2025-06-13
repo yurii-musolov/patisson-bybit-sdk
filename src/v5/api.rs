@@ -8,8 +8,8 @@ use serde_aux::prelude::{
 use crate::v5::{
     AdlRankIndicator, CancelType, ContractType, CopyTrading, CreateType, CurAuctionPhase,
     OcoTriggerBy, OrderStatus, OrderType, OrderUpdateMsg, PlaceType, PositionIdx, PositionStatus,
-    RejectReason, Side, SmpType, Status, StopOrderType, TimeInForce, TpslMode, TradeMode,
-    TriggerBy, TriggerDirection,
+    PositionUpdateMsg, RejectReason, Side, SmpType, Status, StopOrderType, TimeInForce, TpslMode,
+    TradeMode, TriggerBy, TriggerDirection,
     enums::{Category, Interval},
     serde::{
         empty_string_as_none, int_to_bool, invalid_as_none, string_to_bool, string_to_option_bool,
@@ -261,7 +261,7 @@ pub struct OptionTicker {
     pub theta: Decimal,
     /// Predicated delivery price. It has value when 30 min before delivery
     pub predicted_delivery_price: Decimal,
-    /// The change in the last 24 hous
+    /// The change in the last 24 hours
     pub change24h: Decimal,
 }
 
@@ -627,7 +627,7 @@ pub struct GetOpenClosedOrdersParams {
     pub settle_coin: Option<String>,
     /// Order ID
     pub order_id: Option<String>,
-    /// User customised order ID
+    /// User customized order ID
     pub order_link_id: Option<String>,
     /// 0(default): UTA2.0, UTA1.0, classic account query open status orders (e.g., New, PartiallyFilled) only
     /// 1: UTA2.0, UTA1.0(except inverse)
@@ -674,7 +674,7 @@ pub enum OrderFilter {
 pub struct Order {
     /// Order ID
     pub order_id: String,
-    /// User customised order ID
+    /// User customized order ID
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub order_link_id: Option<String>,
     /// Paradigm block trade ID
@@ -706,7 +706,7 @@ pub struct Order {
     pub reject_reason: RejectReason,
     /// Average filled price
     /// UTA: returns "" for those orders without avg price
-    /// classic account: returns "0" for those orders without avg price, and also for those orders have partilly filled but cancelled at the end
+    /// classic account: returns "0" for those orders without avg price, and also for those orders have partially filled but cancelled at the end
     #[serde(default, deserialize_with = "option_decimal")]
     pub avg_price: Option<Decimal>,
     /// The remaining qty not executed. Classic spot is not supported
@@ -791,6 +791,62 @@ pub struct Order {
     pub updated_time: Timestamp,
 }
 
+impl Order {
+    pub fn update(&mut self, msg: OrderUpdateMsg) {
+        self.order_id = msg.order_id;
+        self.order_link_id = msg.order_link_id;
+        self.block_trade_id = msg.block_trade_id;
+        self.symbol = msg.symbol;
+        self.price = msg.price;
+        self.qty = msg.qty;
+        self.side = msg.side;
+        self.is_leverage = msg.is_leverage;
+        self.position_idx = msg.position_idx;
+        self.order_status = msg.order_status;
+        self.create_type = msg.create_type;
+        self.cancel_type = msg.cancel_type;
+        self.reject_reason = msg.reject_reason;
+        self.avg_price = Some(msg.avg_price);
+        if let Some(leaves_qty) = msg.leaves_qty {
+            self.leaves_qty = leaves_qty;
+        }
+        if let Some(leaves_value) = msg.leaves_value {
+            self.leaves_value = leaves_value;
+        }
+        self.cum_exec_qty = msg.cum_exec_qty;
+        self.cum_exec_value = msg.cum_exec_value;
+        self.cum_exec_fee = msg.cum_exec_fee;
+        self.time_in_force = msg.time_in_force;
+        self.order_type = msg.order_type;
+        self.stop_order_type = msg.stop_order_type;
+        self.order_iv = msg.order_iv;
+        self.market_unit = msg.market_unit;
+        self.trigger_price = msg.trigger_price;
+        self.take_profit = msg.take_profit;
+        self.stop_loss = msg.stop_loss;
+        self.tpsl_mode = msg.tpsl_mode;
+        self.oco_trigger_by = msg.oco_trigger_by;
+        self.tp_limit_price = msg.tp_limit_price;
+        self.sl_limit_price = msg.sl_limit_price;
+        self.tp_trigger_by = msg.tp_trigger_by;
+        self.sl_trigger_by = msg.sl_trigger_by;
+        self.trigger_direction = msg.trigger_direction;
+        if let Some(trigger_by) = msg.trigger_by {
+            self.trigger_by = trigger_by;
+        }
+        self.last_price_on_created = msg.last_price_on_created;
+        // TODO: self.base_price
+        self.reduce_only = msg.reduce_only;
+        self.close_on_trigger = msg.close_on_trigger;
+        self.place_type = Some(msg.place_type);
+        self.smp_type = msg.smp_type;
+        self.smp_group = msg.smp_group;
+        self.smp_order_id = msg.smp_order_id;
+        self.created_time = msg.created_time;
+        self.updated_time = msg.updated_time;
+    }
+}
+
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetPositionInfoParams {
@@ -844,7 +900,7 @@ pub struct Position {
     pub position_value: Option<Decimal>,
     /// Trade mode
     /// Classic & UTA1.0(inverse): 0: cross-margin, 1: isolated margin
-    /// UTA2.0, UTA1.0(execpt inverse): deprecated, always 0, check Get Account Info to know the margin mode
+    /// UTA2.0, UTA1.0(except inverse): deprecated, always 0, check Get Account Info to know the margin mode
     pub trade_mode: TradeMode,
     /// Whether to add margin automatically when using isolated margin mode
     /// 0: false
@@ -911,7 +967,7 @@ pub struct Position {
     /// The realised PnL for the current holding position
     pub cur_realised_pnl: Decimal,
     /// Cumulative realised pnl
-    /// Futures & Perps: it is the all time cumulative realised P&L
+    /// Futures & Perpetuals: it is the all time cumulative realised P&L
     /// Option: always "", meaningless
     pub cum_realised_pnl: Decimal,
     /// Auto-deleverage rank indicator. What is Auto-Deleveraging?
@@ -950,6 +1006,50 @@ pub struct Position {
     pub leverage_sys_updated_time: Option<Timestamp>,
     /// deprecated, always "Full"
     pub tpsl_mode: TpslMode,
+}
+
+impl Position {
+    pub fn update(&mut self, msg: PositionUpdateMsg) {
+        self.position_idx = msg.position_idx;
+        self.risk_id = msg.risk_id;
+        self.risk_limit_value = msg.risk_limit_value;
+        self.symbol = msg.symbol;
+        self.side = msg.side;
+        self.size = msg.size;
+        // TODO: self.avg_price
+        self.position_value = Some(msg.position_value);
+        self.trade_mode = msg.trade_mode;
+        self.auto_add_margin = msg.auto_add_margin;
+        self.position_status = msg.position_status;
+        self.leverage = msg.leverage;
+        self.mark_price = msg.mark_price;
+        self.liq_price = Some(msg.liq_price);
+        self.bust_price = msg.bust_price;
+        // TODO: self.position_im
+        // TODO: self.position_mm
+        self.position_balance = msg.position_balance;
+        self.take_profit = Some(msg.take_profit);
+        self.stop_loss = Some(msg.stop_loss);
+        self.trailing_stop = msg.trailing_stop;
+        self.session_avg_price = Some(msg.session_avg_price);
+        self.delta = msg.delta;
+        self.gamma = msg.gamma;
+        self.vega = msg.vega;
+        self.theta = msg.theta;
+        // TODO: self.unrealised_pnl
+        self.cur_realised_pnl = msg.cur_realised_pnl;
+        self.cum_realised_pnl = msg.cum_realised_pnl;
+        self.adl_rank_indicator = msg.adl_rank_indicator;
+        self.created_time = msg.created_time;
+        self.updated_time = msg.updated_time;
+        self.seq = msg.seq;
+        self.is_reduce_only = msg.is_reduce_only;
+        self.mmr_sys_updated_time = msg.mmr_sys_updated_time;
+        self.leverage_sys_updated_time = msg.leverage_sys_updated_time;
+        if let Some(tpsl_mode) = msg.tpsl_mode {
+            self.tpsl_mode = tpsl_mode;
+        }
+    }
 }
 
 #[cfg(test)]

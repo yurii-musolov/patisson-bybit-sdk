@@ -6,6 +6,7 @@ mod error;
 mod incoming_message;
 mod outgoing_message;
 mod serde;
+mod state;
 mod stream;
 mod url;
 
@@ -16,6 +17,7 @@ pub use enums::*;
 pub use error::*;
 pub use incoming_message::*;
 pub use outgoing_message::*;
+pub use state::*;
 pub use stream::{DEFAULT_PING_INTERVAL, stream};
 pub use url::{
     BASE_URL_API_DEMO_TRADING, BASE_URL_API_MAINNET_1, BASE_URL_API_MAINNET_2,
