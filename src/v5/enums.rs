@@ -257,10 +257,6 @@ pub enum StopOrderType {
     /// Spot bidirectional tpsl order
     BidirectionalTpslOrder,
     UNKNOWN,
-    // TODO: parse empty string as invalid value for 'String', or 'enum'
-    // ""
-    #[serde(rename = "")]
-    None,
 }
 
 #[derive(Debug, PartialEq, Deserialize)]
@@ -536,10 +532,6 @@ pub enum TriggerBy {
     IndexPrice,
     MarkPrice,
     UNKNOWN,
-    // TODO: parse empty string as invalid value for 'String', or 'enum'
-    // ""
-    #[serde(rename = "")]
-    None,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -930,10 +922,6 @@ pub enum SmpType {
 pub enum TpslMode {
     Full,
     Partial,
-    // TODO: parse empty string as invalid value for 'String', or 'enum'
-    // ""
-    #[serde(rename = "")]
-    None,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
@@ -985,14 +973,6 @@ pub enum CurAuctionPhase {
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]
-pub enum Innovation {
-    #[serde(rename = "0")]
-    False,
-    #[serde(rename = "1")]
-    True,
-}
-
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum PlaceType {
     #[serde(rename = "option")]
     Option,
@@ -1000,20 +980,12 @@ pub enum PlaceType {
     Iv,
     #[serde(rename = "price")]
     Price,
-    // TODO: parse empty string as invalid value for 'String', or 'enum'
-    // ""
-    #[serde(rename = "")]
-    None,
 }
 
 #[derive(Debug, Deserialize, Serialize, PartialEq)]
 pub enum Side {
     Buy,
     Sell,
-    // TODO: parse empty string as invalid value for 'String', or 'enum'
-    // ""
-    #[serde(rename = "")]
-    None,
 }
 
 #[derive(Debug, PartialEq)]
@@ -1036,13 +1008,6 @@ pub enum SlippageToleranceType {
 pub enum TradeMode {
     CrossMargin = 0,
     IsolatedMargin = 1,
-}
-
-#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq)]
-#[repr(u8)]
-pub enum AutoAddMargin {
-    False = 0,
-    True = 1,
 }
 
 #[derive(Debug)]
@@ -1143,6 +1108,8 @@ impl fmt::Display for DepthLevel {
 
 #[cfg(test)]
 mod tests {
+    use crate::v5::serde::deserialize_str;
+
     use super::*;
 
     #[test]
@@ -1168,7 +1135,7 @@ mod tests {
             (r#""spot""#, Category::Spot),
         ];
         cases.iter().for_each(|(json, expected)| {
-            let message: Category = serde_json::from_str(json).unwrap();
+            let message: Category = deserialize_str(json).unwrap();
             assert_eq!(message, *expected);
         });
     }
@@ -1214,7 +1181,7 @@ mod tests {
             (r#""M""#, Interval::Month1),
         ];
         cases.iter().for_each(|(json, expected)| {
-            let message: Interval = serde_json::from_str(json).unwrap();
+            let message: Interval = deserialize_str(json).unwrap();
             assert_eq!(message, *expected);
         });
     }
