@@ -1,5 +1,4 @@
 use reqwest::{self, Method, RequestBuilder, header::HeaderMap};
-use serde_json::{Value, from_value};
 
 use crate::v5::{
     APIErrorResponse, GetPositionInfoParams, Position, crypto::Signer, serde::deserialize_str,

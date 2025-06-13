@@ -1,3 +1,5 @@
+use crate::v5::AdlRankIndicator;
+
 use super::{
     CancelType, Category, CreateType, Interval, OcoTriggerBy, OrderStatus, OrderType, PlaceType,
     PositionIdx, PositionStatus, RejectReason, Side, SlippageToleranceType, SmpType, StopOrderType,
@@ -547,8 +549,7 @@ pub struct PositionUpdateMsg {
     /// Position status. Normal, Liq, Adl
     pub position_status: PositionStatus,
     /// Auto-deleverage rank indicator. What is Auto-Deleveraging?
-    #[serde(deserialize_with = "number")]
-    pub adl_rank_indicator: i64,
+    pub adl_rank_indicator: AdlRankIndicator,
     /// Useful when Bybit lower the risk limit
     /// true: Only allowed to reduce the position. You can consider a series of measures, e.g., lower the risk limit, decrease leverage or reduce the position, add margin, or cancel orders, after these operations, you can call confirm new risk limit endpoint to check if your position can be removed the reduceOnly mark
     /// false: There is no restriction, and it means your position is under the risk when the risk limit is systematically adjusted
@@ -1020,7 +1021,7 @@ mod tests {
                 theta: None,
                 cum_realised_pnl: dec!(-25.06579337),
                 position_status: PositionStatus::Normal,
-                adl_rank_indicator: 0,
+                adl_rank_indicator: AdlRankIndicator::Zero,
                 is_reduce_only: false,
                 mmr_sys_updated_time: None,
                 leverage_sys_updated_time: None,
