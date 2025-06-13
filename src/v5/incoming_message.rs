@@ -5,10 +5,10 @@ use serde_aux::prelude::{
 };
 
 use super::{
-    AutoAddMargin, CancelType, Category, CreateType, Interval, OcoTriggerBy, OrderStatus,
-    OrderType, PlaceType, PositionIdx, PositionStatus, RejectReason, Side, SlippageToleranceType,
-    SmpType, StopOrderType, TickDirection, TimeInForce, Timestamp, TpslMode, TradeMode, TriggerBy,
-    TriggerDirection, serde::invalid_as_none,
+    CancelType, Category, CreateType, Interval, OcoTriggerBy, OrderStatus, OrderType, PlaceType,
+    PositionIdx, PositionStatus, RejectReason, Side, SlippageToleranceType, SmpType, StopOrderType,
+    TickDirection, TimeInForce, Timestamp, TpslMode, TradeMode, TriggerBy, TriggerDirection,
+    serde::{empty_string_as_none, int_to_bool, invalid_as_none, string_to_option_bool},
 };
 
 #[derive(PartialEq, Deserialize, Debug)]
@@ -28,28 +28,36 @@ pub enum IncomingMessage {
 pub enum CommandMsg {
     #[serde(rename = "subscribe")]
     Subscribe {
+        #[serde(default, deserialize_with = "empty_string_as_none")]
         req_id: Option<String>,
+        #[serde(default, deserialize_with = "empty_string_as_none")]
         ret_msg: Option<String>,
         conn_id: String,
         success: Option<bool>,
     },
     #[serde(rename = "unsubscribe")]
     Unsubscribe {
+        #[serde(default, deserialize_with = "empty_string_as_none")]
         req_id: Option<String>,
+        #[serde(default, deserialize_with = "empty_string_as_none")]
         ret_msg: Option<String>,
         conn_id: String,
         success: Option<bool>,
     },
     #[serde(rename = "auth")]
     Auth {
+        #[serde(default, deserialize_with = "empty_string_as_none")]
         req_id: Option<String>,
+        #[serde(default, deserialize_with = "empty_string_as_none")]
         ret_msg: Option<String>,
         conn_id: String,
         success: bool,
     },
     #[serde(rename = "pong")]
     Pong {
+        #[serde(default, deserialize_with = "empty_string_as_none")]
         req_id: Option<String>,
+        #[serde(default, deserialize_with = "empty_string_as_none")]
         ret_msg: Option<String>,
         conn_id: String,
         args: Option<Vec<String>>,
@@ -57,7 +65,9 @@ pub enum CommandMsg {
     },
     #[serde(rename = "ping")]
     Ping {
+        #[serde(default, deserialize_with = "empty_string_as_none")]
         req_id: Option<String>,
+        #[serde(default, deserialize_with = "empty_string_as_none")]
         ret_msg: Option<String>,
         conn_id: String,
         args: Option<Vec<String>>,
@@ -97,6 +107,7 @@ pub struct TickerSnapshotMsg {
     pub pre_open_price: Option<f64>,
     #[serde(default, deserialize_with = "option_number")]
     pub pre_qty: Option<f64>,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub cur_pre_listing_phase: Option<String>,
     #[serde(deserialize_with = "number")]
     pub prev_price24h: f64,
@@ -146,6 +157,7 @@ pub struct TickerSnapshotMsg {
 #[serde(rename_all = "camelCase")]
 pub struct TickerDeltaMsg {
     pub symbol: String,
+    #[serde(default, deserialize_with = "invalid_as_none")]
     pub tick_direction: Option<TickDirection>,
     #[serde(default, deserialize_with = "option_number")]
     pub last_price: Option<f64>,
@@ -153,6 +165,7 @@ pub struct TickerDeltaMsg {
     pub pre_open_price: Option<f64>,
     #[serde(default, deserialize_with = "option_number")]
     pub pre_qty: Option<f64>,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub cur_pre_listing_phase: Option<String>,
     #[serde(default, deserialize_with = "option_number")]
     pub prev_price24h: Option<f64>,
@@ -203,6 +216,7 @@ pub struct TickerDeltaMsg {
 pub enum TradeMsg {
     #[serde(rename = "snapshot")]
     Snapshot {
+        #[serde(default, deserialize_with = "empty_string_as_none")]
         id: Option<String>,
         topic: String,
         ts: Timestamp,
@@ -230,13 +244,13 @@ pub struct TradeSnapshotMsg {
     pub block_trade: bool,
     #[serde(rename = "RPI")]
     pub rpi_trade: Option<bool>,
-    #[serde(rename = "mP")]
+    #[serde(rename = "mP", default, deserialize_with = "empty_string_as_none")]
     pub mark_price: Option<String>,
-    #[serde(rename = "iP")]
+    #[serde(rename = "iP", default, deserialize_with = "empty_string_as_none")]
     pub index_price: Option<String>,
-    #[serde(rename = "mlv")]
+    #[serde(rename = "mlv", default, deserialize_with = "empty_string_as_none")]
     pub mark_iv: Option<String>,
-    #[serde(rename = "iv")]
+    #[serde(rename = "iv", default, deserialize_with = "empty_string_as_none")]
     pub iv: Option<String>,
 }
 
@@ -319,12 +333,15 @@ pub struct OrderUpdateMsg {
     /// Order ID
     pub order_id: String,
     /// User customized order ID
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub order_link_id: Option<String>,
     /// Whether to borrow.
     /// Unified spot only. 0: false, 1: true.
     /// Classic spot is not supported, always 0
+    #[serde(default, deserialize_with = "string_to_option_bool")]
     pub is_leverage: Option<bool>,
     /// Block trade ID
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub block_trade_id: Option<String>,
     /// Symbol name
     pub symbol: String,
@@ -341,6 +358,7 @@ pub struct OrderUpdateMsg {
     /// Order create type
     /// Only for category=linear or inverse
     /// Spot, Option do not have this key
+    #[serde(default, deserialize_with = "invalid_as_none")]
     pub create_type: Option<CreateType>,
     /// Order status
     pub order_status: OrderStatus,
@@ -384,15 +402,19 @@ pub struct OrderUpdateMsg {
     #[serde(default, deserialize_with = "invalid_as_none")]
     pub stop_order_type: Option<StopOrderType>,
     /// The trigger type of Spot OCO order.OcoTriggerByUnknown, OcoTriggerByTp, OcoTriggerByBySl. Classic spot is not supported
+    #[serde(default, deserialize_with = "invalid_as_none")]
     pub oco_trigger_by: Option<OcoTriggerBy>,
     /// Implied volatility
     #[serde(deserialize_with = "option_number")]
     pub order_iv: Option<f64>,
     /// The unit for qty when create Spot market orders for UTA account. baseCoin, quoteCoin
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub market_unit: Option<String>,
     /// Spot and Futures market order slippage tolerance type TickSize, Percent, UNKNOWN(default)
+    #[serde(default, deserialize_with = "invalid_as_none")]
     pub slippage_tolerance_type: Option<SlippageToleranceType>,
     /// Slippage tolerance value
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub slippage_tolerance: Option<String>, // TODO: parse Option<f64> from "{}"
     /// Trigger price. If stopOrderType=TrailingStop, it is activate price. Otherwise, it is trigger price
     #[serde(deserialize_with = "option_number")]
@@ -506,7 +528,8 @@ pub struct PositionUpdateMsg {
     #[serde(deserialize_with = "number")]
     pub position_balance: f64,
     /// Whether to add margin automatically. 0: false, 1: true. For UTA, it is meaningful only when UTA enables ISOLATED_MARGIN
-    pub auto_add_margin: AutoAddMargin,
+    #[serde(default, deserialize_with = "int_to_bool")]
+    pub auto_add_margin: bool,
     /// Initial margin
     /// Classic & UTA1.0(inverse): ignore this field
     /// UTA portfolio margin mode, it returns ""
@@ -549,12 +572,16 @@ pub struct PositionUpdateMsg {
     #[serde(deserialize_with = "number")]
     pub session_avg_price: f64,
     /// Delta
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub delta: Option<String>,
     /// Gamma
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub gamma: Option<String>,
     /// Vega
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub vega: Option<String>,
     /// Theta
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub theta: Option<String>,
     /// Cumulative realised pnl
     /// Futures & Perp: it is the all time cumulative realised P&L
@@ -602,15 +629,17 @@ pub struct PositionUpdateMsg {
 
 #[cfg(test)]
 mod tests {
+    use crate::v5::serde::deserialize_str;
+
     use super::*;
 
     #[test]
     fn deserialize_incoming_message_command_subscribe() {
         let json = r#"{"success":true,"ret_msg":"","conn_id":"c0c928a4-daab-460d-b186-45e90a10a3d4","req_id":"","op":"subscribe"}"#;
-        let message: IncomingMessage = serde_json::from_str(json).unwrap();
+        let message: IncomingMessage = deserialize_str(json).unwrap();
         let expected = IncomingMessage::Command(CommandMsg::Subscribe {
-            req_id: Some(String::new()),
-            ret_msg: Some(String::new()),
+            req_id: None,
+            ret_msg: None,
             conn_id: String::from("c0c928a4-daab-460d-b186-45e90a10a3d4"),
             success: Some(true),
         });
@@ -620,10 +649,10 @@ mod tests {
     #[test]
     fn deserialize_incoming_message_command_unsubscribe() {
         let json = r#"{"success":true,"ret_msg":"","conn_id":"c0c928a4-daab-460d-b186-45e90a10a3d4","req_id":"","op":"unsubscribe"}"#;
-        let message: IncomingMessage = serde_json::from_str(json).unwrap();
+        let message: IncomingMessage = deserialize_str(json).unwrap();
         let expected = IncomingMessage::Command(CommandMsg::Unsubscribe {
-            req_id: Some(String::new()),
-            ret_msg: Some(String::new()),
+            req_id: None,
+            ret_msg: None,
             conn_id: String::from("c0c928a4-daab-460d-b186-45e90a10a3d4"),
             success: Some(true),
         });
@@ -650,7 +679,7 @@ mod tests {
 		    "cs": 195377749067,
 		    "ts": 1718995014034
 		}"#;
-        let message: IncomingMessage = serde_json::from_str(json).unwrap();
+        let message: IncomingMessage = deserialize_str(json).unwrap();
         let ticker_delta = TickerMsg::Delta {
             topic: String::from("tickers.BTCUSDT"),
             cs: Some(195377749067),
@@ -723,7 +752,7 @@ mod tests {
 		    "cs": 337149693308,
 		    "ts": 1740622194359
 		}"#;
-        let message: IncomingMessage = serde_json::from_str(json).unwrap();
+        let message: IncomingMessage = deserialize_str(json).unwrap();
         let ticker_snapshot = TickerMsg::Snapshot {
             topic: String::from("tickers.BTCUSDT"),
             cs: Some(337149693308),
@@ -734,7 +763,7 @@ mod tests {
                 last_price: 84594.40,
                 pre_open_price: None,
                 pre_qty: None,
-                cur_pre_listing_phase: Some(String::from("")),
+                cur_pre_listing_phase: None,
                 prev_price24h: 88539.30,
                 price24h_pcnt: -0.044555,
                 high_price24h: 89389.90,
@@ -782,7 +811,7 @@ mod tests {
                 }
             ]
         }"#;
-        let message: IncomingMessage = serde_json::from_str(json).unwrap();
+        let message: IncomingMessage = deserialize_str(json).unwrap();
         let expected = IncomingMessage::Trade(TradeMsg::Snapshot {
             id: None,
             topic: String::from("publicTrade.BTCUSDT"),
@@ -823,7 +852,7 @@ mod tests {
                 }
             ]
         }"#;
-        let message: IncomingMessage = serde_json::from_str(json).unwrap();
+        let message: IncomingMessage = deserialize_str(json).unwrap();
         let expected = IncomingMessage::AllLiquidation(AllLiquidationMsg::Snapshot {
             topic: String::from("allLiquidation.BTCUSDT"),
             ts: 1741450605553,
@@ -892,16 +921,16 @@ mod tests {
                 }
             ]
         }"#;
-        let message: IncomingMessage = serde_json::from_str(json).unwrap();
+        let message: IncomingMessage = deserialize_str(json).unwrap();
         let expected = IncomingMessage::Order(OrderMsg::Update {
             id: String::from("5923240c6880ab-c59f-420b-9adb-3639adc9dd90"),
             creation_time: 1672364262474,
             data: vec![OrderUpdateMsg {
                 category: Category::Option,
                 order_id: String::from("5cf98598-39a7-459e-97bf-76ca765ee020"),
-                order_link_id: Some(String::new()),
+                order_link_id: None,
                 is_leverage: None,
-                block_trade_id: Some(String::new()),
+                block_trade_id: None,
                 symbol: String::from("ETH-30DEC22-1400-C"),
                 price: 72.5,
                 qty: 1.0,
@@ -996,7 +1025,7 @@ mod tests {
                 }
             ]
         }"#;
-        let message: IncomingMessage = serde_json::from_str(json).unwrap();
+        let message: IncomingMessage = deserialize_str(json).unwrap();
         let expected = IncomingMessage::Position(PositionMsg {
             id: String::from("1003076014fb7eedb-c7e6-45d6-a8c1-270f0169171a"),
             topic: String::from("position"),
@@ -1015,7 +1044,7 @@ mod tests {
                 mark_price: 28184.5,
                 leverage: 10.0,
                 position_balance: 0.0,
-                auto_add_margin: AutoAddMargin::False,
+                auto_add_margin: false,
                 position_i_m: 0.0,
                 position_m_m: 0.0,
                 liq_price: 0.0,

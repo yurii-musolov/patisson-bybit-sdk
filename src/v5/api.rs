@@ -6,15 +6,14 @@ use serde_aux::prelude::{
 };
 
 use crate::v5::{
-    AdlRankIndicator, AutoAddMargin, CancelType, CreateType, OcoTriggerBy, OrderStatus, OrderType,
-    PlaceType, PositionIdx, PositionStatus, RejectReason, SmpType, StopOrderType, TimeInForce,
-    TpslMode, TradeMode, TriggerBy, TriggerDirection,
-};
-
-use super::{
-    ContractType, CopyTrading, CurAuctionPhase, Innovation, Side, Status,
+    AdlRankIndicator, CancelType, ContractType, CopyTrading, CreateType, CurAuctionPhase,
+    OcoTriggerBy, OrderStatus, OrderType, PlaceType, PositionIdx, PositionStatus, RejectReason,
+    Side, SmpType, Status, StopOrderType, TimeInForce, TpslMode, TradeMode, TriggerBy,
+    TriggerDirection,
     enums::{Category, Interval},
-    serde::invalid_as_none,
+    serde::{
+        empty_string_as_none, int_to_bool, invalid_as_none, string_to_bool, string_to_option_bool,
+    },
 };
 
 pub type Timestamp = u64;
@@ -47,6 +46,7 @@ pub struct Response<T> {
 #[serde(rename_all = "camelCase")]
 pub struct CursorPagination<T> {
     pub category: Category,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub next_page_cursor: Option<String>,
     pub list: Vec<T>,
 }
@@ -428,6 +428,7 @@ pub enum InstrumentsInfo {
     },
     #[serde(rename = "spot", rename_all = "camelCase")]
     Spot {
+        #[serde(default, deserialize_with = "empty_string_as_none")]
         next_page_cursor: Option<String>,
         list: Vec<SpotInstrumentsInfo>,
     },
@@ -507,7 +508,8 @@ pub struct SpotInstrumentsInfo {
     /// Quote coin
     pub quote_coin: String,
     /// Whether or not this is an innovation zone token. 0: false, 1: true
-    pub innovation: Innovation,
+    #[serde(deserialize_with = "string_to_bool")]
+    pub innovation: bool,
     /// Instrument status
     pub status: Status,
     /// Margin trade symbol or not
@@ -515,7 +517,8 @@ pub struct SpotInstrumentsInfo {
     /// You may find some symbols not supporting margin buy or margin sell, so you need to go to Collateral Info (UTA) to check if that coin is borrowable
     pub margin_trading: String,
     /// Whether or not it has an special treatment label. 0: false, 1: true
-    pub st_tag: String,
+    #[serde(deserialize_with = "string_to_bool")]
+    pub st_tag: bool,
     /// Size attributes
     pub lot_size_filter: SpotLotSizeFilter,
     /// Price attributes
@@ -669,6 +672,7 @@ pub struct GetOpenClosedOrdersParams {
     /// BidirectionalTpslOrder: Spot bidirectional TPSL order
     /// - classic account spot: return Order active order by default
     /// - Others: all kinds of orders by default
+    #[serde(default, deserialize_with = "invalid_as_none")]
     pub order_filter: Option<OrderFilter>,
     /// Limit for data size per page. [1, 50]. Default: 20
     pub limit: Option<i32>,
@@ -699,8 +703,10 @@ pub struct Order {
     /// Order ID
     pub order_id: String,
     /// User customised order ID
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub order_link_id: Option<String>,
     /// Paradigm block trade ID
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub block_trade_id: Option<String>,
     /// Symbol name
     pub symbol: String,
@@ -711,7 +717,8 @@ pub struct Order {
     /// Side. Buy,Sell
     pub side: Side,
     /// Whether to borrow. Unified spot only. 0: false, 1: true. Classic spot is not supported, always 0
-    pub is_leverage: Option<String>,
+    #[serde(default, deserialize_with = "string_to_option_bool")]
+    pub is_leverage: Option<bool>,
     /// Position index. Used to identify positions in different position modes.
     pub position_idx: PositionIdx,
     /// Order status
@@ -719,6 +726,7 @@ pub struct Order {
     /// Order create type
     /// Only for category=linear or inverse
     /// Spot, Option do not have this key
+    #[serde(default, deserialize_with = "invalid_as_none")]
     pub create_type: Option<CreateType>,
     /// Cancel type
     pub cancel_type: CancelType,
@@ -744,10 +752,13 @@ pub struct Order {
     /// Order type. Market,Limit. For TP/SL order, it means the order type after triggered
     pub order_type: OrderType,
     /// Stop order type
+    #[serde(default, deserialize_with = "invalid_as_none")]
     pub stop_order_type: Option<StopOrderType>,
     /// Implied volatility
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub order_iv: Option<String>,
     /// The unit for qty when create Spot market orders for UTA account. baseCoin, quoteCoin
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub market_unit: Option<String>,
     /// Trigger price. If stopOrderType=TrailingStop, it is activate price. Otherwise, it is trigger price
     #[serde(default, deserialize_with = "option_decimal")]
@@ -759,8 +770,10 @@ pub struct Order {
     #[serde(default, deserialize_with = "option_decimal")]
     pub stop_loss: Option<Decimal>,
     /// TP/SL mode, Full: entire position for TP/SL. Partial: partial position tp/sl. Spot does not have this field, and Option returns always ""
+    #[serde(default, deserialize_with = "invalid_as_none")]
     pub tpsl_mode: Option<TpslMode>,
     /// The trigger type of Spot OCO order.OcoTriggerByUnknown, OcoTriggerByTp, OcoTriggerByBySl. Classic spot is not supported
+    #[serde(default, deserialize_with = "invalid_as_none")]
     pub oco_trigger_by: Option<OcoTriggerBy>,
     /// The limit order price when take profit price is triggered
     #[serde(default, deserialize_with = "option_decimal")]
@@ -769,10 +782,10 @@ pub struct Order {
     #[serde(default, deserialize_with = "option_decimal")]
     pub sl_limit_price: Option<Decimal>,
     /// The price type to trigger take profit
-    #[serde(default)]
+    #[serde(default, deserialize_with = "invalid_as_none")]
     pub tp_trigger_by: Option<TriggerBy>,
     /// The price type to trigger stop loss
-    #[serde(default)]
+    #[serde(default, deserialize_with = "invalid_as_none")]
     pub sl_trigger_by: Option<TriggerBy>,
     /// Trigger direction. 1: rise, 2: fall
     pub trigger_direction: TriggerDirection,
@@ -789,12 +802,14 @@ pub struct Order {
     /// Close on trigger. What is a close on trigger order?
     pub close_on_trigger: bool,
     /// Place type, option used. iv, price
+    #[serde(default, deserialize_with = "invalid_as_none")]
     pub place_type: Option<PlaceType>,
     /// SMP execution type
     pub smp_type: SmpType,
     /// Smp group ID. If the UID has no group, it is 0 by default
     pub smp_group: i64,
     /// The counterparty's orderID which triggers this SMP execution
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub smp_order_id: Option<String>,
     /// Order created timestamp (ms)
     #[serde(deserialize_with = "number")]
@@ -845,6 +860,7 @@ pub struct Position {
     /// Position side. Buy: long, Sell: short
     /// one-way mode: classic & UTA1.0(inverse), an empty position returns None.
     /// UTA2.0(linear, inverse) & UTA1.0(linear): either one-way or hedge mode returns an empty string "" for an empty position.
+    #[serde(default, deserialize_with = "invalid_as_none")]
     pub side: Option<Side>,
     /// Position size, always positive
     pub size: Decimal,
@@ -861,7 +877,8 @@ pub struct Position {
     /// Whether to add margin automatically when using isolated margin mode
     /// 0: false
     /// 1: true
-    pub auto_add_margin: AutoAddMargin,
+    #[serde(deserialize_with = "int_to_bool")]
+    pub auto_add_margin: bool,
     /// Position status. Normal, Liq, Adl
     pub position_status: PositionStatus,
     /// Position leverage
@@ -905,12 +922,16 @@ pub struct Position {
     #[serde(default, deserialize_with = "option_decimal")]
     pub session_avg_price: Option<Decimal>,
     /// Delta
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub delta: Option<String>,
     /// Gamma
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub gamma: Option<String>,
     /// Vega
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub vega: Option<String>,
     /// Theta
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub theta: Option<String>,
     /// Unrealised PnL
     #[serde(default, deserialize_with = "option_decimal")]
@@ -963,6 +984,8 @@ pub struct Position {
 mod tests {
     use rust_decimal::dec;
 
+    use crate::v5::serde::deserialize_str;
+
     use super::*;
 
     #[test]
@@ -1006,7 +1029,7 @@ mod tests {
             "retExtInfo": {},
             "time": 1672025956592
         }"#;
-        let message: Resp<KLine> = serde_json::from_str(json).unwrap();
+        let message: Resp<KLine> = deserialize_str(json).unwrap();
         let expected = Resp {
             ret_code: 0,
             ret_msg: String::from("OK"),
@@ -1087,7 +1110,7 @@ mod tests {
             "retExtInfo": {},
             "time": 1672376496682
         }"#;
-        let message: Resp<Ticker> = serde_json::from_str(json).unwrap();
+        let message: Resp<Ticker> = deserialize_str(json).unwrap();
         let expected = Resp {
             ret_code: 0,
             ret_msg: String::from("OK"),
@@ -1151,7 +1174,7 @@ mod tests {
             "retExtInfo": {},
             "time": 1672053054358
         }"#;
-        let message: Resp<Trade> = serde_json::from_str(json).unwrap();
+        let message: Resp<Trade> = deserialize_str(json).unwrap();
         let expected = Resp {
             ret_code: 0,
             ret_msg: String::from("OK"),
@@ -1230,9 +1253,7 @@ mod tests {
             "retExtInfo": {},
             "time": 1684765770483
         }"#;
-        let message: Resp<CursorPagination<Order>> = serde_json::from_str(json).unwrap();
-        // TODO: parse empty string as invalid value for 'String', or 'enum'
-        // ""
+        let message: Resp<CursorPagination<Order>> = deserialize_str(json).unwrap();
         let expected = Resp {
             ret_code: 0,
             ret_msg: String::from("OK"),
@@ -1243,16 +1264,16 @@ mod tests {
                 )),
                 list: vec![Order {
                     order_id: String::from("fd4300ae-7847-404e-b947-b46980a4d140"),
-                    order_link_id: Some(String::from("test-000005")), // ""
-                    block_trade_id: Some(String::from("")),           // ""
+                    order_link_id: Some(String::from("test-000005")),
+                    block_trade_id: None,
                     symbol: String::from("ETHUSDT"),
                     price: dec!(1600.00),
                     qty: dec!(0.10),
                     side: Side::Buy,
-                    is_leverage: Some(String::from("")), // ""
+                    is_leverage: None,
                     position_idx: PositionIdx::Buy,
                     order_status: OrderStatus::New,
-                    create_type: None, // ""
+                    create_type: None,
                     cancel_type: CancelType::UNKNOWN,
                     reject_reason: RejectReason::EcNoError,
                     avg_price: Some(dec!(0.0)),
@@ -1263,28 +1284,28 @@ mod tests {
                     cum_exec_fee: dec!(0),
                     time_in_force: TimeInForce::GTC,
                     order_type: OrderType::Limit,
-                    stop_order_type: Some(StopOrderType::UNKNOWN), // ""
-                    order_iv: Some(String::from("")),              // ""
-                    market_unit: None,                             // ""
+                    stop_order_type: Some(StopOrderType::UNKNOWN),
+                    order_iv: None,
+                    market_unit: None,
                     trigger_price: Some(dec!(0.00)),
                     take_profit: Some(dec!(2500.00)),
                     stop_loss: Some(dec!(1500.00)),
-                    tpsl_mode: Some(TpslMode::Full), // ""
-                    oco_trigger_by: None,            // ""
+                    tpsl_mode: Some(TpslMode::Full),
+                    oco_trigger_by: None,
                     tp_limit_price: None,
                     sl_limit_price: None,
-                    tp_trigger_by: Some(TriggerBy::LastPrice), // ""
-                    sl_trigger_by: Some(TriggerBy::LastPrice), // ""
+                    tp_trigger_by: Some(TriggerBy::LastPrice),
+                    sl_trigger_by: Some(TriggerBy::LastPrice),
                     trigger_direction: TriggerDirection::UNKNOWN,
                     trigger_by: TriggerBy::UNKNOWN,
-                    last_price_on_created: None, // ""
-                    base_price: None,            // ""
+                    last_price_on_created: None,
+                    base_price: None,
                     reduce_only: false,
                     close_on_trigger: false,
-                    place_type: Some(PlaceType::None), // ""
-                    smp_type: SmpType::None,           // ""
+                    place_type: None,
+                    smp_type: SmpType::None,
                     smp_group: 0,
-                    smp_order_id: Some(String::from("")), // ""
+                    smp_order_id: None,
                     created_time: 1684738540559,
                     updated_time: 1684738540561,
                 }],
@@ -1344,15 +1365,13 @@ mod tests {
             "retExtInfo": {},
             "time": 1697684980172
         }"#;
-        let message: Resp<CursorPagination<Position>> = serde_json::from_str(json).unwrap();
-        // TODO: parse empty string as invalid value for 'String', or 'enum'
-        // ""
+        let message: Resp<CursorPagination<Position>> = deserialize_str(json).unwrap();
         let expected = Resp {
             ret_code: 0,
             ret_msg: String::from("OK"),
             result: CursorPagination {
                 category: Category::Inverse,
-                next_page_cursor: Some(String::from("")),
+                next_page_cursor: None,
                 list: vec![Position {
                     position_idx: PositionIdx::OneWay,
                     risk_id: 1,
@@ -1363,7 +1382,7 @@ mod tests {
                     avg_price: dec!(27464.50441675),
                     position_value: Some(dec!(0.01092319)),
                     trade_mode: TradeMode::CrossMargin,
-                    auto_add_margin: AutoAddMargin::True,
+                    auto_add_margin: true,
                     position_status: PositionStatus::Normal,
                     leverage: dec!(10),
                     mark_price: dec!(28224.50),
