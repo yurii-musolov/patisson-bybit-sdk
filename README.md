@@ -8,8 +8,7 @@ Unofficial Rust SDK for the [Bybit exchange API](https://bybit-exchange.github.i
 
 ## Features
 
-- REST API support (Spot, Futures, Derivatives)
-- Unauthenticated endpoints
+- REST API support (Spot, Linear, Inverse, Option)
 - Only async clients
 
 ## Examples
