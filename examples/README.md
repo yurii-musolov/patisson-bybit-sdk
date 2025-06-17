@@ -11,3 +11,12 @@ All examples can be executed with:
 ```sh
 cargo run --example $example_name
 ```
+
+## Environment variables
+
+Some examples that perform queries on private data expect these environment variables:
+
+```sh
+export API_KEY="xxxxxxxx"
+export API_SECRET="xxxxxxxx"
+```

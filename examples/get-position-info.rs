@@ -13,9 +13,9 @@ use bybit::v5::{
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let args: Vec<_> = std::env::args().collect();
-    let api_key = args.get(1).expect("API_KEY is required");
-    let api_secret = args.get(2).expect("API_SECRET is required");
+    let api_key = std::env::var("API_KEY").expect("environment variable API_KEY is required");
+    let api_secret =
+        std::env::var("API_SECRET").expect("environment variable API_SECRET is required");
 
     let base_url = BASE_URL_API_DEMO_TRADING; // or BASE_URL_API_MAINNET_1, BASE_URL_API_TESTNET
 
