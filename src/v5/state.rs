@@ -12,6 +12,12 @@ pub struct SymbolState {
     sell: Option<Position>,
 }
 
+impl Default for SymbolState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SymbolState {
     pub fn new() -> Self {
         Self {

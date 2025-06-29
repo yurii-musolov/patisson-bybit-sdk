@@ -310,7 +310,7 @@ pub struct GetTradesParams {
     /// Apply to option only
     /// If the field is not passed, return BTC data by default
     pub base_coin: Option<String>,
-    /// optionType	false	string	Option type. Call or Put. Apply to option only
+    /// optionType false string Option type. Call or Put. Apply to option only
     pub option_type: Option<u64>,
     /// spot: [1,60], default: 60
     /// others: [1,1000], default: 500
@@ -346,7 +346,7 @@ pub struct InverseLinearSpotTrade {
     /// Trade time (ms)
     #[serde(deserialize_with = "number")]
     pub time: Timestamp,
-    /// boolean	Whether the trade is block trade
+    /// boolean Whether the trade is block trade
     pub is_block_trade: bool,
     /// Whether the trade is RPI trade
     #[serde(rename = "isRPITrade")]
@@ -369,7 +369,7 @@ pub struct OptionTrade {
     /// Trade time (ms)
     #[serde(deserialize_with = "number")]
     pub time: Timestamp,
-    /// boolean	Whether the trade is block trade
+    /// boolean Whether the trade is block trade
     pub is_block_trade: bool,
     /// Whether the trade is RPI trade
     #[serde(rename = "isRPITrade")]

@@ -26,8 +26,7 @@ where
         1 => Ok(true),
         0 => Ok(false),
         other => Err(serde::de::Error::custom(format!(
-            "invalid boolean integer: {}",
-            other
+            "invalid boolean integer: {other}"
         ))),
     }
 }
@@ -41,8 +40,7 @@ where
         "1" => Ok(true),
         "0" => Ok(false),
         other => Err(serde::de::Error::custom(format!(
-            "invalid boolean string: {}",
-            other
+            "invalid boolean string: {other}"
         ))),
     }
 }
@@ -57,8 +55,7 @@ where
         Some("0") => Ok(Some(false)),
         Some("") | None => Ok(None),
         Some(other) => Err(serde::de::Error::custom(format!(
-            "invalid boolean string: {}",
-            other
+            "invalid boolean string: {other}"
         ))),
     }
 }

@@ -247,6 +247,6 @@ impl fmt::Display for Path {
             Self::Trade => "/v5/trade",
         };
 
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
