@@ -85,7 +85,7 @@ pub enum TickerMsg {
         topic: String,
         #[serde(default, deserialize_with = "option_number")]
         cs: Option<u64>,
-        ts: u64,
+        ts: Timestamp,
         data: TickerSnapshotMsg,
     },
     #[serde(rename = "delta")]
@@ -93,7 +93,7 @@ pub enum TickerMsg {
         topic: String,
         #[serde(default, deserialize_with = "option_number")]
         cs: Option<u64>,
-        ts: u64,
+        ts: Timestamp,
         data: TickerDeltaMsg,
     },
 }
@@ -245,7 +245,7 @@ pub enum KLineMsg {
     #[serde(rename = "snapshot")]
     Snapshot {
         topic: String,
-        ts: u64,
+        ts: Timestamp,
         data: Vec<KLineSnapshotMsg>,
     },
 }
@@ -524,7 +524,7 @@ pub struct PositionUpdateMsg {
     /// Trailing stop
     pub trailing_stop: Decimal,
     /// Unrealised profit and loss
-    #[serde(deserialize_with = "option_decimal")]
+    #[serde(default, deserialize_with = "option_decimal")]
     pub unrealized_pnl: Option<Decimal>,
     /// The realised PnL for the current holding position
     pub cur_realised_pnl: Decimal,
@@ -595,27 +595,31 @@ mod tests {
     #[test]
     fn deserialize_incoming_message_command_subscribe() {
         let json = r#"{"success":true,"ret_msg":"","conn_id":"c0c928a4-daab-460d-b186-45e90a10a3d4","req_id":"","op":"subscribe"}"#;
-        let message: IncomingMessage = deserialize_str(json).unwrap();
         let expected = IncomingMessage::Command(CommandMsg::Subscribe {
             req_id: None,
             ret_msg: None,
             conn_id: String::from("c0c928a4-daab-460d-b186-45e90a10a3d4"),
             success: Some(true),
         });
-        assert_eq!(message, expected);
+
+        let message = deserialize_str(json).unwrap();
+
+        assert_eq!(expected, message);
     }
 
     #[test]
     fn deserialize_incoming_message_command_unsubscribe() {
         let json = r#"{"success":true,"ret_msg":"","conn_id":"c0c928a4-daab-460d-b186-45e90a10a3d4","req_id":"","op":"unsubscribe"}"#;
-        let message: IncomingMessage = deserialize_str(json).unwrap();
         let expected = IncomingMessage::Command(CommandMsg::Unsubscribe {
             req_id: None,
             ret_msg: None,
             conn_id: String::from("c0c928a4-daab-460d-b186-45e90a10a3d4"),
             success: Some(true),
         });
-        assert_eq!(message, expected);
+
+        let message = deserialize_str(json).unwrap();
+
+        assert_eq!(expected, message);
     }
 
     #[test]
@@ -638,7 +642,6 @@ mod tests {
 		    "cs": 195377749067,
 		    "ts": 1718995014034
 		}"#;
-        let message: IncomingMessage = deserialize_str(json).unwrap();
         let ticker_delta = TickerMsg::Delta {
             topic: String::from("tickers.BTCUSDT"),
             cs: Some(195377749067),
@@ -674,7 +677,10 @@ mod tests {
             },
         };
         let expected = IncomingMessage::Ticker(Box::new(ticker_delta));
-        assert_eq!(message, expected);
+
+        let message = deserialize_str(json).unwrap();
+
+        assert_eq!(expected, message);
     }
 
     #[test]
@@ -711,7 +717,6 @@ mod tests {
 		    "cs": 337149693308,
 		    "ts": 1740622194359
 		}"#;
-        let message: IncomingMessage = deserialize_str(json).unwrap();
         let ticker_snapshot = TickerMsg::Snapshot {
             topic: String::from("tickers.BTCUSDT"),
             cs: Some(337149693308),
@@ -747,7 +752,10 @@ mod tests {
             },
         };
         let expected = IncomingMessage::Ticker(Box::new(ticker_snapshot));
-        assert_eq!(message, expected);
+
+        let message = deserialize_str(json).unwrap();
+
+        assert_eq!(expected, message);
     }
 
     #[test]
@@ -770,7 +778,6 @@ mod tests {
                 }
             ]
         }"#;
-        let message: IncomingMessage = deserialize_str(json).unwrap();
         let expected = IncomingMessage::Trade(TradeMsg::Snapshot {
             id: None,
             topic: String::from("publicTrade.BTCUSDT"),
@@ -791,7 +798,10 @@ mod tests {
                 iv: None,
             }],
         });
-        assert_eq!(message, expected);
+
+        let message = deserialize_str(json).unwrap();
+
+        assert_eq!(expected, message);
     }
 
     #[test]
@@ -811,8 +821,7 @@ mod tests {
                 }
             ]
         }"#;
-        let message: IncomingMessage = deserialize_str(json).unwrap();
-        let expected = IncomingMessage::AllLiquidation(AllLiquidationMsg::Snapshot {
+        let expected = AllLiquidationMsg::Snapshot {
             topic: String::from("allLiquidation.BTCUSDT"),
             ts: 1741450605553,
             data: vec![AllLiquidationSnapshotMsg {
@@ -822,8 +831,11 @@ mod tests {
                 size: dec!(0.001),
                 price: dec!(85823.60),
             }],
-        });
-        assert_eq!(message, expected);
+        };
+
+        let message = deserialize_str(json).unwrap();
+
+        assert_eq!(expected, message);
     }
 
     #[test]
@@ -880,7 +892,6 @@ mod tests {
                 }
             ]
         }"#;
-        let message: IncomingMessage = deserialize_str(json).unwrap();
         let expected = IncomingMessage::Order(OrderMsg::Update {
             id: String::from("5923240c6880ab-c59f-420b-9adb-3639adc9dd90"),
             creation_time: 1672364262474,
@@ -936,7 +947,10 @@ mod tests {
                 updated_time: 1672364262457,
             }],
         });
-        assert_eq!(message, expected);
+
+        let message = deserialize_str(json).unwrap();
+
+        assert_eq!(expected, message);
     }
 
     #[test]
@@ -984,8 +998,7 @@ mod tests {
                 }
             ]
         }"#;
-        let message: IncomingMessage = deserialize_str(json).unwrap();
-        let expected = IncomingMessage::Position(PositionMsg {
+        let position = PositionMsg {
             id: String::from("1003076014fb7eedb-c7e6-45d6-a8c1-270f0169171a"),
             topic: String::from("position"),
             creation_time: 1697682317044,
@@ -1029,7 +1042,11 @@ mod tests {
                 updated_time: 1697682317038,
                 seq: 8327597863,
             }],
-        });
-        assert_eq!(message, expected);
+        };
+        let expected = IncomingMessage::Position(position);
+
+        let message = deserialize_str(json).unwrap();
+
+        assert_eq!(expected, message);
     }
 }
