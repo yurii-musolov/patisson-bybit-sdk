@@ -3,6 +3,8 @@ use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use std::fmt::{self, Display, Formatter};
 
+use crate::v5::Timestamp;
+
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SensitiveString(String);
 
@@ -65,7 +67,7 @@ pub fn hmac_sha256(key: impl AsRef<[u8]>, message: impl AsRef<[u8]>) -> String {
     hex::encode(&mac)
 }
 
-type Timer = fn() -> u128;
+type Timer = fn() -> Timestamp;
 pub struct Signer {
     api_key: SensitiveString,
     api_secret: SensitiveString,
@@ -104,8 +106,8 @@ impl Signer {
 }
 
 /// Return milliseconds.
-fn timestamp() -> u128 {
-    std::time::UNIX_EPOCH.elapsed().unwrap().as_millis()
+fn timestamp() -> Timestamp {
+    std::time::UNIX_EPOCH.elapsed().unwrap().as_millis() as Timestamp
 }
 
 #[cfg(test)]
