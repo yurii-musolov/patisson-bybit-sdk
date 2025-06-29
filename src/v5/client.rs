@@ -194,7 +194,7 @@ where
     T: serde::de::DeserializeOwned,
 {
     let response = request.send().await?;
-    let headers = parse_headers(&response.headers());
+    let headers = parse_headers(response.headers());
     let json = response.text().await?;
     if !headers.is_ret_code_ok() {
         let msg: APIErrorResponse = deserialize_str(&json)?;
@@ -214,29 +214,23 @@ where
 fn parse_headers(headers: &HeaderMap) -> Headers {
     let ret_code = headers
         .get(HEADER_RET_CODE)
-        .map(|h| h.to_str().unwrap_or_default().parse().ok())
-        .flatten();
+        .and_then(|h| h.to_str().unwrap_or_default().parse().ok());
     let trace_id = headers
         .get(HEADER_TRACE_ID)
-        .map(|h| h.to_str().map(|str| str.into()).ok())
-        .flatten();
+        .and_then(|h| h.to_str().map(|str| str.into()).ok());
     let time_now = headers
         .get(HEADER_TIME_NOW)
-        .map(|h| h.to_str().unwrap_or_default().parse().ok())
-        .flatten();
+        .and_then(|h| h.to_str().unwrap_or_default().parse().ok());
 
     let api_limit = headers
         .get(HEADER_X_BAPI_LIMIT)
-        .map(|h| h.to_str().unwrap_or_default().parse().ok())
-        .flatten();
+        .and_then(|h| h.to_str().unwrap_or_default().parse().ok());
     let api_limit_status = headers
         .get(HEADER_X_BAPI_LIMIT_STATUS)
-        .map(|h| h.to_str().unwrap_or_default().parse().ok())
-        .flatten();
+        .and_then(|h| h.to_str().unwrap_or_default().parse().ok());
     let api_limit_reset_timestamp = headers
         .get(HEADER_X_BAPI_LIMIT_RESET_TIMESTAMP)
-        .map(|h| h.to_str().unwrap_or_default().parse().ok())
-        .flatten();
+        .and_then(|h| h.to_str().unwrap_or_default().parse().ok());
 
     Headers {
         ret_code,

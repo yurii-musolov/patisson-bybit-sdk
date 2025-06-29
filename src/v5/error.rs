@@ -52,7 +52,7 @@ impl From<super::APIErrorResponse> for Error {
     fn from(resp: super::APIErrorResponse) -> Self {
         Self::Api {
             code: resp.ret_code,
-            msg: resp.ret_msg.into(),
+            msg: resp.ret_msg,
         }
     }
 }
