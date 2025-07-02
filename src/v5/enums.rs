@@ -818,22 +818,33 @@ impl Type {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq)]
+#[repr(u8)]
 pub enum UnifiedMarginStatus {
-    #[serde(rename = "1")]
-    ClassicAccount,
+    ClassicAccount = 1,
     /// 1.0
-    #[serde(rename = "3")]
-    UnifiedTradingAccount1,
+    UnifiedTradingAccount1 = 3,
     /// 1.0 (pro version)
-    #[serde(rename = "4")]
-    UnifiedTradingAccount1Pro,
+    UnifiedTradingAccount1Pro = 4,
     /// 2.0
-    #[serde(rename = "5")]
-    UnifiedTradingAccount2,
+    UnifiedTradingAccount2 = 5,
     /// 2.0 (pro version)
-    #[serde(rename = "6")]
-    UnifiedTradingAccount2Pro,
+    UnifiedTradingAccount2Pro = 6,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum MarginMode {
+    IsolatedMargin,
+    RegularMargin,
+    PortfolioMargin,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum SpotHedgingStatus {
+    On,
+    Off,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq)]

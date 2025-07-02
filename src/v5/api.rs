@@ -7,9 +7,10 @@ use serde_aux::prelude::{
 
 use crate::v5::{
     AccountType, AdlRankIndicator, CancelType, ContractType, CopyTrading, CreateType,
-    CurAuctionPhase, OcoTriggerBy, OrderStatus, OrderType, OrderUpdateMsg, PlaceType, PositionIdx,
-    PositionStatus, PositionUpdateMsg, RejectReason, Side, SmpType, Status, StopOrderType,
-    TimeInForce, TpslMode, TradeMode, TriggerBy, TriggerDirection,
+    CurAuctionPhase, MarginMode, OcoTriggerBy, OrderStatus, OrderType, OrderUpdateMsg, PlaceType,
+    PositionIdx, PositionStatus, PositionUpdateMsg, RejectReason, Side, SmpType, SpotHedgingStatus,
+    Status, StopOrderType, TimeInForce, TpslMode, TradeMode, TriggerBy, TriggerDirection,
+    UnifiedMarginStatus,
     enums::{Category, Interval},
     serde::{
         empty_string_as_none, int_to_bool, invalid_as_none, string_to_bool, string_to_option_bool,
@@ -24,8 +25,8 @@ pub struct Resp<T> {
     pub ret_code: i64,
     pub ret_msg: String,
     pub result: T,
-    pub time: Timestamp,
-    pub ret_ext_info: RetExtInfo,
+    pub time: Option<Timestamp>,
+    pub ret_ext_info: Option<RetExtInfo>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -38,7 +39,7 @@ pub struct APIErrorResponse {
 #[derive(Debug, PartialEq)]
 pub struct Response<T> {
     pub result: T,
-    pub time: Timestamp,
+    pub time: Option<Timestamp>,
     pub headers: Headers,
 }
 
@@ -1171,6 +1172,22 @@ pub struct WalletCoin {
     pub available_to_borrow: Decimal,
 }
 
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountInfo {
+    /// Account status
+    pub unified_margin_status: UnifiedMarginStatus,
+    /// ISOLATED_MARGIN, REGULAR_MARGIN, PORTFOLIO_MARGIN
+    pub margin_mode: MarginMode,
+    /// Whether this account is a leader (copytrading). true, false
+    pub is_master_trader: bool,
+    /// Whether the unified account enables Spot hedging. ON, OFF
+    pub spot_hedging_status: SpotHedgingStatus,
+    /// Account data updated timestamp (ms)
+    #[serde(deserialize_with = "number")]
+    pub updated_time: Timestamp,
+}
+
 #[cfg(test)]
 mod tests {
     use rust_decimal::dec;
@@ -1255,8 +1272,8 @@ mod tests {
                     },
                 ],
             },
-            time: 1672025956592,
-            ret_ext_info: RetExtInfo {},
+            time: Some(1672025956592),
+            ret_ext_info: Some(RetExtInfo {}),
         };
 
         let message = deserialize_str(json).unwrap();
@@ -1337,8 +1354,8 @@ mod tests {
                     cur_pre_listing_phase: None,
                 }],
             },
-            time: 1672376496682,
-            ret_ext_info: RetExtInfo {},
+            time: Some(1672376496682),
+            ret_ext_info: Some(RetExtInfo {}),
         };
 
         let message = deserialize_str(json).unwrap();
@@ -1384,8 +1401,8 @@ mod tests {
                     is_rpi_trade: true,
                 }],
             },
-            time: 1672053054358,
-            ret_ext_info: RetExtInfo {},
+            time: Some(1672053054358),
+            ret_ext_info: Some(RetExtInfo {}),
         };
 
         let message = deserialize_str(json).unwrap();
@@ -1506,8 +1523,8 @@ mod tests {
                     updated_time: 1684738540561,
                 }],
             },
-            time: 1684765770483,
-            ret_ext_info: RetExtInfo {},
+            time: Some(1684765770483),
+            ret_ext_info: Some(RetExtInfo {}),
         };
 
         let message = deserialize_str(json).unwrap();
@@ -1610,8 +1627,8 @@ mod tests {
                     tpsl_mode: TpslMode::Full,
                 }],
             },
-            time: 1697684980172,
-            ret_ext_info: RetExtInfo {},
+            time: Some(1697684980172),
+            ret_ext_info: Some(RetExtInfo {}),
         };
 
         let message: Resp<CursorPagination<Position>> = deserialize_str(json).unwrap();
@@ -1704,8 +1721,43 @@ mod tests {
                     }],
                 }],
             },
-            time: 1690872862481,
-            ret_ext_info: RetExtInfo {},
+            time: Some(1690872862481),
+            ret_ext_info: Some(RetExtInfo {}),
+        };
+
+        let message = deserialize_str(json).unwrap();
+
+        assert_eq!(expected, message);
+    }
+
+    #[test]
+    fn deserialize_response_get_account_info() {
+        let json = r#"{
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+                "marginMode": "REGULAR_MARGIN",
+                "updatedTime": "1697078946000",
+                "unifiedMarginStatus": 4,
+                "dcpStatus": "OFF",
+                "timeWindow": 10,
+                "smpGroup": 0,
+                "isMasterTrader": false,
+                "spotHedgingStatus": "OFF"
+            }
+        }"#;
+        let expected = Resp {
+            ret_code: 0,
+            ret_msg: String::from("OK"),
+            result: AccountInfo {
+                unified_margin_status: UnifiedMarginStatus::UnifiedTradingAccount1Pro,
+                margin_mode: MarginMode::RegularMargin,
+                is_master_trader: false,
+                spot_hedging_status: SpotHedgingStatus::Off,
+                updated_time: 1697078946000,
+            },
+            time: None,
+            ret_ext_info: None,
         };
 
         let message = deserialize_str(json).unwrap();
