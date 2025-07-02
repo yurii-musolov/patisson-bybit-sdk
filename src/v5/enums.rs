@@ -461,7 +461,7 @@ pub enum RejectReason {
     EcReachMarketPriceLimit,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum AccountType {
     /// Inverse Derivatives Account | Derivatives Account
     CONTRACT,

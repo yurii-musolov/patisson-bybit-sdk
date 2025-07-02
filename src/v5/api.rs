@@ -6,10 +6,10 @@ use serde_aux::prelude::{
 };
 
 use crate::v5::{
-    AdlRankIndicator, CancelType, ContractType, CopyTrading, CreateType, CurAuctionPhase,
-    OcoTriggerBy, OrderStatus, OrderType, OrderUpdateMsg, PlaceType, PositionIdx, PositionStatus,
-    PositionUpdateMsg, RejectReason, Side, SmpType, Status, StopOrderType, TimeInForce, TpslMode,
-    TradeMode, TriggerBy, TriggerDirection,
+    AccountType, AdlRankIndicator, CancelType, ContractType, CopyTrading, CreateType,
+    CurAuctionPhase, OcoTriggerBy, OrderStatus, OrderType, OrderUpdateMsg, PlaceType, PositionIdx,
+    PositionStatus, PositionUpdateMsg, RejectReason, Side, SmpType, Status, StopOrderType,
+    TimeInForce, TpslMode, TradeMode, TriggerBy, TriggerDirection,
     enums::{Category, Interval},
     serde::{
         empty_string_as_none, int_to_bool, invalid_as_none, string_to_bool, string_to_option_bool,
@@ -48,6 +48,12 @@ pub struct CursorPagination<T> {
     pub category: Category,
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub next_page_cursor: Option<String>,
+    pub list: Vec<T>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct List<T> {
     pub list: Vec<T>,
 }
 
@@ -1052,6 +1058,119 @@ impl Position {
     }
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetWalletBalanceParams {
+    /// Account type
+    /// UTA2.0: UNIFIED
+    /// UTA1.0: UNIFIED, CONTRACT(inverse derivatives wallet)
+    /// Classic account: CONTRACT, SPOT
+    /// To get Funding wallet balance, please go to this endpoint
+    account_type: String,
+    /// Coin name, uppercase only
+    /// If not passed, it returns non-zero asset info
+    /// You can pass multiple coins to query, separated by comma. USDT,USDC
+    coin: Option<String>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct WalletBalance {
+    /// Account type
+    pub account_type: AccountType,
+    /// deprecated field
+    // pub accountLTV:String,
+    /// Account IM rate
+    /// You can refer to this Glossary to understand the below fields calculation and mearning
+    /// All account wide fields are not applicable to
+    /// UTA2.0(isolated margin),
+    /// UTA1.0(isolated margin), UTA1.0(CONTRACT),
+    /// classic account(SPOT, CONTRACT)
+    #[serde(rename = "accountIMRate")]
+    pub account_im_rate: Decimal,
+    /// Account MM rate
+    #[serde(rename = "accountMMRate")]
+    pub account_mm_rate: Decimal,
+    /// Account total equity (USD)
+    pub total_equity: Decimal,
+    /// Account wallet balance (USD): ∑Asset Wallet Balance By USD value of each asset
+    pub total_wallet_balance: Decimal,
+    /// Account margin balance (USD): totalWalletBalance + totalPerpUPL
+    pub total_margin_balance: Decimal,
+    /// Account available balance (USD), Cross Margin: totalMarginBalance - totalInitialMargin
+    pub total_available_balance: Decimal,
+    /// Account Perps and Futures unrealised p&l (USD): ∑Each Perp and USDC Futures upl by base coin
+    #[serde(rename = "totalPerpUPL")]
+    pub total_perp_upl: Decimal,
+    /// Account initial margin (USD): ∑Asset Total Initial Margin Base Coin
+    pub total_initial_margin: Decimal,
+    /// Account maintenance margin (USD): ∑ Asset Total Maintenance Margin Base Coin
+    pub total_maintenance_margin: Decimal,
+    pub coin: Vec<WalletCoin>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct WalletCoin {
+    /// Coin name, such as BTC, ETH, USDT, USDC
+    pub coin: String,
+    /// Equity of coin
+    pub equity: Decimal,
+    /// USD value of coin
+    pub usd_value: Decimal,
+    /// Wallet balance of coin
+    pub wallet_balance: Decimal,
+    /// Available balance for Spot wallet. This is a unique field for Classic SPOT
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub free: Option<Decimal>,
+    /// Locked balance due to the Spot open order
+    pub locked: Decimal,
+    /// The spot asset qty that is used to hedge in the portfolio margin, truncate to 8 decimals and "0" by default
+    pub spot_hedging_qty: Decimal,
+    /// Borrow amount of current coin
+    pub borrow_amount: Decimal,
+    /// Note: this field is deprecated for accountType=UNIFIED from 9 Jan, 2025
+    /// Transferable balance: you can use Get Transferable Amount (Unified) or Get All Coins Balance instead
+    /// Derivatives available balance:
+    /// isolated margin: walletBalance - totalPositionIM - totalOrderIM - locked - bonus
+    /// cross & portfolio margin: look at field totalAvailableBalance(USD), which needs to be converted into the available balance of accordingly coin through index price
+    /// Spot (margin) available balance: refer to Get Borrow Quota (Spot)
+    pub available_to_withdraw: Decimal,
+    /// Accrued interest
+    pub accrued_interest: Decimal,
+    /// Pre-occupied margin for order. For portfolio margin mode, it returns ""
+    #[serde(rename = "totalOrderIM", default, deserialize_with = "option_decimal")]
+    pub total_order_im: Option<Decimal>,
+    /// Sum of initial margin of all positions + Pre-occupied liquidation fee. For portfolio margin mode, it returns ""
+    #[serde(
+        rename = "totalPositionIM",
+        default,
+        deserialize_with = "option_decimal"
+    )]
+    pub total_position_im: Option<Decimal>,
+    /// Sum of maintenance margin for all positions. For portfolio margin mode, it returns ""
+    #[serde(
+        rename = "totalPositionMM",
+        default,
+        deserialize_with = "option_decimal"
+    )]
+    pub total_position_mm: Option<Decimal>,
+    /// Unrealised P&L
+    pub unrealised_pnl: Decimal,
+    /// Cumulative Realised P&L
+    pub cum_realised_pnl: Decimal,
+    /// Bonus. This is a unique field for accounType=UNIFIED
+    pub bonus: Decimal,
+    /// Whether it can be used as a margin collateral currency (platform), true: YES, false: NO
+    /// When marginCollateral=false, then collateralSwitch is meaningless
+    pub margin_collateral: bool,
+    /// Whether the collateral is turned on by user (user), true: ON, false: OFF
+    // When marginCollateral=true, then collateralSwitch is meaningful
+    pub collateral_switch: bool,
+    /// deprecated field, always return "". Please refer to availableToBorrow in the Get Collateral Info
+    pub available_to_borrow: Decimal,
+}
+
 #[cfg(test)]
 mod tests {
     use rust_decimal::dec;
@@ -1101,7 +1220,6 @@ mod tests {
             "retExtInfo": {},
             "time": 1672025956592
         }"#;
-        let message: Resp<KLine> = deserialize_str(json).unwrap();
         let expected = Resp {
             ret_code: 0,
             ret_msg: String::from("OK"),
@@ -1140,7 +1258,10 @@ mod tests {
             time: 1672025956592,
             ret_ext_info: RetExtInfo {},
         };
-        assert_eq!(message, expected);
+
+        let message = deserialize_str(json).unwrap();
+
+        assert_eq!(expected, message);
     }
 
     #[test]
@@ -1182,7 +1303,6 @@ mod tests {
             "retExtInfo": {},
             "time": 1672376496682
         }"#;
-        let message: Resp<Ticker> = deserialize_str(json).unwrap();
         let expected = Resp {
             ret_code: 0,
             ret_msg: String::from("OK"),
@@ -1220,7 +1340,10 @@ mod tests {
             time: 1672376496682,
             ret_ext_info: RetExtInfo {},
         };
-        assert_eq!(message, expected);
+
+        let message = deserialize_str(json).unwrap();
+
+        assert_eq!(expected, message);
     }
 
     #[test]
@@ -1246,7 +1369,6 @@ mod tests {
             "retExtInfo": {},
             "time": 1672053054358
         }"#;
-        let message: Resp<Trade> = deserialize_str(json).unwrap();
         let expected = Resp {
             ret_code: 0,
             ret_msg: String::from("OK"),
@@ -1265,7 +1387,10 @@ mod tests {
             time: 1672053054358,
             ret_ext_info: RetExtInfo {},
         };
-        assert_eq!(message, expected);
+
+        let message = deserialize_str(json).unwrap();
+
+        assert_eq!(expected, message);
     }
 
     #[test]
@@ -1325,7 +1450,6 @@ mod tests {
             "retExtInfo": {},
             "time": 1684765770483
         }"#;
-        let message: Resp<CursorPagination<Order>> = deserialize_str(json).unwrap();
         let expected = Resp {
             ret_code: 0,
             ret_msg: String::from("OK"),
@@ -1385,7 +1509,10 @@ mod tests {
             time: 1684765770483,
             ret_ext_info: RetExtInfo {},
         };
-        assert_eq!(message, expected);
+
+        let message = deserialize_str(json).unwrap();
+
+        assert_eq!(expected, message);
     }
 
     #[test]
@@ -1437,7 +1564,6 @@ mod tests {
             "retExtInfo": {},
             "time": 1697684980172
         }"#;
-        let message: Resp<CursorPagination<Position>> = deserialize_str(json).unwrap();
         let expected = Resp {
             ret_code: 0,
             ret_msg: String::from("OK"),
@@ -1487,6 +1613,103 @@ mod tests {
             time: 1697684980172,
             ret_ext_info: RetExtInfo {},
         };
+
+        let message: Resp<CursorPagination<Position>> = deserialize_str(json).unwrap();
+
         assert_eq!(message, expected);
+    }
+
+    #[test]
+    fn deserialize_response_get_wallet_balance() {
+        let json = r#"{
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+                "list": [
+                    {
+                        "totalEquity": "3.31216591",
+                        "accountIMRate": "0",
+                        "totalMarginBalance": "3.00326056",
+                        "totalInitialMargin": "0",
+                        "accountType": "UNIFIED",
+                        "totalAvailableBalance": "3.00326056",
+                        "accountMMRate": "0",
+                        "totalPerpUPL": "0",
+                        "totalWalletBalance": "3.00326056",
+                        "accountLTV": "0",
+                        "totalMaintenanceMargin": "0",
+                        "coin": [
+                            {
+                                "availableToBorrow": "3",
+                                "bonus": "0",
+                                "accruedInterest": "0",
+                                "availableToWithdraw": "0",
+                                "totalOrderIM": "0",
+                                "equity": "0",
+                                "totalPositionMM": "0",
+                                "usdValue": "0",
+                                "spotHedgingQty": "0.01592413",
+                                "unrealisedPnl": "0",
+                                "collateralSwitch": true,
+                                "borrowAmount": "0.0",
+                                "totalPositionIM": "0",
+                                "walletBalance": "0",
+                                "cumRealisedPnl": "0",
+                                "locked": "0",
+                                "marginCollateral": true,
+                                "coin": "BTC"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "retExtInfo": {},
+            "time": 1690872862481
+        }"#;
+        let expected = Resp {
+            ret_code: 0,
+            ret_msg: String::from("OK"),
+            result: List {
+                list: vec![WalletBalance {
+                    account_type: AccountType::UNIFIED,
+                    account_im_rate: dec!(0),
+                    account_mm_rate: dec!(0),
+                    total_equity: dec!(3.31216591),
+                    total_wallet_balance: dec!(3.00326056),
+                    total_margin_balance: dec!(3.00326056),
+                    total_available_balance: dec!(3.00326056),
+                    total_perp_upl: dec!(0),
+                    total_initial_margin: dec!(0),
+                    total_maintenance_margin: dec!(0),
+                    coin: vec![WalletCoin {
+                        coin: String::from("BTC"),
+                        equity: dec!(0),
+                        usd_value: dec!(0),
+                        wallet_balance: dec!(0),
+                        free: None,
+                        locked: dec!(0),
+                        spot_hedging_qty: dec!(0.01592413),
+                        borrow_amount: dec!(0.0),
+                        available_to_withdraw: dec!(0),
+                        accrued_interest: dec!(0),
+                        total_order_im: Some(dec!(0)),
+                        total_position_im: Some(dec!(0)),
+                        total_position_mm: Some(dec!(0)),
+                        unrealised_pnl: dec!(0),
+                        cum_realised_pnl: dec!(0),
+                        bonus: dec!(0),
+                        margin_collateral: true,
+                        collateral_switch: true,
+                        available_to_borrow: dec!(3),
+                    }],
+                }],
+            },
+            time: 1690872862481,
+            ret_ext_info: RetExtInfo {},
+        };
+
+        let message = deserialize_str(json).unwrap();
+
+        assert_eq!(expected, message);
     }
 }
