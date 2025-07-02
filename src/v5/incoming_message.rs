@@ -296,7 +296,9 @@ pub struct AllLiquidationSnapshotMsg {
 pub enum OrderMsg {
     #[serde(rename = "order", rename_all = "camelCase")]
     Update {
+        /// Message ID
         id: String,
+        /// Data created timestamp (ms)
         creation_time: Timestamp,
         data: Vec<OrderUpdateMsg>,
     },
@@ -326,19 +328,22 @@ pub struct OrderUpdateMsg {
     pub symbol: String,
     /// Order price
     pub price: Decimal,
+    /// Dedicated field for EU liquidity provider
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub broker_order_price: Option<Decimal>,
     /// Order qty
     pub qty: Decimal,
     /// Side. Buy,Sell
     pub side: Side,
     /// Position index. Used to identify positions in different position modes.
     pub position_idx: PositionIdx,
+    /// Order status
+    pub order_status: OrderStatus,
     /// Order create type
     /// Only for category=linear or inverse
     /// Spot, Option do not have this key
     #[serde(default, deserialize_with = "invalid_as_none")]
     pub create_type: Option<CreateType>,
-    /// Order status
-    pub order_status: OrderStatus,
     /// Cancel type
     pub cancel_type: CancelType,
     /// Reject reason. Classic spot is not supported
@@ -903,6 +908,7 @@ mod tests {
                 block_trade_id: None,
                 symbol: String::from("ETH-30DEC22-1400-C"),
                 price: dec!(72.5),
+                broker_order_price: None,
                 qty: dec!(1.0),
                 side: Side::Sell,
                 position_idx: PositionIdx::OneWay,
