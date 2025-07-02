@@ -1,6 +1,71 @@
 use std::collections::HashMap;
 
-use crate::v5::{Order, OrderUpdateMsg, Position, PositionUpdateMsg};
+use crate::v5::{Category, Order, OrderUpdateMsg, Position, PositionIdx, PositionUpdateMsg};
+
+pub struct UserState {
+    spot: HashMap<String, SymbolState>,
+    linear: HashMap<String, SymbolState>,
+    inverse: HashMap<String, SymbolState>,
+    option: HashMap<String, SymbolState>,
+}
+
+impl Default for UserState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl UserState {
+    pub fn new() -> Self {
+        Self {
+            inverse: HashMap::new(),
+            linear: HashMap::new(),
+            option: HashMap::new(),
+            spot: HashMap::new(),
+        }
+    }
+
+    fn symbol_state(&mut self, category: Category, symbol: String) -> &mut SymbolState {
+        match category {
+            Category::Inverse => &mut self.inverse,
+            Category::Linear => &mut self.linear,
+            Category::Option => &mut self.option,
+            Category::Spot => &mut self.spot,
+        }
+        .entry(symbol)
+        .or_insert_with(|| SymbolState::default())
+    }
+
+    pub fn add_order(&mut self, category: Category, order: Order) {
+        self.symbol_state(category, order.symbol.clone())
+            .add_order(order);
+    }
+
+    pub fn update_order(&mut self, category: Category, msg: OrderUpdateMsg) {
+        self.symbol_state(category, msg.symbol.clone())
+            .update_order(msg);
+    }
+
+    pub fn remove_order(&mut self, category: Category, order: Order) {
+        self.symbol_state(category, order.symbol.clone())
+            .remove_order(order);
+    }
+
+    pub fn add_position(&mut self, category: Category, position: Position) {
+        self.symbol_state(category, position.symbol.clone())
+            .add_position(position);
+    }
+
+    pub fn update_position(&mut self, category: Category, msg: PositionUpdateMsg) {
+        self.symbol_state(category, msg.symbol.clone())
+            .update_position(msg);
+    }
+
+    pub fn remove_position(&mut self, category: Category, position: Position) {
+        self.symbol_state(category, position.symbol.clone())
+            .remove_position(position);
+    }
+}
 
 pub struct SymbolState {
     orders: HashMap<String, Order>,
@@ -39,43 +104,33 @@ impl SymbolState {
     }
 
     pub fn remove_order(&mut self, order: Order) {
-        let id = order.order_id.clone();
-        let _ = self.orders.remove(&id);
+        let _ = self.orders.remove(&order.order_id);
     }
 
     pub fn add_position(&mut self, position: Position) {
         match position.position_idx {
-            super::PositionIdx::OneWay => self.one_way = Some(position),
-            super::PositionIdx::Buy => self.buy = Some(position),
-            super::PositionIdx::Sell => self.sell = Some(position),
+            PositionIdx::OneWay => self.one_way = Some(position),
+            PositionIdx::Buy => self.buy = Some(position),
+            PositionIdx::Sell => self.sell = Some(position),
         }
     }
 
     pub fn update_position(&mut self, msg: PositionUpdateMsg) {
-        match msg.position_idx {
-            super::PositionIdx::OneWay => {
-                if let Some(position) = self.one_way.as_mut() {
-                    position.update(msg);
-                }
-            }
-            super::PositionIdx::Buy => {
-                if let Some(position) = self.buy.as_mut() {
-                    position.update(msg);
-                }
-            }
-            super::PositionIdx::Sell => {
-                if let Some(position) = self.sell.as_mut() {
-                    position.update(msg);
-                }
-            }
+        let position = match msg.position_idx {
+            PositionIdx::OneWay => &mut self.one_way,
+            PositionIdx::Buy => &mut self.buy,
+            PositionIdx::Sell => &mut self.sell,
+        };
+        if let Some(position) = position.as_mut() {
+            position.update(msg);
         }
     }
 
     pub fn remove_position(&mut self, position: Position) {
         match position.position_idx {
-            super::PositionIdx::OneWay => self.one_way = None,
-            super::PositionIdx::Buy => self.buy = None,
-            super::PositionIdx::Sell => self.sell = None,
+            PositionIdx::OneWay => self.one_way = None,
+            PositionIdx::Buy => self.buy = None,
+            PositionIdx::Sell => self.sell = None,
         }
     }
 }
