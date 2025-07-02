@@ -1,8 +1,8 @@
 use reqwest::{self, Method, RequestBuilder, header::HeaderMap};
 
 use crate::v5::{
-    APIErrorResponse, GetPositionInfoParams, GetWalletBalanceParams, List, Position, WalletBalance,
-    crypto::Signer, serde::deserialize_str,
+    APIErrorResponse, AccountInfo, GetPositionInfoParams, GetWalletBalanceParams, List, Position,
+    WalletBalance, crypto::Signer, serde::deserialize_str,
 };
 
 use super::{
@@ -200,6 +200,18 @@ impl Client {
         let query = serde_urlencoded::to_string(&params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::AccountWalletBalance);
         let headers = self.get_signed_headers(&query);
+
+        let client = reqwest::Client::builder().build()?;
+        let request = client.request(Method::GET, url).headers(headers);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Query the account information, like margin mode, account mode, etc.
+    pub async fn get_account_info(&self) -> Result<Response<AccountInfo>, Error> {
+        let url = format!("{}{}", self.base_url, Path::AccountInfo);
+        let headers = self.get_signed_headers(&"");
 
         let client = reqwest::Client::builder().build()?;
         let request = client.request(Method::GET, url).headers(headers);
