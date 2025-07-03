@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::v5::{Category, Order, OrderUpdateMsg, Position, PositionIdx, PositionUpdateMsg};
+use crate::v5::{Category, Order, OrderMsg, Position, PositionIdx, PositionMsg};
 
 pub struct UserState {
     spot: HashMap<String, SymbolState>,
@@ -41,7 +41,7 @@ impl UserState {
             .add_order(order);
     }
 
-    pub fn update_order(&mut self, category: Category, msg: OrderUpdateMsg) {
+    pub fn update_order(&mut self, category: Category, msg: OrderMsg) {
         self.symbol_state(category, msg.symbol.clone())
             .update_order(msg);
     }
@@ -56,7 +56,7 @@ impl UserState {
             .add_position(position);
     }
 
-    pub fn update_position(&mut self, category: Category, msg: PositionUpdateMsg) {
+    pub fn update_position(&mut self, category: Category, msg: PositionMsg) {
         self.symbol_state(category, msg.symbol.clone())
             .update_position(msg);
     }
@@ -98,7 +98,7 @@ impl SymbolState {
         let _ = self.orders.insert(id, order);
     }
 
-    pub fn update_order(&mut self, msg: OrderUpdateMsg) {
+    pub fn update_order(&mut self, msg: OrderMsg) {
         let order = self.orders.get_mut(&msg.order_id).unwrap();
         order.update(msg);
     }
@@ -115,7 +115,7 @@ impl SymbolState {
         }
     }
 
-    pub fn update_position(&mut self, msg: PositionUpdateMsg) {
+    pub fn update_position(&mut self, msg: PositionMsg) {
         let position = match msg.position_idx {
             PositionIdx::OneWay => &mut self.one_way,
             PositionIdx::Buy => &mut self.buy,

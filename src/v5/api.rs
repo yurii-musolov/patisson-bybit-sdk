@@ -7,8 +7,8 @@ use serde_aux::prelude::{
 
 use crate::v5::{
     AccountType, AdlRankIndicator, CancelType, ContractType, CopyTrading, CreateType,
-    CurAuctionPhase, MarginMode, OcoTriggerBy, OrderStatus, OrderType, OrderUpdateMsg, PlaceType,
-    PositionIdx, PositionStatus, PositionUpdateMsg, RejectReason, Side, SmpType, SpotHedgingStatus,
+    CurAuctionPhase, MarginMode, OcoTriggerBy, OrderMsg, OrderStatus, OrderType, PlaceType,
+    PositionIdx, PositionMsg, PositionStatus, RejectReason, Side, SmpType, SpotHedgingStatus,
     Status, StopOrderType, TimeInForce, TpslMode, TradeMode, TriggerBy, TriggerDirection,
     UnifiedMarginStatus,
     enums::{Category, Interval},
@@ -799,7 +799,7 @@ pub struct Order {
 }
 
 impl Order {
-    pub fn update(&mut self, msg: OrderUpdateMsg) {
+    pub fn update(&mut self, msg: OrderMsg) {
         self.order_id = msg.order_id;
         self.order_link_id = msg.order_link_id;
         self.block_trade_id = msg.block_trade_id;
@@ -1016,7 +1016,7 @@ pub struct Position {
 }
 
 impl Position {
-    pub fn update(&mut self, msg: PositionUpdateMsg) {
+    pub fn update(&mut self, msg: PositionMsg) {
         self.position_idx = msg.position_idx;
         self.risk_id = msg.risk_id;
         self.risk_limit_value = msg.risk_limit_value;
