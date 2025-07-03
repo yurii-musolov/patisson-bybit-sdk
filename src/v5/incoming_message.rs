@@ -1,4 +1,4 @@
-use crate::v5::AdlRankIndicator;
+use crate::v5::{AccountType, AdlRankIndicator};
 
 use super::{
     CancelType, Category, CreateType, Interval, OcoTriggerBy, OrderStatus, OrderType, PlaceType,
@@ -21,8 +21,7 @@ pub enum IncomingMessage {
     Trade(TradeMsg),
     KLine(KLineMsg),
     AllLiquidation(AllLiquidationMsg),
-    Order(OrderMsg),
-    Position(PositionMsg),
+    Topic(TopicMessage),
 }
 
 #[derive(PartialEq, Deserialize, Debug)]
@@ -77,12 +76,13 @@ pub enum CommandMsg {
     },
 }
 
+// TODO: Use PublicMsg<T>
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum TickerMsg {
     #[serde(rename = "snapshot")]
     Snapshot {
-        topic: String,
+        topic: String, // tickers.{symbol}
         #[serde(default, deserialize_with = "option_number")]
         cs: Option<u64>,
         ts: Timestamp,
@@ -90,7 +90,7 @@ pub enum TickerMsg {
     },
     #[serde(rename = "delta")]
     Delta {
-        topic: String,
+        topic: String, // tickers.{symbol}
         #[serde(default, deserialize_with = "option_number")]
         cs: Option<u64>,
         ts: Timestamp,
@@ -196,6 +196,7 @@ pub struct TickerDeltaMsg {
     pub predicted_delivery_price: Option<Decimal>,
 }
 
+// TODO: Use PublicMsg<T>
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum TradeMsg {
@@ -203,7 +204,7 @@ pub enum TradeMsg {
     Snapshot {
         #[serde(default, deserialize_with = "empty_string_as_none")]
         id: Option<String>,
-        topic: String,
+        topic: String, // publicTrade.{symbol}
         ts: Timestamp,
         data: Vec<TradeSnapshotMsg>,
     },
@@ -239,12 +240,13 @@ pub struct TradeSnapshotMsg {
     pub iv: Option<String>,
 }
 
+// TODO: Use PublicMsg<T>
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum KLineMsg {
     #[serde(rename = "snapshot")]
     Snapshot {
-        topic: String,
+        topic: String, // kline.{interval}.{symbol}
         ts: Timestamp,
         data: Vec<KLineSnapshotMsg>,
     },
@@ -265,12 +267,13 @@ pub struct KLineSnapshotMsg {
     pub timestamp: Timestamp,
 }
 
+// TODO: Use PublicMsg<T>
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum AllLiquidationMsg {
     #[serde(rename = "snapshot")]
     Snapshot {
-        topic: String,
+        topic: String, // allLiquidation.{symbol}
         ts: Timestamp,
         data: Vec<AllLiquidationSnapshotMsg>,
     },
@@ -293,20 +296,39 @@ pub struct AllLiquidationSnapshotMsg {
 
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(tag = "topic")]
-pub enum OrderMsg {
-    #[serde(rename = "order", rename_all = "camelCase")]
-    Update {
-        /// Message ID
-        id: String,
-        /// Data created timestamp (ms)
-        creation_time: Timestamp,
-        data: Vec<OrderUpdateMsg>,
-    },
+pub enum TopicMessage {
+    #[serde(rename = "order")]
+    Order(PrivateMsg<Vec<OrderMsg>>),
+    #[serde(rename = "position")]
+    Position(PrivateMsg<Vec<PositionMsg>>),
+    #[serde(rename = "wallet")]
+    Wallet(PrivateMsg<Vec<WalletMsg>>),
 }
 
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct OrderUpdateMsg {
+pub struct PublicMsg<T> {
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    id: Option<String>,
+    #[serde(default, deserialize_with = "option_number")]
+    cs: Option<u64>,
+    ts: Timestamp,
+    data: T,
+}
+
+#[derive(PartialEq, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct PrivateMsg<T> {
+    /// Message ID
+    id: String,
+    /// Data created timestamp (ms)
+    creation_time: Timestamp,
+    data: T,
+}
+
+#[derive(PartialEq, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderMsg {
     /// Product type
     /// UTA2.0, UTA1.0: spot, linear, inverse, option
     /// Classic account: spot, linear, inverse.
@@ -451,18 +473,6 @@ pub struct OrderUpdateMsg {
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PositionMsg {
-    /// Message ID
-    id: String,
-    /// Topic name
-    topic: String,
-    /// Data created timestamp (ms)
-    creation_time: Timestamp,
-    data: Vec<PositionUpdateMsg>,
-}
-
-#[derive(PartialEq, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct PositionUpdateMsg {
     /// Product type
     pub category: Category,
     /// Symbol name
@@ -587,6 +597,101 @@ pub struct PositionUpdateMsg {
     /// Returns "-1" if the symbol has never been traded
     /// Returns the seq updated by the last transaction when there are setting like leverage, risk limit
     pub seq: i64,
+}
+
+#[derive(PartialEq, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct WalletMsg {
+    /// Account type.
+    /// UTA2.0: UNIFIED
+    /// UTA1.0: UNIFIED (spot/linear/options), CONTRACT(inverse)
+    /// Classic: CONTRACT, SPOT
+    pub account_type: AccountType,
+    /// Account IM rate
+    /// You can refer to this Glossary to understand the below fields calculation and mearning
+    /// All below account wide fields are not applicable to
+    /// UTA2.0(isolated margin),
+    /// UTA1.0(isolated margin), UTA1.0(CONTRACT),
+    /// classic account(SPOT, CONTRACT)
+    #[serde(rename = "accountIMRate")]
+    pub account_im_rate: Decimal,
+    /// Account MM rate
+    #[serde(rename = "accountMMRate")]
+    pub account_mm_rate: Decimal,
+    /// Account total equity (USD)
+    pub total_equity: Decimal,
+    /// Account wallet balance (USD): ∑Asset Wallet Balance By USD value of each asset
+    pub total_wallet_balance: Decimal,
+    /// Account margin balance (USD): totalWalletBalance + totalPerpUPL
+    pub total_margin_balance: Decimal,
+    /// Account available balance (USD), Cross Margin: totalMarginBalance - totalInitialMargin
+    pub total_available_balance: Decimal,
+    /// Account Perps and Futures unrealised p&l (USD): ∑Each Perp and USDC Futures upl by base coin
+    #[serde(rename = "totalPerpUPL")]
+    pub total_perp_upl: Decimal,
+    /// Account initial margin (USD): ∑Asset Total Initial Margin Base Coin
+    pub total_initial_margin: Decimal,
+    /// Account maintenance margin (USD): ∑ Asset Total Maintenance Margin Base Coin
+    pub total_maintenance_margin: Decimal,
+    pub coin: Vec<WalletCoinMsg>,
+}
+
+#[derive(PartialEq, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct WalletCoinMsg {
+    /// Coin name, such as BTC, ETH, USDT, USDC
+    pub coin: String,
+    /// Equity of coin
+    pub equity: Decimal,
+    /// USD value of coin. If this coin cannot be collateral, then it is 0
+    pub usd_value: Decimal,
+    /// Wallet balance of coin
+    pub wallet_balance: Decimal,
+    /// Available balance for Spot wallet. This is a unique field for Classic SPOT
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub free: Option<Decimal>,
+    /// Locked balance due to the Spot open order
+    pub locked: Decimal,
+    /// The spot asset qty that is used to hedge in the portfolio margin, truncate to 8 decimals and "0" by default This is a unique field for Unified account
+    pub spot_hedging_qty: Decimal,
+    /// Borrow amount of coin
+    pub borrow_amount: Decimal,
+    /// Available amount to withdraw of coin
+    /// Note: this field is deprecated for accountType=UNIFIED, you can use Get Transferable Amount (Unified) instead
+    pub available_to_withdraw: Decimal,
+    /// Accrued interest
+    pub accrued_interest: Decimal,
+    /// Pre-occupied margin for order. For portfolio margin mode, it returns ""
+    #[serde(rename = "totalOrderIM", default, deserialize_with = "option_decimal")]
+    pub total_order_im: Option<Decimal>,
+    /// Sum of initial margin of all positions + Pre-occupied liquidation fee. For portfolio margin mode, it returns ""
+    #[serde(
+        rename = "totalPositionIM",
+        default,
+        deserialize_with = "option_decimal"
+    )]
+    pub total_position_im: Option<Decimal>,
+    /// Sum of maintenance margin for all positions. For portfolio margin mode, it returns ""
+    #[serde(
+        rename = "totalPositionMM",
+        default,
+        deserialize_with = "option_decimal"
+    )]
+    pub total_position_mm: Option<Decimal>,
+    /// Unrealised P&L
+    pub unrealised_pnl: Decimal,
+    /// Cumulative Realised P&L
+    pub cum_realised_pnl: Decimal,
+    /// Bonus. This is a unique field for UNIFIED account
+    pub bonus: Decimal,
+    /// Whether it can be used as a margin collateral currency (platform)
+    /// When marginCollateral=false, then collateralSwitch is meaningless
+    /// This is a unique field for UNIFIED account
+    pub collateral_switch: bool,
+    /// Whether the collateral is turned on by user (user)
+    /// When marginCollateral=true, then collateralSwitch is meaningful
+    /// This is a unique field for UNIFIED account
+    pub margin_collateral: bool,
 }
 
 #[cfg(test)]
@@ -897,10 +1002,10 @@ mod tests {
                 }
             ]
         }"#;
-        let expected = IncomingMessage::Order(OrderMsg::Update {
+        let order = PrivateMsg {
             id: String::from("5923240c6880ab-c59f-420b-9adb-3639adc9dd90"),
             creation_time: 1672364262474,
-            data: vec![OrderUpdateMsg {
+            data: vec![OrderMsg {
                 category: Category::Option,
                 order_id: String::from("5cf98598-39a7-459e-97bf-76ca765ee020"),
                 order_link_id: None,
@@ -952,7 +1057,8 @@ mod tests {
                 created_time: 1672364262444,
                 updated_time: 1672364262457,
             }],
-        });
+        };
+        let expected = IncomingMessage::Topic(TopicMessage::Order(order));
 
         let message = deserialize_str(json).unwrap();
 
@@ -1004,11 +1110,10 @@ mod tests {
                 }
             ]
         }"#;
-        let position = PositionMsg {
+        let position = PrivateMsg {
             id: String::from("1003076014fb7eedb-c7e6-45d6-a8c1-270f0169171a"),
-            topic: String::from("position"),
             creation_time: 1697682317044,
-            data: vec![PositionUpdateMsg {
+            data: vec![PositionMsg {
                 category: Category::Linear,
                 symbol: String::from("BTCUSDT"),
                 side: None,
@@ -1049,7 +1154,94 @@ mod tests {
                 seq: 8327597863,
             }],
         };
-        let expected = IncomingMessage::Position(position);
+        let expected = IncomingMessage::Topic(TopicMessage::Position(position));
+
+        let message = deserialize_str(json).unwrap();
+
+        assert_eq!(expected, message);
+    }
+
+    #[test]
+    fn deserialize_incoming_message_wallet() {
+        let json = r#"{
+            "id": "592324d2bce751-ad38-48eb-8f42-4671d1fb4d4e",
+            "topic": "wallet",
+            "creationTime": 1700034722104,
+            "data": [
+                {
+                    "accountIMRate": "0",
+                    "accountMMRate": "0",
+                    "totalEquity": "10262.91335023",
+                    "totalWalletBalance": "9684.46297164",
+                    "totalMarginBalance": "9684.46297164",
+                    "totalAvailableBalance": "9556.6056555",
+                    "totalPerpUPL": "0",
+                    "totalInitialMargin": "0",
+                    "totalMaintenanceMargin": "0",
+                    "coin": [
+                        {
+                            "coin": "BTC",
+                            "equity": "0.00102964",
+                            "usdValue": "36.70759517",
+                            "walletBalance": "0.00102964",
+                            "availableToWithdraw": "0.00102964",
+                            "availableToBorrow": "",
+                            "borrowAmount": "0",
+                            "accruedInterest": "0",
+                            "totalOrderIM": "",
+                            "totalPositionIM": "",
+                            "totalPositionMM": "",
+                            "unrealisedPnl": "0",
+                            "cumRealisedPnl": "-0.00000973",
+                            "bonus": "0",
+                            "collateralSwitch": true,
+                            "marginCollateral": true,
+                            "locked": "0",
+                            "spotHedgingQty": "0.01592413"
+                        }
+                    ],
+                    "accountLTV": "0",
+                    "accountType": "UNIFIED"
+                }
+            ]
+        }"#;
+        let wallet = PrivateMsg {
+            id: String::from("592324d2bce751-ad38-48eb-8f42-4671d1fb4d4e"),
+            creation_time: 1700034722104,
+            data: vec![WalletMsg {
+                account_type: AccountType::UNIFIED,
+                account_im_rate: dec!(0),
+                account_mm_rate: dec!(0),
+                total_equity: dec!(10262.91335023),
+                total_wallet_balance: dec!(9684.46297164),
+                total_margin_balance: dec!(9684.46297164),
+                total_available_balance: dec!(9556.6056555),
+                total_perp_upl: dec!(0),
+                total_initial_margin: dec!(0),
+                total_maintenance_margin: dec!(0),
+                coin: vec![WalletCoinMsg {
+                    coin: String::from("BTC"),
+                    equity: dec!(0.00102964),
+                    usd_value: dec!(36.70759517),
+                    wallet_balance: dec!(0.00102964),
+                    free: None,
+                    locked: dec!(0),
+                    spot_hedging_qty: dec!(0.01592413),
+                    borrow_amount: dec!(0),
+                    available_to_withdraw: dec!(0.00102964),
+                    accrued_interest: dec!(0),
+                    total_order_im: None,
+                    total_position_im: None,
+                    total_position_mm: None,
+                    unrealised_pnl: dec!(0),
+                    cum_realised_pnl: dec!(-0.00000973),
+                    bonus: dec!(0),
+                    collateral_switch: true,
+                    margin_collateral: true,
+                }],
+            }],
+        };
+        let expected = IncomingMessage::Topic(TopicMessage::Wallet(wallet));
 
         let message = deserialize_str(json).unwrap();
 

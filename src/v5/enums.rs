@@ -1021,6 +1021,7 @@ pub enum TradeMode {
     IsolatedMargin = 1,
 }
 
+// TODO: Implement Serialize, Deserialize
 #[derive(Debug)]
 pub enum Topic {
     Orderbook {
