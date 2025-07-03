@@ -1,4 +1,4 @@
-use crate::v5::{AccountType, AdlRankIndicator};
+use crate::v5::{AccountType, AdlRankIndicator, Topic};
 
 use super::{
     CancelType, Category, CreateType, Interval, OcoTriggerBy, OrderStatus, OrderType, PlaceType,
@@ -82,7 +82,7 @@ pub enum CommandMsg {
 pub enum TickerMsg {
     #[serde(rename = "snapshot")]
     Snapshot {
-        topic: String, // tickers.{symbol}
+        topic: Topic,
         #[serde(default, deserialize_with = "option_number")]
         cs: Option<u64>,
         ts: Timestamp,
@@ -90,7 +90,7 @@ pub enum TickerMsg {
     },
     #[serde(rename = "delta")]
     Delta {
-        topic: String, // tickers.{symbol}
+        topic: Topic,
         #[serde(default, deserialize_with = "option_number")]
         cs: Option<u64>,
         ts: Timestamp,
@@ -204,7 +204,7 @@ pub enum TradeMsg {
     Snapshot {
         #[serde(default, deserialize_with = "empty_string_as_none")]
         id: Option<String>,
-        topic: String, // publicTrade.{symbol}
+        topic: Topic,
         ts: Timestamp,
         data: Vec<TradeSnapshotMsg>,
     },
@@ -246,7 +246,7 @@ pub struct TradeSnapshotMsg {
 pub enum KLineMsg {
     #[serde(rename = "snapshot")]
     Snapshot {
-        topic: String, // kline.{interval}.{symbol}
+        topic: Topic,
         ts: Timestamp,
         data: Vec<KLineSnapshotMsg>,
     },
@@ -273,7 +273,7 @@ pub struct KLineSnapshotMsg {
 pub enum AllLiquidationMsg {
     #[serde(rename = "snapshot")]
     Snapshot {
-        topic: String, // allLiquidation.{symbol}
+        topic: Topic,
         ts: Timestamp,
         data: Vec<AllLiquidationSnapshotMsg>,
     },
@@ -753,7 +753,7 @@ mod tests {
 		    "ts": 1718995014034
 		}"#;
         let ticker_delta = TickerMsg::Delta {
-            topic: String::from("tickers.BTCUSDT"),
+            topic: Topic::Ticker(String::from("BTCUSDT")),
             cs: Some(195377749067),
             ts: 1718995014034,
             data: TickerDeltaMsg {
@@ -828,7 +828,7 @@ mod tests {
 		    "ts": 1740622194359
 		}"#;
         let ticker_snapshot = TickerMsg::Snapshot {
-            topic: String::from("tickers.BTCUSDT"),
+            topic: Topic::Ticker(String::from("BTCUSDT")),
             cs: Some(337149693308),
             ts: 1740622194359,
             data: TickerSnapshotMsg {
@@ -890,7 +890,7 @@ mod tests {
         }"#;
         let expected = IncomingMessage::Trade(TradeMsg::Snapshot {
             id: None,
-            topic: String::from("publicTrade.BTCUSDT"),
+            topic: Topic::Trade(String::from("BTCUSDT")),
             ts: 1741433245359,
             data: vec![TradeSnapshotMsg {
                 time: 1741433245357,
@@ -932,7 +932,7 @@ mod tests {
             ]
         }"#;
         let expected = AllLiquidationMsg::Snapshot {
-            topic: String::from("allLiquidation.BTCUSDT"),
+            topic: Topic::AllLiquidation(String::from("BTCUSDT")),
             ts: 1741450605553,
             data: vec![AllLiquidationSnapshotMsg {
                 time: 1741450605236,

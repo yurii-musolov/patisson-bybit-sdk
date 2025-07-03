@@ -18,13 +18,12 @@ async fn main() -> anyhow::Result<()> {
     let url = format!("{}{}", BASE_URL_STREAM_MAINNET_1, Path::PublicLinear);
     let symbol = String::from("BTCUSDT");
     let messages = {
-        let ticker = Topic::Ticker(symbol.clone()).to_string();
-        let trade = Topic::Trade(symbol.clone()).to_string();
+        let ticker = Topic::Ticker(symbol.clone());
+        let trade = Topic::Trade(symbol.clone());
         let kline = Topic::Kline {
             symbol: symbol.clone(),
             interval: Interval::Minute1,
-        }
-        .to_string();
+        };
 
         vec![
             OutgoingMessage::Subscribe {

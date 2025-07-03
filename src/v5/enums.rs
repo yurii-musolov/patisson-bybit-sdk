@@ -2,7 +2,7 @@
 //!
 //! Ref: https://bybit-exchange.github.io/docs/v5/enum
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_repr::*;
 use std::fmt;
 
@@ -71,16 +71,13 @@ pub enum AnnouncementType {
 /// Unified Account: spot | linear | inverse | option
 /// Classic Account: linear | inverse | spot
 #[derive(PartialEq, Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "lowercase")]
 pub enum Category {
     /// Inverse contract, including Inverse perp, Inverse futures.
-    #[serde(rename = "inverse")]
     Inverse,
     /// USDT perpetual, and USDC contract, including USDC perp, USDC futures.
-    #[serde(rename = "linear")]
     Linear,
-    #[serde(rename = "option")]
     Option,
-    #[serde(rename = "spot")]
     Spot,
 }
 
@@ -271,7 +268,7 @@ pub enum TickDirection {
     ZeroMinusTick,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
 pub enum Interval {
     #[serde(rename = "1")]
     Minute1,
@@ -1021,8 +1018,7 @@ pub enum TradeMode {
     IsolatedMargin = 1,
 }
 
-// TODO: Implement Serialize, Deserialize
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Topic {
     Orderbook {
         symbol: String,
@@ -1073,13 +1069,124 @@ impl fmt::Display for Topic {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+impl Serialize for Topic {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let s = match self {
+            Self::Orderbook { symbol, depth } => format!("orderbook.{depth}.{symbol}"),
+            Self::Trade(symbol) => format!("publicTrade.{symbol}"),
+            Self::Ticker(symbol) => format!("tickers.{symbol}"),
+            Self::Kline { symbol, interval } => format!("kline.{interval}.{symbol}"),
+            Self::AllLiquidation(symbol) => format!("allLiquidation.{symbol}"),
+            Self::Position(category) => format!("position.{category}"),
+            Self::PositionAllCategory => "position".to_string(),
+            Self::Execution(category) => format!("execution.{category}"),
+            Self::ExecutionAllCategory => "execution".to_string(),
+            Self::FastExecution(category) => format!("execution.fast.{category}"),
+            Self::FastExecutionAllCategory => "execution.fast".to_string(),
+            Self::Order(category) => format!("order.{category}"),
+            Self::OrderAllCategory => "order".to_string(),
+            Self::Wallet => "wallet".to_string(),
+            Self::Greek => "greek".to_string(),
+            Self::Dcp(function) => format!("dcp.{function}"),
+        };
+        serializer.serialize_str(&s)
+    }
+}
+
+impl<'de> Deserialize<'de> for Topic {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: &str = Deserialize::deserialize(deserializer)?;
+        if let Some((kind, args)) = s.split_once('.') {
+            match kind {
+                "orderbook" => {
+                    if let Some((depth, symbol)) = args.split_once('.') {
+                        let depth =
+                            serde_json::from_str(&format!("\"{depth}\"")).map_err(|err| {
+                                serde::de::Error::custom(format!(
+                                    "DepthLevel: {depth}, error: {err}"
+                                ))
+                            })?;
+                        Ok(Self::Orderbook {
+                            depth,
+                            symbol: symbol.to_owned(),
+                        })
+                    } else {
+                        Err(serde::de::Error::custom("invalid stream format"))
+                    }
+                }
+                "publicTrade" => Ok(Self::Trade(args.to_owned())),
+                "tickers" => Ok(Self::Ticker(args.to_owned())),
+                "kline" => {
+                    if let Some((interval, symbol)) = args.split_once('.') {
+                        let interval = serde_json::from_str(&format!("\"{interval}\""))
+                            .map_err(|err| serde::de::Error::custom(format!("Interval: {err}")))?;
+                        Ok(Self::Kline {
+                            symbol: symbol.to_owned(),
+                            interval,
+                        })
+                    } else {
+                        Err(serde::de::Error::custom("invalid stream format"))
+                    }
+                }
+                "allLiquidation" => Ok(Self::AllLiquidation(args.to_owned())),
+                "position" => {
+                    let category = serde_json::from_str(&format!("\"{args}\""))
+                        .map_err(|err| serde::de::Error::custom(format!("category: {err}")))?;
+                    Ok(Self::Position(category))
+                }
+                "execution" => {
+                    if args == "fast" {
+                        Ok(Self::FastExecutionAllCategory)
+                    } else if let Some((fast, category)) = args.split_once('.') {
+                        let category = serde_json::from_str(&format!("\"{category}\""))
+                            .map_err(|err| serde::de::Error::custom(format!("category: {err}")))?;
+                        if fast == "fast" {
+                            Ok(Self::FastExecution(category))
+                        } else {
+                            Ok(Self::Execution(category))
+                        }
+                    } else {
+                        let category = serde_json::from_str(&format!("\"{args}\""))
+                            .map_err(|err| serde::de::Error::custom(format!("category: {err}")))?;
+                        Ok(Self::Execution(category))
+                    }
+                }
+                "order" => {
+                    let category = serde_json::from_str(&format!("\"{args}\""))
+                        .map_err(|err| serde::de::Error::custom(format!("category: {err}")))?;
+                    Ok(Self::Order(category))
+                }
+                "dcp" => {
+                    let function = serde_json::from_str(&format!("\"{args}\""))
+                        .map_err(|err| serde::de::Error::custom(format!("DcpFunction: {err}")))?;
+                    Ok(Self::Dcp(function))
+                }
+                _ => Err(serde::de::Error::custom("invalid stream format")),
+            }
+        } else {
+            match s {
+                "position" => Ok(Self::PositionAllCategory),
+                "execution" => Ok(Self::ExecutionAllCategory),
+                "order" => Ok(Self::OrderAllCategory),
+                "wallet" => Ok(Self::Wallet),
+                "greek" => Ok(Self::Greek),
+                _ => Err(serde::de::Error::custom(format!("invalid stream format"))),
+            }
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[serde(rename_all = "lowercase")]
 pub enum DcpFunction {
-    #[serde(rename = "future")]
     Future,
-    #[serde(rename = "option")]
     Option,
-    #[serde(rename = "spot")]
     Spot,
 }
 
@@ -1094,13 +1201,19 @@ impl fmt::Display for DcpFunction {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub enum DepthLevel {
+    #[serde(rename = "1")]
     Level1,
+    #[serde(rename = "25")]
     Level25,
+    #[serde(rename = "50")]
     Level50,
+    #[serde(rename = "100")]
     Level100,
+    #[serde(rename = "200")]
     Level200,
+    #[serde(rename = "500")]
     Level500,
 }
 
@@ -1195,6 +1308,96 @@ mod tests {
         cases.iter().for_each(|(json, expected)| {
             let message: Interval = deserialize_str(json).unwrap();
             assert_eq!(message, *expected);
+        });
+    }
+
+    #[test]
+    fn serialize_topic() {
+        let symbol = String::from("BTCUSDT");
+        let cases = vec![
+            (
+                Topic::Orderbook {
+                    symbol: symbol.clone(),
+                    depth: DepthLevel::Level1,
+                },
+                r#""orderbook.1.BTCUSDT""#,
+            ),
+            (Topic::Trade(symbol.clone()), r#""publicTrade.BTCUSDT""#),
+            (Topic::Ticker(symbol.clone()), r#""tickers.BTCUSDT""#),
+            (
+                Topic::Kline {
+                    symbol: symbol.clone(),
+                    interval: Interval::Minute1,
+                },
+                r#""kline.1.BTCUSDT""#,
+            ),
+            (
+                Topic::AllLiquidation(symbol.clone()),
+                r#""allLiquidation.BTCUSDT""#,
+            ),
+            (Topic::Position(Category::Linear), r#""position.linear""#),
+            (Topic::PositionAllCategory, r#""position""#),
+            (Topic::Execution(Category::Linear), r#""execution.linear""#),
+            (Topic::ExecutionAllCategory, r#""execution""#),
+            (
+                Topic::FastExecution(Category::Linear),
+                r#""execution.fast.linear""#,
+            ),
+            (Topic::FastExecutionAllCategory, r#""execution.fast""#),
+            (Topic::Order(Category::Linear), r#""order.linear""#),
+            (Topic::OrderAllCategory, r#""order""#),
+            (Topic::Wallet, r#""wallet""#),
+            (Topic::Greek, r#""greek""#),
+            (Topic::Dcp(DcpFunction::Future), r#""dcp.future""#),
+        ];
+        cases.iter().for_each(|(category, expected)| {
+            let json = serde_json::to_string(category).unwrap();
+            assert_eq!(*expected, json);
+        });
+    }
+
+    #[test]
+    fn deserialize_topic() {
+        let symbol = String::from("BTCUSDT");
+        let cases = vec![
+            (
+                r#""orderbook.1.BTCUSDT""#,
+                Topic::Orderbook {
+                    symbol: symbol.clone(),
+                    depth: DepthLevel::Level1,
+                },
+            ),
+            (r#""publicTrade.BTCUSDT""#, Topic::Trade(symbol.clone())),
+            (r#""tickers.BTCUSDT""#, Topic::Ticker(symbol.clone())),
+            (
+                r#""kline.1.BTCUSDT""#,
+                Topic::Kline {
+                    symbol: symbol.clone(),
+                    interval: Interval::Minute1,
+                },
+            ),
+            (
+                r#""allLiquidation.BTCUSDT""#,
+                Topic::AllLiquidation(symbol.clone()),
+            ),
+            (r#""position.linear""#, Topic::Position(Category::Linear)),
+            (r#""position""#, Topic::PositionAllCategory),
+            (r#""execution.linear""#, Topic::Execution(Category::Linear)),
+            (r#""execution""#, Topic::ExecutionAllCategory),
+            (
+                r#""execution.fast.linear""#,
+                Topic::FastExecution(Category::Linear),
+            ),
+            (r#""execution.fast""#, Topic::FastExecutionAllCategory),
+            (r#""order.linear""#, Topic::Order(Category::Linear)),
+            (r#""order""#, Topic::OrderAllCategory),
+            (r#""wallet""#, Topic::Wallet),
+            (r#""greek""#, Topic::Greek),
+            (r#""dcp.future""#, Topic::Dcp(DcpFunction::Future)),
+        ];
+        cases.iter().for_each(|(json, expected)| {
+            let message = deserialize_str(json).unwrap();
+            assert_eq!(*expected, message);
         });
     }
 }
