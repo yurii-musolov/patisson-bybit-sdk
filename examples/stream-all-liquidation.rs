@@ -15,7 +15,7 @@ use bybit::v5::{
 async fn main() -> anyhow::Result<()> {
     let url = format!("{}{}", BASE_URL_STREAM_MAINNET_1, Path::PublicLinear);
     let symbol = String::from("BTCUSDT");
-    let topic = Topic::AllLiquidation(symbol).to_string();
+    let topic = Topic::AllLiquidation(symbol);
     let message = OutgoingMessage::Subscribe {
         req_id: Some(String::from("req-0001")),
         args: vec![topic],

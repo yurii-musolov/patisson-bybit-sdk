@@ -1,17 +1,19 @@
 use serde::Serialize;
 
+use crate::v5::Topic;
+
 #[derive(Serialize, Debug)]
 #[serde(tag = "op")]
 pub enum OutgoingMessage {
     #[serde(rename = "subscribe")]
     Subscribe {
         req_id: Option<String>,
-        args: Vec<String>,
+        args: Vec<Topic>,
     },
     #[serde(rename = "unsubscribe")]
     Unsubscribe {
         req_id: Option<String>,
-        args: Vec<String>,
+        args: Vec<Topic>,
     },
     #[serde(rename = "auth")]
     Auth {
@@ -32,7 +34,7 @@ mod tests {
     fn test_serialize_outgoing_message_subscribe() {
         let msg = OutgoingMessage::Subscribe {
             req_id: Some(String::from("request_id")),
-            args: vec![String::from("tickers.BTCUSDT")],
+            args: vec![Topic::Ticker(String::from("BTCUSDT"))],
         };
         let expected = r#"{"op":"subscribe","req_id":"request_id","args":["tickers.BTCUSDT"]}"#;
         let serialized = serde_json::to_string(&msg).unwrap();
@@ -43,7 +45,7 @@ mod tests {
     fn test_serialize_outgoing_message_unsubscribe() {
         let msg = OutgoingMessage::Unsubscribe {
             req_id: Some(String::from("request_id")),
-            args: vec![String::from("tickers.BTCUSDT")],
+            args: vec![Topic::Ticker(String::from("BTCUSDT"))],
         };
         let expected = r#"{"op":"unsubscribe","req_id":"request_id","args":["tickers.BTCUSDT"]}"#;
         let serialized = serde_json::to_string(&msg).unwrap();
