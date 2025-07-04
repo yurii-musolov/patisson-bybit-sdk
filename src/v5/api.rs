@@ -1067,11 +1067,11 @@ pub struct GetWalletBalanceParams {
     /// UTA1.0: UNIFIED, CONTRACT(inverse derivatives wallet)
     /// Classic account: CONTRACT, SPOT
     /// To get Funding wallet balance, please go to this endpoint
-    account_type: String,
+    pub account_type: String,
     /// Coin name, uppercase only
     /// If not passed, it returns non-zero asset info
     /// You can pass multiple coins to query, separated by comma. USDT,USDC
-    coin: Option<String>,
+    pub coin: Option<String>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -1136,7 +1136,8 @@ pub struct WalletCoin {
     /// isolated margin: walletBalance - totalPositionIM - totalOrderIM - locked - bonus
     /// cross & portfolio margin: look at field totalAvailableBalance(USD), which needs to be converted into the available balance of accordingly coin through index price
     /// Spot (margin) available balance: refer to Get Borrow Quota (Spot)
-    pub available_to_withdraw: Decimal,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub available_to_withdraw: Option<Decimal>,
     /// Accrued interest
     pub accrued_interest: Decimal,
     /// Pre-occupied margin for order. For portfolio margin mode, it returns ""
@@ -1169,7 +1170,8 @@ pub struct WalletCoin {
     // When marginCollateral=true, then collateralSwitch is meaningful
     pub collateral_switch: bool,
     /// deprecated field, always return "". Please refer to availableToBorrow in the Get Collateral Info
-    pub available_to_borrow: Decimal,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub available_to_borrow: Option<Decimal>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -1707,7 +1709,7 @@ mod tests {
                         locked: dec!(0),
                         spot_hedging_qty: dec!(0.01592413),
                         borrow_amount: dec!(0.0),
-                        available_to_withdraw: dec!(0),
+                        available_to_withdraw: Some(dec!(0)),
                         accrued_interest: dec!(0),
                         total_order_im: Some(dec!(0)),
                         total_position_im: Some(dec!(0)),
@@ -1717,11 +1719,105 @@ mod tests {
                         bonus: dec!(0),
                         margin_collateral: true,
                         collateral_switch: true,
-                        available_to_borrow: dec!(3),
+                        available_to_borrow: Some(dec!(3)),
                     }],
                 }],
             },
             time: Some(1690872862481),
+            ret_ext_info: Some(RetExtInfo {}),
+        };
+
+        let message = deserialize_str(json).unwrap();
+
+        assert_eq!(expected, message);
+    }
+
+    #[test]
+    fn deserialize_response_get_wallet_balance_2() {
+        let json = r#"{
+            "retCode":0,
+            "retMsg":"OK",
+            "result":{
+                "list":[
+                    {
+                        "totalEquity":"36.42053792",
+                        "accountIMRate":"0",
+                        "totalMarginBalance":"36.42053792",
+                        "totalInitialMargin":"0",
+                        "accountType":"UNIFIED",
+                        "totalAvailableBalance":"36.42053792",
+                        "accountMMRate":"0",
+                        "totalPerpUPL":"0",
+                        "totalWalletBalance":"36.42053792",
+                        "accountLTV":"0",
+                        "totalMaintenanceMargin":"0",
+                        "coin":[
+                            {
+                                "availableToBorrow":"",
+                                "bonus":"0",
+                                "accruedInterest":"0",
+                                "availableToWithdraw":"",
+                                "totalOrderIM":"0",
+                                "equity":"36.4061211",
+                                "totalPositionMM":"0",
+                                "usdValue":"36.42053792",
+                                "unrealisedPnl":"0",
+                                "collateralSwitch":true,
+                                "spotHedgingQty":"0",
+                                "borrowAmount":"0.000000000000000000",
+                                "totalPositionIM":"0",
+                                "walletBalance":"36.4061211",
+                                "cumRealisedPnl":"-2084.9938789",
+                                "locked":"0",
+                                "marginCollateral":true,
+                                "coin":"USDT"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "retExtInfo":{},
+            "time":1751570498412
+        }"#;
+        let expected = Resp {
+            ret_code: 0,
+            ret_msg: String::from("OK"),
+            result: List {
+                list: vec![WalletBalance {
+                    account_type: AccountType::UNIFIED,
+                    account_im_rate: dec!(0),
+                    account_mm_rate: dec!(0),
+                    total_equity: dec!(36.42053792),
+                    total_wallet_balance: dec!(36.42053792),
+                    total_margin_balance: dec!(36.42053792),
+                    total_available_balance: dec!(36.42053792),
+                    total_perp_upl: dec!(0),
+                    total_initial_margin: dec!(0),
+                    total_maintenance_margin: dec!(0),
+                    coin: vec![WalletCoin {
+                        coin: String::from("USDT"),
+                        equity: dec!(36.4061211),
+                        usd_value: dec!(36.42053792),
+                        wallet_balance: dec!(36.4061211),
+                        free: None,
+                        locked: dec!(0),
+                        spot_hedging_qty: dec!(0),
+                        borrow_amount: dec!(0.000000000000000000),
+                        available_to_withdraw: None,
+                        accrued_interest: dec!(0),
+                        total_order_im: Some(dec!(0)),
+                        total_position_im: Some(dec!(0)),
+                        total_position_mm: Some(dec!(0)),
+                        unrealised_pnl: dec!(0),
+                        cum_realised_pnl: dec!(-2084.9938789),
+                        bonus: dec!(0),
+                        margin_collateral: true,
+                        collateral_switch: true,
+                        available_to_borrow: None,
+                    }],
+                }],
+            },
+            time: Some(1751570498412),
             ret_ext_info: Some(RetExtInfo {}),
         };
 

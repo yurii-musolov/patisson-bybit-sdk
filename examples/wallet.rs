@@ -1,14 +1,13 @@
 //! Run with
 //!
 //! ```not_rust
-//! cargo run --example get-position-info
+//! cargo run --example wallet
 //! ```
 
 use tokio;
 
 use bybit::v5::{
-    BASE_URL_API_DEMO_TRADING, Category, Client, ClientConfig, GetPositionInfoParams,
-    SensitiveString,
+    BASE_URL_API_MAINNET_1, Client, ClientConfig, GetWalletBalanceParams, SensitiveString,
 };
 
 #[tokio::main]
@@ -17,7 +16,7 @@ async fn main() -> anyhow::Result<()> {
     let api_secret =
         std::env::var("API_SECRET").expect("environment variable API_SECRET is required");
 
-    let base_url = BASE_URL_API_DEMO_TRADING; // or BASE_URL_API_MAINNET_1, BASE_URL_API_TESTNET
+    let base_url = BASE_URL_API_MAINNET_1;
 
     let cfg = ClientConfig {
         base_url: base_url.to_owned(),
@@ -28,15 +27,12 @@ async fn main() -> anyhow::Result<()> {
     };
     let client = Client::new(cfg);
 
-    let params = GetPositionInfoParams {
-        category: Category::Linear,
-        symbol: Some(String::from("BTCUSDT")),
-        base_coin: None,
-        settle_coin: None,
-        limit: Some(10),
-        cursor: None,
+    let params = GetWalletBalanceParams {
+        account_type: String::from("UNIFIED"),
+        coin: None,
     };
-    let response = client.get_position_info(params).await?;
+
+    let response = client.get_wallet_balance(params).await?;
     println!("{response:#?}");
 
     Ok(())
