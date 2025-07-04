@@ -40,3 +40,7 @@ path = "stream-public.rs"
 [[example]]
 name = "ticker"
 path = "ticker.rs"
+
+[[example]]
+name = "wallet"
+path = "wallet.rs"
