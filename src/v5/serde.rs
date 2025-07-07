@@ -1,3 +1,5 @@
+use std::{collections::HashMap, hash::Hash};
+
 use serde::{Deserialize, Deserializer};
 
 pub fn invalid_as_none<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
@@ -69,4 +71,24 @@ where
     let deserializer = &mut serde_json::Deserializer::from_str(json);
 
     serde_path_to_error::deserialize(deserializer)
+}
+
+pub trait Unique<Q>
+where
+    Q: Hash + Eq,
+{
+    fn unique_key(&self) -> Q;
+}
+
+pub fn hash_map<'de, D, Q, T>(deserializer: D) -> Result<HashMap<Q, T>, D::Error>
+where
+    D: Deserializer<'de>,
+    Q: Hash + Eq,
+    T: Deserialize<'de> + Unique<Q>,
+{
+    let mut map = HashMap::new();
+    for item in Vec::<T>::deserialize(deserializer)? {
+        map.insert(item.unique_key(), item);
+    }
+    Ok(map)
 }
