@@ -534,9 +534,6 @@ pub struct PositionMsg {
     /// Unified mode returns "", no position bankruptcy price (except UTA1.0(inverse))
     #[serde(deserialize_with = "option_decimal")]
     pub bust_price: Option<Decimal>,
-    /// deprecated, meaningless here, always "Full"
-    #[serde(default, deserialize_with = "invalid_as_none")]
-    pub tpsl_mode: Option<TpslMode>,
     /// Take profit price
     pub take_profit: Decimal,
     /// Stop loss price
@@ -1144,7 +1141,6 @@ mod tests {
                 position_m_m: dec!(0.0),
                 liq_price: dec!(0.0),
                 bust_price: None,
-                tpsl_mode: Some(TpslMode::Full),
                 take_profit: dec!(0.0),
                 stop_loss: dec!(0.0),
                 trailing_stop: dec!(0.0),

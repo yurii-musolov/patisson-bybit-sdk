@@ -1014,8 +1014,6 @@ pub struct Position {
     /// Only meaningful for isolated margin & cross margin of USDT Perp, USDC Perp, USDC Futures, Inverse Perp and Inverse Futures, meaningless for others
     #[serde(deserialize_with = "option_number")]
     pub leverage_sys_updated_time: Option<Timestamp>,
-    /// deprecated, always "Full"
-    pub tpsl_mode: TpslMode,
 }
 
 impl Position {
@@ -1082,8 +1080,6 @@ pub struct GetWalletBalanceParams {
 pub struct WalletBalance {
     /// Account type
     pub account_type: AccountType,
-    /// deprecated field
-    // pub accountLTV:String,
     /// Account IM rate
     /// You can refer to this Glossary to understand the below fields calculation and mearning
     /// All account wide fields are not applicable to
@@ -1173,9 +1169,6 @@ pub struct WalletCoin {
     /// Whether the collateral is turned on by user (user), true: ON, false: OFF
     // When marginCollateral=true, then collateralSwitch is meaningful
     pub collateral_switch: bool,
-    /// deprecated field, always return "". Please refer to availableToBorrow in the Get Collateral Info
-    #[serde(default, deserialize_with = "option_decimal")]
-    pub available_to_borrow: Option<Decimal>,
 }
 
 impl Unique<String> for WalletCoin {
@@ -1636,7 +1629,6 @@ mod tests {
                     is_reduce_only: false,
                     mmr_sys_updated_time: None,
                     leverage_sys_updated_time: None,
-                    tpsl_mode: TpslMode::Full,
                 }],
             },
             time: Some(1697684980172),
