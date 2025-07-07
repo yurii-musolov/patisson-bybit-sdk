@@ -1,4 +1,9 @@
-use crate::v5::{AccountType, AdlRankIndicator, Topic};
+use std::collections::HashMap;
+
+use crate::v5::{
+    AccountType, AdlRankIndicator, Topic,
+    serde::{Unique, hash_map},
+};
 
 use super::{
     CancelType, Category, CreateType, Interval, OcoTriggerBy, OrderStatus, OrderType, PlaceType,
@@ -633,7 +638,8 @@ pub struct WalletMsg {
     pub total_initial_margin: Decimal,
     /// Account maintenance margin (USD): ∑ Asset Total Maintenance Margin Base Coin
     pub total_maintenance_margin: Decimal,
-    pub coin: Vec<WalletCoinMsg>,
+    #[serde(deserialize_with = "hash_map")]
+    pub coin: HashMap<String, WalletCoinMsg>,
 }
 
 #[derive(PartialEq, Deserialize, Debug)]
@@ -692,6 +698,12 @@ pub struct WalletCoinMsg {
     /// When marginCollateral=true, then collateralSwitch is meaningful
     /// This is a unique field for UNIFIED account
     pub margin_collateral: bool,
+}
+
+impl Unique<String> for WalletCoinMsg {
+    fn unique_key(&self) -> String {
+        self.coin.clone()
+    }
 }
 
 #[cfg(test)]
@@ -1205,6 +1217,27 @@ mod tests {
                 }
             ]
         }"#;
+        let coin = WalletCoinMsg {
+            coin: String::from("BTC"),
+            equity: dec!(0.00102964),
+            usd_value: dec!(36.70759517),
+            wallet_balance: dec!(0.00102964),
+            free: None,
+            locked: dec!(0),
+            spot_hedging_qty: dec!(0.01592413),
+            borrow_amount: dec!(0),
+            available_to_withdraw: dec!(0.00102964),
+            accrued_interest: dec!(0),
+            total_order_im: None,
+            total_position_im: None,
+            total_position_mm: None,
+            unrealised_pnl: dec!(0),
+            cum_realised_pnl: dec!(-0.00000973),
+            bonus: dec!(0),
+            collateral_switch: true,
+            margin_collateral: true,
+        };
+        let coin = HashMap::from([(coin.unique_key(), coin)]);
         let wallet = PrivateMsg {
             id: String::from("592324d2bce751-ad38-48eb-8f42-4671d1fb4d4e"),
             creation_time: 1700034722104,
@@ -1219,26 +1252,7 @@ mod tests {
                 total_perp_upl: dec!(0),
                 total_initial_margin: dec!(0),
                 total_maintenance_margin: dec!(0),
-                coin: vec![WalletCoinMsg {
-                    coin: String::from("BTC"),
-                    equity: dec!(0.00102964),
-                    usd_value: dec!(36.70759517),
-                    wallet_balance: dec!(0.00102964),
-                    free: None,
-                    locked: dec!(0),
-                    spot_hedging_qty: dec!(0.01592413),
-                    borrow_amount: dec!(0),
-                    available_to_withdraw: dec!(0.00102964),
-                    accrued_interest: dec!(0),
-                    total_order_im: None,
-                    total_position_im: None,
-                    total_position_mm: None,
-                    unrealised_pnl: dec!(0),
-                    cum_realised_pnl: dec!(-0.00000973),
-                    bonus: dec!(0),
-                    collateral_switch: true,
-                    margin_collateral: true,
-                }],
+                coin,
             }],
         };
         let expected = IncomingMessage::Topic(TopicMessage::Wallet(wallet));
