@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use rust_decimal::{Decimal, serde::str_option::deserialize as option_decimal};
 use serde::{Deserialize, Serialize};
 use serde_aux::prelude::{
@@ -13,7 +15,8 @@ use crate::v5::{
     UnifiedMarginStatus,
     enums::{Category, Interval},
     serde::{
-        empty_string_as_none, int_to_bool, invalid_as_none, string_to_bool, string_to_option_bool,
+        Unique, empty_string_as_none, hash_map, int_to_bool, invalid_as_none, string_to_bool,
+        string_to_option_bool,
     },
 };
 
@@ -1107,7 +1110,8 @@ pub struct WalletBalance {
     pub total_initial_margin: Decimal,
     /// Account maintenance margin (USD): ∑ Asset Total Maintenance Margin Base Coin
     pub total_maintenance_margin: Decimal,
-    pub coin: Vec<WalletCoin>,
+    #[serde(deserialize_with = "hash_map")]
+    pub coin: HashMap<String, WalletCoin>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -1172,6 +1176,12 @@ pub struct WalletCoin {
     /// deprecated field, always return "". Please refer to availableToBorrow in the Get Collateral Info
     #[serde(default, deserialize_with = "option_decimal")]
     pub available_to_borrow: Option<Decimal>,
+}
+
+impl Unique<String> for WalletCoin {
+    fn unique_key(&self) -> String {
+        self.coin.clone()
+    }
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -1685,6 +1695,27 @@ mod tests {
             "retExtInfo": {},
             "time": 1690872862481
         }"#;
+        let coin = WalletCoin {
+            coin: String::from("BTC"),
+            equity: dec!(0),
+            usd_value: dec!(0),
+            wallet_balance: dec!(0),
+            free: None,
+            locked: dec!(0),
+            spot_hedging_qty: dec!(0.01592413),
+            borrow_amount: dec!(0.0),
+            available_to_withdraw: Some(dec!(0)),
+            accrued_interest: dec!(0),
+            total_order_im: Some(dec!(0)),
+            total_position_im: Some(dec!(0)),
+            total_position_mm: Some(dec!(0)),
+            unrealised_pnl: dec!(0),
+            cum_realised_pnl: dec!(0),
+            bonus: dec!(0),
+            margin_collateral: true,
+            collateral_switch: true,
+        };
+        let coin = HashMap::from([(coin.unique_key(), coin)]);
         let expected = Resp {
             ret_code: 0,
             ret_msg: String::from("OK"),
@@ -1700,27 +1731,7 @@ mod tests {
                     total_perp_upl: dec!(0),
                     total_initial_margin: dec!(0),
                     total_maintenance_margin: dec!(0),
-                    coin: vec![WalletCoin {
-                        coin: String::from("BTC"),
-                        equity: dec!(0),
-                        usd_value: dec!(0),
-                        wallet_balance: dec!(0),
-                        free: None,
-                        locked: dec!(0),
-                        spot_hedging_qty: dec!(0.01592413),
-                        borrow_amount: dec!(0.0),
-                        available_to_withdraw: Some(dec!(0)),
-                        accrued_interest: dec!(0),
-                        total_order_im: Some(dec!(0)),
-                        total_position_im: Some(dec!(0)),
-                        total_position_mm: Some(dec!(0)),
-                        unrealised_pnl: dec!(0),
-                        cum_realised_pnl: dec!(0),
-                        bonus: dec!(0),
-                        margin_collateral: true,
-                        collateral_switch: true,
-                        available_to_borrow: Some(dec!(3)),
-                    }],
+                    coin,
                 }],
             },
             time: Some(1690872862481),
@@ -1779,6 +1790,27 @@ mod tests {
             "retExtInfo":{},
             "time":1751570498412
         }"#;
+        let coin = WalletCoin {
+            coin: String::from("USDT"),
+            equity: dec!(36.4061211),
+            usd_value: dec!(36.42053792),
+            wallet_balance: dec!(36.4061211),
+            free: None,
+            locked: dec!(0),
+            spot_hedging_qty: dec!(0),
+            borrow_amount: dec!(0.000000000000000000),
+            available_to_withdraw: None,
+            accrued_interest: dec!(0),
+            total_order_im: Some(dec!(0)),
+            total_position_im: Some(dec!(0)),
+            total_position_mm: Some(dec!(0)),
+            unrealised_pnl: dec!(0),
+            cum_realised_pnl: dec!(-2084.9938789),
+            bonus: dec!(0),
+            margin_collateral: true,
+            collateral_switch: true,
+        };
+        let coin = HashMap::from([(coin.unique_key(), coin)]);
         let expected = Resp {
             ret_code: 0,
             ret_msg: String::from("OK"),
@@ -1794,27 +1826,7 @@ mod tests {
                     total_perp_upl: dec!(0),
                     total_initial_margin: dec!(0),
                     total_maintenance_margin: dec!(0),
-                    coin: vec![WalletCoin {
-                        coin: String::from("USDT"),
-                        equity: dec!(36.4061211),
-                        usd_value: dec!(36.42053792),
-                        wallet_balance: dec!(36.4061211),
-                        free: None,
-                        locked: dec!(0),
-                        spot_hedging_qty: dec!(0),
-                        borrow_amount: dec!(0.000000000000000000),
-                        available_to_withdraw: None,
-                        accrued_interest: dec!(0),
-                        total_order_im: Some(dec!(0)),
-                        total_position_im: Some(dec!(0)),
-                        total_position_mm: Some(dec!(0)),
-                        unrealised_pnl: dec!(0),
-                        cum_realised_pnl: dec!(-2084.9938789),
-                        bonus: dec!(0),
-                        margin_collateral: true,
-                        collateral_switch: true,
-                        available_to_borrow: None,
-                    }],
+                    coin,
                 }],
             },
             time: Some(1751570498412),
