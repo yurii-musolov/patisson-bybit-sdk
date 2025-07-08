@@ -1,27 +1,27 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::v5::{Category, Order, OrderMsg, Position, PositionIdx, PositionMsg};
+use crate::v5::{
+    Category, Order, OrderMsg, Position, PositionIdx, PositionMsg, WalletBalance, WalletCoin,
+    WalletMsg,
+};
 
+/// State for the user. An instance for each user ID.
 pub struct UserState {
     spot: HashMap<String, SymbolState>,
     linear: HashMap<String, SymbolState>,
     inverse: HashMap<String, SymbolState>,
     option: HashMap<String, SymbolState>,
-}
-
-impl Default for UserState {
-    fn default() -> Self {
-        Self::new()
-    }
+    wallet: Rc<WalletState>,
 }
 
 impl UserState {
-    pub fn new() -> Self {
+    pub fn new(balance: WalletBalance) -> Self {
         Self {
             inverse: HashMap::new(),
             linear: HashMap::new(),
             option: HashMap::new(),
             spot: HashMap::new(),
+            wallet: Rc::new(WalletState::new(balance)),
         }
     }
 
@@ -33,7 +33,7 @@ impl UserState {
             Category::Spot => &mut self.spot,
         }
         .entry(symbol)
-        .or_insert_with(|| SymbolState::default())
+        .or_insert_with(|| SymbolState::new(Rc::clone(&self.wallet)))
     }
 
     pub fn add_order(&mut self, category: Category, order: Order) {
@@ -65,9 +65,32 @@ impl UserState {
         self.symbol_state(category, position.symbol.clone())
             .remove_position(position);
     }
+
+    pub fn update_wallet(&mut self, msg: WalletMsg) {
+        msg.coin.iter().for_each(|(symbol, coin)| {
+            if let Some(state) = self.inverse.get_mut(symbol) {
+                state.update_position_with_a_wallet_coin(coin);
+            }
+            if let Some(state) = self.linear.get_mut(symbol) {
+                state.update_position_with_a_wallet_coin(coin);
+            }
+            if let Some(state) = self.option.get_mut(symbol) {
+                state.update_position_with_a_wallet_coin(coin);
+            }
+            if let Some(state) = self.spot.get_mut(symbol) {
+                state.update_position_with_a_wallet_coin(coin);
+            }
+        });
+
+        self.wallet.update_wallet(msg);
+    }
 }
 
+/// State for the symbol. An instance for each symbol (ticker).
 pub struct SymbolState {
+    /// User wallet.
+    wallet: Rc<WalletState>,
+    /// State with orders for only current symbol (ticker)
     orders: HashMap<String, Order>,
     // one-way mode position
     one_way: Option<Position>,
@@ -77,15 +100,10 @@ pub struct SymbolState {
     sell: Option<Position>,
 }
 
-impl Default for SymbolState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl SymbolState {
-    pub fn new() -> Self {
+    pub fn new(wallet: Rc<WalletState>) -> Self {
         Self {
+            wallet,
             orders: HashMap::new(),
             one_way: None,
             buy: None,
@@ -126,11 +144,43 @@ impl SymbolState {
         }
     }
 
+    pub fn update_position_with_a_wallet_coin(&mut self, msg: &WalletCoin) {
+        if let Some(position) = self.one_way.as_mut() {
+            position.update_with_a_wallet_coin(msg);
+        }
+        // TODO: Check please:
+        // self.buy.position_im == self.sell.position_im
+        // self.buy.position_mm == self.sell.position_mm
+        // self.buy.unrealised_pnl == self.sell.unrealised_pnl
+        if let Some(position) = self.buy.as_mut() {
+            position.update_with_a_wallet_coin(msg);
+        }
+        if let Some(position) = self.sell.as_mut() {
+            position.update_with_a_wallet_coin(msg);
+        }
+    }
+
     pub fn remove_position(&mut self, position: Position) {
         match position.position_idx {
             PositionIdx::OneWay => self.one_way = None,
             PositionIdx::Buy => self.buy = None,
             PositionIdx::Sell => self.sell = None,
         }
+    }
+}
+
+/// State for the user wallet.
+pub struct WalletState {
+    balance: RefCell<WalletBalance>,
+}
+impl WalletState {
+    pub fn new(balance: WalletBalance) -> Self {
+        Self {
+            balance: RefCell::new(balance),
+        }
+    }
+
+    pub fn update_wallet(&self, msg: WalletMsg) {
+        self.balance.borrow_mut().update(msg);
     }
 }
