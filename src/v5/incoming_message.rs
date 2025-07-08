@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::v5::{
-    AccountType, AdlRankIndicator, Topic,
+    AccountType, AdlRankIndicator, Topic, WalletCoin,
     serde::{Unique, hash_map},
 };
 
@@ -636,71 +636,7 @@ pub struct WalletMsg {
     /// Account maintenance margin (USD): ∑ Asset Total Maintenance Margin Base Coin
     pub total_maintenance_margin: Decimal,
     #[serde(deserialize_with = "hash_map")]
-    pub coin: HashMap<String, WalletCoinMsg>,
-}
-
-#[derive(PartialEq, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct WalletCoinMsg {
-    /// Coin name, such as BTC, ETH, USDT, USDC
-    pub coin: String,
-    /// Equity of coin
-    pub equity: Decimal,
-    /// USD value of coin. If this coin cannot be collateral, then it is 0
-    pub usd_value: Decimal,
-    /// Wallet balance of coin
-    pub wallet_balance: Decimal,
-    /// Available balance for Spot wallet. This is a unique field for Classic SPOT
-    #[serde(default, deserialize_with = "option_decimal")]
-    pub free: Option<Decimal>,
-    /// Locked balance due to the Spot open order
-    pub locked: Decimal,
-    /// The spot asset qty that is used to hedge in the portfolio margin, truncate to 8 decimals and "0" by default This is a unique field for Unified account
-    pub spot_hedging_qty: Decimal,
-    /// Borrow amount of coin
-    pub borrow_amount: Decimal,
-    /// Available amount to withdraw of coin
-    /// Note: this field is deprecated for accountType=UNIFIED, you can use Get Transferable Amount (Unified) instead
-    pub available_to_withdraw: Decimal,
-    /// Accrued interest
-    pub accrued_interest: Decimal,
-    /// Pre-occupied margin for order. For portfolio margin mode, it returns ""
-    #[serde(rename = "totalOrderIM", default, deserialize_with = "option_decimal")]
-    pub total_order_im: Option<Decimal>,
-    /// Sum of initial margin of all positions + Pre-occupied liquidation fee. For portfolio margin mode, it returns ""
-    #[serde(
-        rename = "totalPositionIM",
-        default,
-        deserialize_with = "option_decimal"
-    )]
-    pub total_position_im: Option<Decimal>,
-    /// Sum of maintenance margin for all positions. For portfolio margin mode, it returns ""
-    #[serde(
-        rename = "totalPositionMM",
-        default,
-        deserialize_with = "option_decimal"
-    )]
-    pub total_position_mm: Option<Decimal>,
-    /// Unrealised P&L
-    pub unrealised_pnl: Decimal,
-    /// Cumulative Realised P&L
-    pub cum_realised_pnl: Decimal,
-    /// Bonus. This is a unique field for UNIFIED account
-    pub bonus: Decimal,
-    /// Whether it can be used as a margin collateral currency (platform)
-    /// When marginCollateral=false, then collateralSwitch is meaningless
-    /// This is a unique field for UNIFIED account
-    pub collateral_switch: bool,
-    /// Whether the collateral is turned on by user (user)
-    /// When marginCollateral=true, then collateralSwitch is meaningful
-    /// This is a unique field for UNIFIED account
-    pub margin_collateral: bool,
-}
-
-impl Unique<String> for WalletCoinMsg {
-    fn unique_key(&self) -> String {
-        self.coin.clone()
-    }
+    pub coin: HashMap<String, WalletCoin>,
 }
 
 #[cfg(test)]
@@ -1213,7 +1149,7 @@ mod tests {
                 }
             ]
         }"#;
-        let coin = WalletCoinMsg {
+        let coin = WalletCoin {
             coin: String::from("BTC"),
             equity: dec!(0.00102964),
             usd_value: dec!(36.70759517),
@@ -1222,7 +1158,7 @@ mod tests {
             locked: dec!(0),
             spot_hedging_qty: dec!(0.01592413),
             borrow_amount: dec!(0),
-            available_to_withdraw: dec!(0.00102964),
+            available_to_withdraw: Some(dec!(0.00102964)),
             accrued_interest: dec!(0),
             total_order_im: None,
             total_position_im: None,

@@ -12,7 +12,7 @@ use crate::v5::{
     CurAuctionPhase, MarginMode, OcoTriggerBy, OrderMsg, OrderStatus, OrderType, PlaceType,
     PositionIdx, PositionMsg, PositionStatus, RejectReason, Side, SmpType, SpotHedgingStatus,
     Status, StopOrderType, TimeInForce, TpslMode, TradeMode, TriggerBy, TriggerDirection,
-    UnifiedMarginStatus,
+    UnifiedMarginStatus, WalletMsg,
     enums::{Category, Interval},
     serde::{
         Unique, empty_string_as_none, hash_map, int_to_bool, invalid_as_none, string_to_bool,
@@ -1024,7 +1024,7 @@ impl Position {
         self.symbol = msg.symbol;
         self.side = msg.side;
         self.size = msg.size;
-        // TODO: self.avg_price
+        self.avg_price = msg.entry_price;
         self.position_value = Some(msg.position_value);
         self.trade_mode = msg.trade_mode;
         self.auto_add_margin = msg.auto_add_margin;
@@ -1033,8 +1033,8 @@ impl Position {
         self.mark_price = msg.mark_price;
         self.liq_price = Some(msg.liq_price);
         self.bust_price = msg.bust_price;
-        // TODO: self.position_im
-        // TODO: self.position_mm
+        // INFO: self.position_im updated in self.update_with_a_wallet_coin
+        // INFO: self.position_mm updated in self.update_with_a_wallet_coin
         self.position_balance = msg.position_balance;
         self.take_profit = Some(msg.take_profit);
         self.stop_loss = Some(msg.stop_loss);
@@ -1044,7 +1044,7 @@ impl Position {
         self.gamma = msg.gamma;
         self.vega = msg.vega;
         self.theta = msg.theta;
-        // TODO: self.unrealised_pnl
+        // INFO: self.unrealised_pnl updated in self.update_with_a_wallet_coin
         self.cur_realised_pnl = msg.cur_realised_pnl;
         self.cum_realised_pnl = msg.cum_realised_pnl;
         self.adl_rank_indicator = msg.adl_rank_indicator;
@@ -1054,9 +1054,16 @@ impl Position {
         self.is_reduce_only = msg.is_reduce_only;
         self.mmr_sys_updated_time = msg.mmr_sys_updated_time;
         self.leverage_sys_updated_time = msg.leverage_sys_updated_time;
-        if let Some(tpsl_mode) = msg.tpsl_mode {
-            self.tpsl_mode = tpsl_mode;
+    }
+
+    pub fn update_with_a_wallet_coin(&mut self, msg: &WalletCoin) {
+        if let Some(position_im) = msg.total_position_im {
+            self.position_im = position_im;
         }
+        if let Some(position_mm) = msg.total_position_mm {
+            self.position_mm = position_mm;
+        }
+        self.unrealised_pnl = Some(msg.unrealised_pnl);
     }
 }
 
@@ -1110,6 +1117,22 @@ pub struct WalletBalance {
     pub coin: HashMap<String, WalletCoin>,
 }
 
+impl WalletBalance {
+    pub fn update(&mut self, msg: WalletMsg) {
+        self.account_type = msg.account_type;
+        self.account_im_rate = msg.account_im_rate;
+        self.account_mm_rate = msg.account_mm_rate;
+        self.total_equity = msg.total_equity;
+        self.total_wallet_balance = msg.total_wallet_balance;
+        self.total_margin_balance = msg.total_margin_balance;
+        self.total_available_balance = msg.total_available_balance;
+        self.total_perp_upl = msg.total_perp_upl;
+        self.total_initial_margin = msg.total_initial_margin;
+        self.total_maintenance_margin = msg.total_maintenance_margin;
+        self.coin = msg.coin;
+    }
+}
+
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct WalletCoin {
@@ -1117,7 +1140,7 @@ pub struct WalletCoin {
     pub coin: String,
     /// Equity of coin
     pub equity: Decimal,
-    /// USD value of coin
+    /// USD value of coin. If this coin cannot be collateral, then it is 0
     pub usd_value: Decimal,
     /// Wallet balance of coin
     pub wallet_balance: Decimal,
@@ -1126,7 +1149,7 @@ pub struct WalletCoin {
     pub free: Option<Decimal>,
     /// Locked balance due to the Spot open order
     pub locked: Decimal,
-    /// The spot asset qty that is used to hedge in the portfolio margin, truncate to 8 decimals and "0" by default
+    /// The spot asset qty that is used to hedge in the portfolio margin, truncate to 8 decimals and "0" by default. This is a unique field for Unified account.
     pub spot_hedging_qty: Decimal,
     /// Borrow amount of current coin
     pub borrow_amount: Decimal,
