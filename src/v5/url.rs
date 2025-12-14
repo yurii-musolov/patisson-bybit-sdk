@@ -23,8 +23,7 @@ pub const BASE_URL_API_TESTNET: &str = "https://api-testnet.bybit.com";
 pub const BASE_URL_STREAM_TESTNET: &str = "wss://stream-testnet.bybit.com";
 
 // Demo trading.
-pub const BASE_URL_API_DEMO_TRADING: &str = "https://api-demo.bybit.com";
-pub const BASE_URL_STREAM_DEMO_TRADING: &str = "wss://stream-demo.bybit.com";
+pub const BASE_URL_API_DEMO: &str = "https://api-demo.bybit.com";
 
 // The following HTTP header keys must be used for authentication:
 /// API key.
@@ -70,16 +69,16 @@ pub enum Path {
     MarketDeliveryPrice,
 
     // Order management
-    OrderCreate,
-    OrderAmend,
-    OrderCancel,
-    OrderRealtime,
-    OrderCancelAll,
-    OrderHistory,
-    OrderCreateBatch,
-    OrderAmendBatch,
-    OrderCancelBatch,
-    OrderSpotBorrowCheck,
+    TradeOrderCreate,
+    TradeOrderAmend,
+    TradeOrderCancel,
+    TradeOrderRealtime,
+    TradeOrderCancelAll,
+    TradeOrderHistory,
+    TradeOrderCreateBatch,
+    TradeOrderAmendBatch,
+    TradeOrderCancelBatch,
+    TradeOrderSpotBorrowCheck,
 
     // Position management
     PositionList,
@@ -102,6 +101,7 @@ pub enum Path {
     AccountTransactionLog,
     AccountSetMarginMode,
     AccountSetMarginModeDemoApplyMoney,
+    AccountFeeRate,
 
     // Operations across multiple accounts – asset management, fund management, etc.
     AssetDeliveryRecord,
@@ -125,6 +125,8 @@ pub enum Path {
     AssetDepositQueryAddress,
     AssetDepositQuerySubMemberAddress,
     AssetExchangeOrderRecord,
+
+    UserQueryApi,
 
     // Obtain quotes from Leveraged Tokens on Spot, and to exercise purchase and redeem functions
     SpotLeverTokenInfo,
@@ -166,16 +168,16 @@ impl fmt::Display for Path {
             Self::MarketRiskLimit => "/v5/market/risk-limit",
             Self::MarketDeliveryPrice => "/v5/market/delivery-price",
 
-            Self::OrderCreate => "/v5/order/create",
-            Self::OrderAmend => "/v5/order/amend",
-            Self::OrderCancel => "/v5/order/cancel",
-            Self::OrderRealtime => "/v5/order/realtime",
-            Self::OrderCancelAll => "/v5/order/cancel-all",
-            Self::OrderHistory => "/v5/order/history",
-            Self::OrderCreateBatch => "/v5/order/create-batch",
-            Self::OrderAmendBatch => "/v5/order/amend-batch",
-            Self::OrderCancelBatch => "/v5/order/cancel-batch",
-            Self::OrderSpotBorrowCheck => "/v5/order/spot-borrow-check",
+            Self::TradeOrderCreate => "/v5/order/create",
+            Self::TradeOrderAmend => "/v5/order/amend",
+            Self::TradeOrderCancel => "/v5/order/cancel",
+            Self::TradeOrderRealtime => "/v5/order/realtime",
+            Self::TradeOrderCancelAll => "/v5/order/cancel-all",
+            Self::TradeOrderHistory => "/v5/order/history",
+            Self::TradeOrderCreateBatch => "/v5/order/create-batch",
+            Self::TradeOrderAmendBatch => "/v5/order/amend-batch",
+            Self::TradeOrderCancelBatch => "/v5/order/cancel-batch",
+            Self::TradeOrderSpotBorrowCheck => "/v5/order/spot-borrow-check",
 
             Self::PositionList => "/v5/position/list",
             Self::PositionSetLeverage => "/v5/position/set-leverage",
@@ -185,6 +187,7 @@ impl fmt::Display for Path {
             Self::PositionSwitchMode => "/v5/position/switch-mode",
             Self::PositionSetAutoAddMargin => "/v5/position/set-auto-add-margin",
             Self::PositionClosedPnl => "/v5/position/closed-pnl",
+
             Self::ExecutionList => "/v5/execution/list",
 
             Self::AccountWalletBalance => "/v5/account/wallet-balance",
@@ -196,6 +199,7 @@ impl fmt::Display for Path {
             Self::AccountTransactionLog => "/v5/account/transaction-log",
             Self::AccountSetMarginMode => "/v5/account/set-margin-mode",
             Self::AccountSetMarginModeDemoApplyMoney => "/v5/account/demo-apply-money",
+            Self::AccountFeeRate => "/v5/account/fee-rate",
 
             Self::AssetDeliveryRecord => "/v5/asset/delivery-record",
             Self::AssetSettlementRecord => "/v5/asset/settlement-record",
@@ -229,12 +233,13 @@ impl fmt::Display for Path {
             Self::AssetDepositQuerySubMemberAddress => "/v5/asset/deposit/query-sub-member-address",
             Self::AssetExchangeOrderRecord => "/v5/asset/exchange/order-record",
 
+            Self::UserQueryApi => "/v5/user/query-api",
+
             Self::SpotLeverTokenInfo => "/v5/spot-lever-token/info",
             Self::SpotLeverTokenReference => "/v5/spot-lever-token/reference",
             Self::SpotLeverTokenPurchase => "/v5/spot-lever-token/purchase",
             Self::SpotLeverTokenRedeem => "/v5/spot-lever-token/redeem",
             Self::SpotLeverTokenOrderRecord => "/v5/spot-lever-token/order-record",
-
             Self::SpotMarginTradeSwitchMode => "/v5/spot-margin-trade/switch-mode",
             Self::SpotMarginTradeSetLeverage => "/v5/spot-margin-trade/set-leverage",
             Self::SpotMarginTradeSetPledgeToken => "/v5/spot-margin-trade/set-pledge-token",
