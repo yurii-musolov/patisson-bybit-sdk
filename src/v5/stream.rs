@@ -9,13 +9,14 @@ use tokio_tungstenite::{
     connect_async,
     tungstenite::{Utf8Bytes, http, protocol::Message},
 };
+use tracing::{debug, warn};
 
 use crate::v5::serde::deserialize_str;
 
 use super::{IncomingMessage, OutgoingMessage};
 
-/// Default websocket ping interval (10seconds).
-pub const DEFAULT_PING_INTERVAL: Duration = Duration::from_secs(10);
+/// To avoid network or program issues, we recommend that you send the ping heartbeat packet every 20 seconds to maintain the WebSocket connection.
+pub const DEFAULT_PING_INTERVAL: Duration = Duration::from_secs(20);
 
 pub async fn stream(
     url: &str,
@@ -40,7 +41,7 @@ pub async fn stream(
             let id = format!("ping-{count}");
             let message = OutgoingMessage::Ping { req_id: Some(id) };
             if let Err(e) = handshake.send(message).await {
-                println!("Send ping error: {e}");
+                warn!("Send ping error: {e}");
                 break;
             };
         }
@@ -54,36 +55,36 @@ pub async fn stream(
                         match deserialize_str(&slice) {
                             Ok(message) => {
                                 if let Err(e) = incoming_tx.send(message).await {
-                                    println!("Send IncomingMessage failed with: {e}");
+                                    warn!("Send IncomingMessage failed with: {e}");
                                 }
                             }
                             Err(e) => {
-                                println!("Deserialize IncomingMessage failed with: {e}");
-                                println!("DEBUG: IncomingMessage: {slice}");
+                                warn!("Deserialize IncomingMessage failed with: {e}");
+                                debug!("IncomingMessage: {slice}");
                             }
                         };
                     }
-                    Message::Binary(d) => println!("Binary got {} bytes: {:?}", d.len(), d),
+                    Message::Binary(d) => debug!("Binary got {} bytes: {:?}", d.len(), d),
                     Message::Close(close_frame) => {
                         match close_frame {
-                            Some(close_frame) => println!(
+                            Some(close_frame) => debug!(
                                 "Close got close with code {} and reason `{}`",
                                 close_frame.code, close_frame.reason
                             ),
                             None => {
-                                println!("Close somehow got close message without CloseFrame")
+                                debug!("Close somehow got close message without CloseFrame")
                             }
                         }
 
                         break;
                     }
-                    Message::Pong(v) => println!("Pong got pong with {v:?}."),
-                    Message::Ping(v) => println!("Ping got ping with {v:?}."),
+                    Message::Pong(_) => { /* Ignore. */ }
+                    Message::Ping(_) => { /* Ignore. */ }
                     Message::Frame(_) => {
                         unreachable!("Frame This is never supposed to happen.")
                     }
                 },
-                Err(e) => println!("Receive message failed with: {e}"),
+                Err(e) => warn!("Receive message failed with: {e}"),
             }
         }
     });
@@ -93,13 +94,13 @@ pub async fn stream(
             let message = match serde_json::to_string(&message) {
                 Ok(serialized) => Message::Text(Utf8Bytes::from(&serialized)),
                 Err(e) => {
-                    println!("Serialize OutgoingMessage failed with {e}");
+                    warn!("Serialize OutgoingMessage failed with {e}");
                     continue;
                 }
             };
 
             if let Err(e) = sender.send(message).await {
-                println!("Send OutgoingMessage failed with {e}");
+                warn!("Send OutgoingMessage failed with {e}");
             };
         }
     });
