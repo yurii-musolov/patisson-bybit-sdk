@@ -70,7 +70,7 @@ pub enum AnnouncementType {
 
 /// Unified Account: spot | linear | inverse | option
 /// Classic Account: linear | inverse | spot
-#[derive(PartialEq, Debug, Deserialize, Serialize, Clone)]
+#[derive(PartialEq, Debug, Deserialize, Serialize, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum Category {
     /// Inverse contract, including Inverse perp, Inverse futures.
@@ -93,7 +93,7 @@ impl fmt::Display for Category {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
 pub enum OrderStatus {
     // open status
     /// order has been placed successfully
@@ -131,7 +131,7 @@ impl OrderStatus {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum TimeInForce {
     /// GoodTillCancel
     GTC,
@@ -149,7 +149,7 @@ pub enum TimeInForce {
     RPI,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum CreateType {
     CreateByUser,
     /// Spread order
@@ -207,7 +207,7 @@ pub enum CreateType {
     CreateByDdh,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum ExecType {
     Trade,
     /// Auto-Deleveraging
@@ -228,7 +228,7 @@ pub enum ExecType {
     UNKNOWN,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum OrderType {
     Market,
     Limit,
@@ -236,7 +236,7 @@ pub enum OrderType {
     UNKNOWN,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum StopOrderType {
     TakeProfit,
     StopLoss,
@@ -256,7 +256,7 @@ pub enum StopOrderType {
     UNKNOWN,
 }
 
-#[derive(Debug, PartialEq, Deserialize)]
+#[derive(Debug, PartialEq, Deserialize, Clone, Copy)]
 pub enum TickDirection {
     /// price rise
     PlusTick,
@@ -268,7 +268,7 @@ pub enum TickDirection {
     ZeroMinusTick,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
 pub enum Interval {
     #[serde(rename = "1")]
     Minute1,
@@ -319,7 +319,7 @@ impl fmt::Display for Interval {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
 pub enum IntervalTime {
     #[serde(rename = "5min")]
     Minute5,
@@ -335,7 +335,7 @@ pub enum IntervalTime {
     Day1,
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq)]
+#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum PositionIdx {
     /// 0:one-way mode position
@@ -346,7 +346,7 @@ pub enum PositionIdx {
     Sell = 2,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum PositionStatus {
     Normal,
     /// in the liquidation progress
@@ -355,7 +355,7 @@ pub enum PositionStatus {
     Adl,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum RejectReason {
     #[serde(rename = "EC_NoError")]
     EcNoError,
@@ -458,7 +458,7 @@ pub enum RejectReason {
     EcReachMarketPriceLimit,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum AccountType {
     /// Inverse Derivatives Account | Derivatives Account
     CONTRACT,
@@ -482,14 +482,14 @@ impl AccountType {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum TransferStatus {
     SUCCESS,
     PENDING,
     FAILED,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum DepositStatus {
     #[serde(rename = "0")]
     Unknown,
@@ -508,7 +508,7 @@ pub enum DepositStatus {
     CreditedToFundingPoolSuccessfully,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum WithdrawStatus {
     SecurityCheck,
     Pending,
@@ -523,7 +523,7 @@ pub enum WithdrawStatus {
     Unknown,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum TriggerBy {
     LastPrice,
     IndexPrice,
@@ -531,7 +531,7 @@ pub enum TriggerBy {
     UNKNOWN,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum CancelType {
     CancelByUser,
     /// cancelled by reduceOnly
@@ -551,6 +551,12 @@ pub enum CancelType {
     CancelByTpSlTsClear,
     /// cancelled by SMP
     CancelBySmp,
+    /// cancelled by DCP triggering
+    CancelByDCP,
+    /// Spread trading: the order price of a single leg order is outside the limit price range.
+    CancelByRebalance,
+
+    // Options:
     CancelByCannotAffordOrderCost,
     CancelByPmTrialMmOverEquity,
     CancelByAccountBlocking,
@@ -558,11 +564,12 @@ pub enum CancelType {
     CancelByMmpTriggered,
     CancelByCrossSelfMuch,
     CancelByCrossReachMaxTradeNum,
-    CancelByDCP,
+
+    /// Not documented
     UNKNOWN,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum OptionPeriod {
     #[serde(rename = "7")]
     Day7,
@@ -582,7 +589,7 @@ pub enum OptionPeriod {
     Day270,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum DataRecordingPeriod {
     #[serde(rename = "5min")]
     Minute5,
@@ -598,7 +605,7 @@ pub enum DataRecordingPeriod {
     Day4,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
 pub enum ContractType {
     InversePerpetual,
     LinearPerpetual,
@@ -607,7 +614,7 @@ pub enum ContractType {
     InverseFutures,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
 pub enum Status {
     PreLaunch,
     Trading,
@@ -615,40 +622,33 @@ pub enum Status {
     Closed,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
+#[serde(rename_all = "camelCase")]
 pub enum MarginTrading {
     /// Regardless of normal account or UTA account, this trading pair does not support margin trading
-    #[serde(rename = "none")]
     None,
     /// For both normal account and UTA account, this trading pair supports margin trading
-    #[serde(rename = "both")]
     Both,
     /// Only for UTA account,this trading pair supports margin trading
-    #[serde(rename = "utaOnly")]
     UtaOnly,
     /// Only for normal account, this trading pair supports margin trading
-    #[serde(rename = "normalSpotOnly")]
     NormalSpotOnly,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
 #[serde(rename_all = "camelCase")]
 pub enum CopyTrading {
     /// Regardless of normal account or UTA account, this trading pair does not support copy trading
-    #[serde(rename = "none")]
     None,
     /// For both normal account and UTA account, this trading pair supports copy trading
-    #[serde(rename = "both")]
     Both,
     /// Only for UTA account,this trading pair supports copy trading
-    #[serde(rename = "utaOnly")]
     UtaOnly,
     /// Only for normal account, this trading pair supports copy trading
-    #[serde(rename = "normalOnly")]
     NormalOnly,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Type {
     /// Assets that transferred into Unified | (inverse) derivatives wallet
@@ -815,7 +815,7 @@ impl Type {
     }
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq)]
+#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum UnifiedMarginStatus {
     ClassicAccount = 1,
@@ -829,7 +829,7 @@ pub enum UnifiedMarginStatus {
     UnifiedTradingAccount2Pro = 6,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum MarginMode {
     IsolatedMargin,
@@ -837,28 +837,33 @@ pub enum MarginMode {
     PortfolioMargin,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum SpotHedgingStatus {
     On,
     Off,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum LtStatus {
+    /// LT can be purchased and redeemed
     #[serde(rename = "1")]
-    LTCanBePurchasedAndRedeemed,
+    CanBePurchasedAndRedeemed,
+    /// LT can be purchased, but not redeemed
     #[serde(rename = "2")]
-    LTCanBePurchasedButNotRedeemed,
+    CanBePurchasedButNotRedeemed,
+    /// LT can be redeemed, but not purchased
     #[serde(rename = "3")]
-    LTCanBeRedeemedButNotPurchased,
+    CanBeRedeemedButNotPurchased,
+    /// LT cannot be purchased nor redeemed
     #[serde(rename = "4")]
-    LTCannotBePurchasedNorRedeemed,
+    CannotBePurchasedNorRedeemed,
+    /// Adjusting position
     #[serde(rename = "5")]
     AdjustingPosition,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum ConvertAccountType {
     /// Unified Trading Account
     #[serde(rename = "eb_convert_uta")]
@@ -877,7 +882,7 @@ pub enum ConvertAccountType {
     Contract,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum VipLevel {
     #[serde(rename = "No VIP")]
     NoVIP,
@@ -905,7 +910,7 @@ pub enum VipLevel {
     PRO5,
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq)]
+#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum AdlRankIndicator {
     /// default value of empty position
@@ -917,7 +922,7 @@ pub enum AdlRankIndicator {
     Five = 5,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum SmpType {
     /// default
     None,
@@ -926,13 +931,103 @@ pub enum SmpType {
     CancelBoth,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ExtraFeeType {
+    Unknown,
+    /// Government tax. Only for Indonesian site
+    Tax,
+    /// Indonesian foreign exchange tax. Only for Indonesian site
+    Cfx,
+    /// EU withholding tax. Only for EU site
+    Wht,
+    /// Indian GST tax. Only for kyc=Indian users
+    Gst,
+    /// ARE VAT tax. Only for kyc=ARE users
+    Vat,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ExtraSubFeeType {
+    Unknown,
+    /// Tax fee, fiat currency to digital currency. Only for Indonesian site
+    TaxPnn,
+    /// Tax fee, digital currency to fiat currency. Only for Indonesian site
+    TaxPph,
+    /// CFX fee, fiat currency to digital currency. Only for Indonesian site
+    CfxFiee,
+    /// EU site withholding tax. Only for EU site
+    AutWithholdingTax,
+    /// Indian GST tax. Only for kyc=Indian users
+    IndGst,
+    /// ARE VAT tax. Only for kyc=ARE users
+    AreVat,
+}
+
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
+#[serde(rename_all = "lowercase")]
+pub enum State {
+    Scheduled,
+    Ongoing,
+    Completed,
+    Canceled,
+}
+
+#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
+#[repr(u8)]
+pub enum ServiceTypes {
+    /// Trading service
+    TradingService = 1,
+    /// Trading service via http request
+    TradingServiceViaHttpRequest = 2,
+    /// Trading service via websocket
+    TradingServiceViaWebsocket = 3,
+    /// Private websocket stream
+    PrivateWebsocketStream = 4,
+    /// Market data service
+    MarketDataService = 5,
+}
+
+#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
+#[repr(u8)]
+pub enum Product {
+    Futures = 1,
+    Spot = 2,
+    Option = 3,
+    Spread = 4,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum DCPProduct {
+    Spot,
+    Derivatives,
+    Option,
+}
+
+#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
+#[repr(u8)]
+pub enum MaintainType {
+    PlannedMaintenance = 1,
+    TemporaryMaintenance = 2,
+    Incident = 3,
+}
+
+#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
+#[repr(u8)]
+pub enum Env {
+    Product = 1,
+    ProductDemoService = 2,
+}
+
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum TpslMode {
     Full,
     Partial,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum OcoTriggerBy {
     #[serde(rename = "OcoTriggerByUnknown")]
     Unknown,
@@ -942,7 +1037,7 @@ pub enum OcoTriggerBy {
     BySl,
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq)]
+#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum TriggerDirection {
     UNKNOWN = 0,
@@ -950,7 +1045,7 @@ pub enum TriggerDirection {
     Fall = 2,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
 pub enum CurAuctionPhase {
     /// Pre-market trading is not started
     NotStarted,
@@ -980,7 +1075,7 @@ pub enum CurAuctionPhase {
     ContinuousTrading,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum PlaceType {
     #[serde(rename = "option")]
     Option,
@@ -990,20 +1085,20 @@ pub enum PlaceType {
     Price,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
 pub enum Side {
     Buy,
     Sell,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Pair {
     // example of BTCUSDT
     Base,  // BTC
     Quote, // USDT
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Clone, Copy)]
 pub enum SlippageToleranceType {
     TickSize,
     Percent,
@@ -1011,7 +1106,7 @@ pub enum SlippageToleranceType {
     UNKNOWN,
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq)]
+#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum TradeMode {
     CrossMargin = 0,
@@ -1176,13 +1271,16 @@ impl<'de> Deserialize<'de> for Topic {
                 "order" => Ok(Self::OrderAllCategory),
                 "wallet" => Ok(Self::Wallet),
                 "greek" => Ok(Self::Greek),
-                _ => Err(serde::de::Error::custom(format!("invalid stream format"))),
+                _ => {
+                    let msg = String::from("invalid stream format");
+                    Err(serde::de::Error::custom(msg))
+                }
             }
         }
     }
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq)]
+#[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum DcpFunction {
     Future,
@@ -1201,7 +1299,7 @@ impl fmt::Display for DcpFunction {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum DepthLevel {
     #[serde(rename = "1")]
     Level1,
@@ -1228,6 +1326,25 @@ impl fmt::Display for DepthLevel {
             Self::Level500 => "500",
         };
         write!(f, "{value}")
+    }
+}
+
+pub fn spot_fee_currency(side: Side, is_maker_order: bool, maker_fee_rate: f64) -> Pair {
+    if maker_fee_rate >= 0.0 {
+        match side {
+            Side::Buy => Pair::Base,
+            Side::Sell => Pair::Quote,
+        }
+    } else if is_maker_order {
+        match side {
+            Side::Buy => Pair::Quote,
+            Side::Sell => Pair::Base,
+        }
+    } else {
+        match side {
+            Side::Buy => Pair::Base,
+            Side::Sell => Pair::Quote,
+        }
     }
 }
 
