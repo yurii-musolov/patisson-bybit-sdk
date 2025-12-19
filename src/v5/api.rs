@@ -9,11 +9,11 @@ use serde_aux::prelude::{
 
 use crate::v5::{
     AccountType, AdlRankIndicator, CancelType, ContractType, CopyTrading, CreateType,
-    CurAuctionPhase, MarginMode, OcoTriggerBy, OrderMsg, OrderStatus, OrderType, PlaceType,
-    PositionIdx, PositionMsg, PositionStatus, RejectReason, Side, SmpType, SpotHedgingStatus,
-    Status, StopOrderType, TimeInForce, TpslMode, TradeMode, TriggerBy, TriggerDirection,
-    UnifiedMarginStatus, WalletMsg,
-    enums::{Category, Interval},
+    CurAuctionPhase, DCPProduct, MarginMode, OcoTriggerBy, OrderMsg, OrderStatus, OrderType,
+    PlaceType, PositionIdx, PositionMsg, PositionStatus, RejectReason, Side, SmpType,
+    SpotHedgingStatus, Status, TimeInForce, TpslMode, TriggerBy, TriggerDirection,
+    UnifiedMarginStatus, VipLevel, WalletMsg,
+    enums::{Category, Interval, StopOrderType},
     serde::{
         Unique, empty_string_as_none, hash_map, int_to_bool, invalid_as_none, string_to_bool,
         string_to_option_bool,
@@ -21,6 +21,7 @@ use crate::v5::{
 };
 
 pub type Timestamp = u64;
+pub type Second = u64;
 
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
@@ -679,7 +680,7 @@ pub enum OrderFilter {
     BidirectionalTpslOrder,
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Order {
     /// Order ID
@@ -772,7 +773,8 @@ pub struct Order {
     /// Trigger direction. 1: rise, 2: fall
     pub trigger_direction: TriggerDirection,
     /// The price type of trigger price
-    pub trigger_by: TriggerBy,
+    #[serde(default, deserialize_with = "invalid_as_none")]
+    pub trigger_by: Option<TriggerBy>,
     /// Last price when place the order, Spot is not applicable
     #[serde(default, deserialize_with = "option_decimal")]
     pub last_price_on_created: Option<Decimal>,
@@ -802,6 +804,12 @@ pub struct Order {
 }
 
 impl Order {
+    pub fn is_open_status(&self) -> bool {
+        self.order_status.is_open()
+    }
+    pub fn is_closed_status(&self) -> bool {
+        self.order_status.is_closed()
+    }
     pub fn update(&mut self, msg: OrderMsg) {
         self.order_id = msg.order_id;
         self.order_link_id = msg.order_link_id;
@@ -841,9 +849,7 @@ impl Order {
         self.tp_trigger_by = msg.tp_trigger_by;
         self.sl_trigger_by = msg.sl_trigger_by;
         self.trigger_direction = msg.trigger_direction;
-        if let Some(trigger_by) = msg.trigger_by {
-            self.trigger_by = trigger_by;
-        }
+        self.trigger_by = msg.trigger_by;
         self.last_price_on_created = msg.last_price_on_created;
         // TODO: self.base_price
         self.reduce_only = msg.reduce_only;
@@ -855,6 +861,257 @@ impl Order {
         self.created_time = msg.created_time;
         self.updated_time = msg.updated_time;
     }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaceOrderRequest {
+    /// Product type
+    /// UTA2.0, UTA1.0: linear, inverse, spot, option
+    /// classic account: linear, inverse, spot
+    pub category: Category,
+    /// Symbol name, like BTCUSDT, uppercase only
+    pub symbol: String,
+    // Whether to borrow. Unified account Spot trading only.
+    /// 0(default): false, spot trading
+    /// 1: true, margin trading, make sure you turn on margin trading, and set the relevant currency as collateral
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_leverage: Option<i64>,
+    /// Buy, Sell
+    pub side: Side,
+    /// Market, Limit
+    pub order_type: OrderType,
+    /// Order quantity
+    /// UTA account
+    /// Spot: Market Buy order by value by default, you can set marketUnit field to choose order by value or qty for market orders
+    /// Perps, Futures & Option: always order by qty
+    /// classic account
+    /// Spot: Market Buy order by value by default
+    /// Perps, Futures: always order by qty
+    /// Perps & Futures: if you pass qty="0" and specify reduceOnly=true&closeOnTrigger=true, you can close the position up to maxMktOrderQty or maxOrderQty shown on Get Instruments Info of current symbol
+    pub qty: Decimal,
+    /// Select the unit for qty when create Spot market orders for UTA account
+    /// baseCoin: for example, buy BTCUSDT, then "qty" unit is BTC
+    /// quoteCoin: for example, sell BTCUSDT, then "qty" unit is USDT
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub market_unit: Option<String>,
+    /// Slippage tolerance Type for market order, TickSize, Percent
+    /// take profit, stoploss, conditional orders are not supported
+    /// TickSize:
+    /// the highest price of Buy order = ask1 + slippageTolerance x tickSize;
+    /// the lowest price of Sell order = bid1 - slippageTolerance x tickSize
+    /// Percent:
+    /// the highest price of Buy order = ask1 x (1 + slippageTolerance x 0.01);
+    /// the lowest price of Sell order = bid1 x (1 - slippageTolerance x 0.01)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub slippage_tolerance_type: Option<Decimal>,
+    /// Slippage tolerance value
+    /// TickSize: range is [1, 10000], integer only
+    /// Percent: range is [0.01, 10], up to 2 decimals
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub slippage_tolerance: Option<Decimal>,
+    /// Order price
+    /// Market order will ignore this field
+    /// Please check the min price and price precision from instrument info endpoint
+    /// If you have position, price needs to be better than liquidation price
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub price: Option<Decimal>,
+    /// Conditional order param. Used to identify the expected direction of the conditional order.
+    /// 1: triggered when market price rises to triggerPrice
+    /// 2: triggered when market price falls to triggerPrice
+    /// Valid for linear & inverse
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trigger_direction: Option<TriggerDirection>,
+    /// If it is not passed, Order by default.
+    /// Order
+    /// tpslOrder: Spot TP/SL order, the assets are occupied even before the order is triggered
+    /// StopOrder: Spot conditional order, the assets will not be occupied until the price of the underlying asset reaches the trigger price, and the required assets will be occupied after the Conditional order is triggered
+    /// Valid for spot only
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_filter: Option<String>,
+    /// For Perps & Futures, it is the conditional order trigger price. If you expect the price to rise to trigger your conditional order, make sure:
+    /// triggerPrice > market price
+    /// Else, triggerPrice < market price
+    /// For spot, it is the TP/SL and Conditional order trigger price
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trigger_price: Option<Decimal>,
+    /// Trigger price type, Conditional order param for Perps & Futures.
+    /// LastPrice
+    /// IndexPrice
+    /// MarkPrice
+    /// Valid for linear & inverse
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trigger_by: Option<TriggerBy>,
+    /// Implied volatility. option only. Pass the real value, e.g for 10%, 0.1 should be passed. orderIv has a higher priority when price is passed as well
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_iv: Option<Decimal>,
+    /// Time in force
+    /// Market order will always use IOC
+    /// If not passed, GTC is used by default
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_in_force: Option<TimeInForce>,
+    /// Used to identify positions in different position modes. Under hedge-mode, this param is required
+    /// 0: one-way mode
+    /// 1: hedge-mode Buy side
+    /// 2: hedge-mode Sell side
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub position_idx: Option<PositionIdx>,
+    /// User customised order ID. A max of 36 characters. Combinations of numbers, letters (upper and lower cases), dashes, and underscores are supported.
+    /// Futures & Perps: orderLinkId rules:
+    /// optional param
+    /// always unique
+    /// option orderLinkId rules:
+    /// required param
+    /// always unique
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_link_id: Option<String>,
+    /// Take profit price
+    /// UTA: Spot Limit order supports take profit, stop loss or limit take profit, limit stop loss when creating an order
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub take_profit: Option<Decimal>,
+    /// Stop loss price
+    /// UTA: Spot Limit order supports take profit, stop loss or limit take profit, limit stop loss when creating an order
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_loss: Option<Decimal>,
+    /// The price type to trigger take profit. MarkPrice, IndexPrice, default: LastPrice. Valid for linear & inverse
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tp_trigger_by: Option<TriggerBy>,
+    /// The price type to trigger stop loss. MarkPrice, IndexPrice, default: LastPrice. Valid for linear & inverse
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sl_trigger_by: Option<TriggerBy>,
+    /// What is a reduce-only order? true means your position can only reduce in size if this order is triggered.
+    /// You must specify it as true when you are about to close/reduce the position
+    /// When reduceOnly is true, take profit/stop loss cannot be set
+    /// Valid for linear, inverse & option
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reduce_only: Option<bool>,
+    /// What is a close on trigger order? For a closing order. It can only reduce your position, not increase it. If the account has insufficient available balance when the closing order is triggered, then other active orders of similar contracts will be cancelled or reduced. It can be used to ensure your stop loss reduces your position regardless of current available margin.
+    /// Valid for linear & inverse
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub close_on_trigger: Option<bool>,
+    /// Smp execution type. What is SMP?
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub smp_type: Option<SmpType>,
+    /// Market maker protection. option only. true means set the order as a market maker protection order. What is mmp?
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mmp: Option<bool>,
+    /// TP/SL mode
+    /// Full: entire position for TP/SL. Then, tpOrderType or slOrderType must be Market
+    /// Partial: partial position tp/sl (as there is no size option, so it will create tp/sl orders with the qty you actually fill). Limit TP/SL order are supported. Note: When create limit tp/sl, tpslMode is required and it must be Partial
+    /// Valid for linear & inverse
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tpsl_mode: Option<TpslMode>,
+    /// The limit order price when take profit price is triggered
+    /// linear & inverse: only works when tpslMode=Partial and tpOrderType=Limit
+    /// Spot(UTA): it is required when the order has takeProfit and "tpOrderType"=Limit
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tp_limit_price: Option<Decimal>,
+    /// The limit order price when stop loss price is triggered
+    /// linear & inverse: only works when tpslMode=Partial and slOrderType=Limit
+    /// Spot(UTA): it is required when the order has stopLoss and "slOrderType"=Limit
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sl_limit_price: Option<Decimal>,
+    /// The order type when take profit is triggered
+    /// linear & inverse: Market(default), Limit. For tpslMode=Full, it only supports tpOrderType=Market
+    /// Spot(UTA):
+    /// Market: when you set "takeProfit",
+    /// Limit: when you set "takeProfit" and "tpLimitPrice"
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tp_order_type: Option<OrderType>,
+    /// The order type when stop loss is triggered
+    /// linear & inverse: Market(default), Limit. For tpslMode=Full, it only supports slOrderType=Market
+    /// Spot(UTA):
+    /// Market: when you set "stopLoss",
+    /// Limit: when you set "stopLoss" and "slLimitPrice"
+    /// bboSideType	false	string
+    /// Queue: use the order price on the orderbook in the same direction as the side
+    /// Counterparty: use the order price on the orderbook in the opposite direction as the side
+    /// Valid for linear & inverse
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sl_order_type: Option<OrderType>,
+    /// 1,2,3,4,5 Valid for linear & inverse
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bbo_level: Option<String>,
+}
+
+impl PlaceOrderRequest {
+    pub fn new(
+        category: Category,
+        symbol: String,
+        side: Side,
+        order_type: OrderType,
+        qty: Decimal,
+    ) -> Self {
+        Self {
+            category,
+            symbol,
+            is_leverage: None,
+            side,
+            order_type,
+            qty,
+            market_unit: None,
+            slippage_tolerance_type: None,
+            slippage_tolerance: None,
+            price: None,
+            trigger_direction: None,
+            order_filter: None,
+            trigger_price: None,
+            trigger_by: None,
+            order_iv: None,
+            time_in_force: None,
+            position_idx: None,
+            order_link_id: None,
+            take_profit: None,
+            stop_loss: None,
+            tp_trigger_by: None,
+            sl_trigger_by: None,
+            reduce_only: None,
+            close_on_trigger: None,
+            smp_type: None,
+            mmp: None,
+            tpsl_mode: None,
+            tp_limit_price: None,
+            sl_limit_price: None,
+            tp_order_type: None,
+            sl_order_type: None,
+            bbo_level: None,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaceOrderResponse {
+    /// Order ID
+    pub order_id: String,
+    /// User customised order ID
+    pub order_link_id: String,
+}
+
+// TODO: Implement.
+// https://bybit-exchange.github.io/docs/v5/order/amend-order
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AmendOrderRequest {
+    pub category: Category,
+    pub symbol: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_link_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub qty: Option<Decimal>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub price: Option<Decimal>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AmendOrderResponse {
+    /// Order ID
+    pub order_id: String,
+    /// User customised order ID
+    pub order_link_id: String,
 }
 
 #[derive(Serialize)]
@@ -879,6 +1136,7 @@ pub struct GetPositionInfoParams {
     pub cursor: Option<String>,
 }
 
+// TODO: check fields
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Position {
@@ -908,10 +1166,6 @@ pub struct Position {
     /// Position value
     #[serde(default, deserialize_with = "option_decimal")]
     pub position_value: Option<Decimal>,
-    /// Trade mode
-    /// Classic & UTA1.0(inverse): 0: cross-margin, 1: isolated margin
-    /// UTA2.0, UTA1.0(except inverse): deprecated, always 0, check Get Account Info to know the margin mode
-    pub trade_mode: TradeMode,
     /// Whether to add margin automatically when using isolated margin mode
     /// 0: false
     /// 1: true
@@ -932,22 +1186,34 @@ pub struct Position {
     /// this field is empty for Portfolio Margin Mode, and no liquidation price will be provided
     #[serde(default, deserialize_with = "option_decimal")]
     pub liq_price: Option<Decimal>,
-    /// Bankruptcy price
-    #[serde(default, deserialize_with = "option_decimal")]
-    pub bust_price: Option<Decimal>,
     /// Initial margin
     /// Classic & UTA1.0(inverse): ignore this field
     /// UTA portfolio margin mode, it returns ""
-    #[serde(rename = "positionIM")]
-    pub position_im: Decimal,
+    #[serde(rename = "positionIM", default, deserialize_with = "option_decimal")]
+    pub position_im: Option<Decimal>,
+    /// Initial margin calculated by mark price
+    /// Classic & UTA1.0(inverse) : ignore this field
+    /// UTA portfolio margin mode, it returns ""
+    #[serde(
+        rename = "positionIMByMp",
+        default,
+        deserialize_with = "option_decimal"
+    )]
+    pub position_im_by_mp: Option<Decimal>,
     /// Maintenance margin
     /// Classic & UTA1.0(inverse): ignore this field
     /// UTA portfolio margin mode, it returns ""
-    #[serde(rename = "positionMM")]
-    pub position_mm: Decimal,
-    /// Position margin
-    /// Classic & UTA1.0(inverse) can refer to this field to get the position initial margin plus position closing fee
-    pub position_balance: Decimal,
+    #[serde(rename = "positionMM", default, deserialize_with = "option_decimal")]
+    pub position_mm: Option<Decimal>,
+    /// Maintenance margin calculated by mark price
+    /// Classic & UTA1.0(inverse) : ignore this field
+    /// UTA portfolio margin mode, it returns ""
+    #[serde(
+        rename = "positionMMByMp",
+        default,
+        deserialize_with = "option_decimal"
+    )]
+    pub position_mm_by_mp: Option<Decimal>,
     /// Take profit price
     #[serde(default, deserialize_with = "option_decimal")]
     pub take_profit: Option<Decimal>,
@@ -955,7 +1221,8 @@ pub struct Position {
     #[serde(default, deserialize_with = "option_decimal")]
     pub stop_loss: Option<Decimal>,
     /// Trailing stop (The distance from market price)
-    pub trailing_stop: Decimal,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub trailing_stop: Option<Decimal>,
     /// USDC contract session avg price, it is the same figure as avg entry price shown in the web UI
     #[serde(default, deserialize_with = "option_decimal")]
     pub session_avg_price: Option<Decimal>,
@@ -1026,20 +1293,18 @@ impl Position {
         self.size = msg.size;
         self.avg_price = msg.entry_price;
         self.position_value = Some(msg.position_value);
-        self.trade_mode = msg.trade_mode;
         self.auto_add_margin = msg.auto_add_margin;
         self.position_status = msg.position_status;
         self.leverage = msg.leverage;
         self.mark_price = msg.mark_price;
         self.liq_price = Some(msg.liq_price);
-        self.bust_price = msg.bust_price;
         // INFO: self.position_im updated in self.update_with_a_wallet_coin
         // INFO: self.position_mm updated in self.update_with_a_wallet_coin
-        self.position_balance = msg.position_balance;
         self.take_profit = Some(msg.take_profit);
         self.stop_loss = Some(msg.stop_loss);
-        self.trailing_stop = msg.trailing_stop;
-        self.session_avg_price = Some(msg.session_avg_price);
+        self.trailing_stop = Some(msg.trailing_stop);
+        // self.trailing_stop = msg.trailing_stop;
+        self.session_avg_price = msg.session_avg_price;
         self.delta = msg.delta;
         self.gamma = msg.gamma;
         self.vega = msg.vega;
@@ -1057,12 +1322,8 @@ impl Position {
     }
 
     pub fn update_with_a_wallet_coin(&mut self, msg: &WalletCoin) {
-        if let Some(position_im) = msg.total_position_im {
-            self.position_im = position_im;
-        }
-        if let Some(position_mm) = msg.total_position_mm {
-            self.position_mm = position_mm;
-        }
+        self.position_mm = msg.total_position_im;
+        self.position_im = msg.total_position_mm;
         self.unrealised_pnl = Some(msg.unrealised_pnl);
     }
 }
@@ -1075,7 +1336,7 @@ pub struct GetWalletBalanceParams {
     /// UTA1.0: UNIFIED, CONTRACT(inverse derivatives wallet)
     /// Classic account: CONTRACT, SPOT
     /// To get Funding wallet balance, please go to this endpoint
-    pub account_type: String,
+    pub account_type: AccountType,
     /// Coin name, uppercase only
     /// If not passed, it returns non-zero asset info
     /// You can pass multiple coins to query, separated by comma. USDT,USDC
@@ -1088,16 +1349,22 @@ pub struct WalletBalance {
     /// Account type
     pub account_type: AccountType,
     /// Account IM rate
-    /// You can refer to this Glossary to understand the below fields calculation and mearning
+    /// You can refer to this Glossary to understand the below fields calculation and meaning
     /// All account wide fields are not applicable to
     /// UTA2.0(isolated margin),
     /// UTA1.0(isolated margin), UTA1.0(CONTRACT),
     /// classic account(SPOT, CONTRACT)
     #[serde(rename = "accountIMRate")]
     pub account_im_rate: Decimal,
+    /// Account initial margin (USD) calculated by mark price: ∑Asset Total Initial Margin Base Coin calculated by mark price
+    #[serde(rename = "accountIMRateByMp")]
+    pub account_im_rate_by_mp: Decimal,
     /// Account MM rate
     #[serde(rename = "accountMMRate")]
     pub account_mm_rate: Decimal,
+    /// Account maintenance margin (USD) calculated by mark price: ∑ Asset Total Maintenance Margin Base Coin calculated by mark price
+    #[serde(rename = "accountMMRateByMp")]
+    pub account_mm_rate_by_mp: Decimal,
     /// Account total equity (USD)
     pub total_equity: Decimal,
     /// Account wallet balance (USD): ∑Asset Wallet Balance By USD value of each asset
@@ -1111,8 +1378,12 @@ pub struct WalletBalance {
     pub total_perp_upl: Decimal,
     /// Account initial margin (USD): ∑Asset Total Initial Margin Base Coin
     pub total_initial_margin: Decimal,
+    /// Account initial margin (USD) calculated by mark price: ∑Asset Total Initial Margin Base Coin calculated by mark price
+    pub total_initial_margin_by_mp: Decimal,
     /// Account maintenance margin (USD): ∑ Asset Total Maintenance Margin Base Coin
     pub total_maintenance_margin: Decimal,
+    /// Account maintenance margin (USD) calculated by mark price: ∑ Asset Total Maintenance Margin Base Coin calculated by mark price
+    pub total_maintenance_margin_by_mp: Decimal,
     #[serde(deserialize_with = "hash_map")]
     pub coin: HashMap<String, WalletCoin>,
 }
@@ -1144,23 +1415,12 @@ pub struct WalletCoin {
     pub usd_value: Decimal,
     /// Wallet balance of coin
     pub wallet_balance: Decimal,
-    /// Available balance for Spot wallet. This is a unique field for Classic SPOT
-    #[serde(default, deserialize_with = "option_decimal")]
-    pub free: Option<Decimal>,
     /// Locked balance due to the Spot open order
     pub locked: Decimal,
     /// The spot asset qty that is used to hedge in the portfolio margin, truncate to 8 decimals and "0" by default. This is a unique field for Unified account.
     pub spot_hedging_qty: Decimal,
     /// Borrow amount of current coin
     pub borrow_amount: Decimal,
-    /// Note: this field is deprecated for accountType=UNIFIED from 9 Jan, 2025
-    /// Transferable balance: you can use Get Transferable Amount (Unified) or Get All Coins Balance instead
-    /// Derivatives available balance:
-    /// isolated margin: walletBalance - totalPositionIM - totalOrderIM - locked - bonus
-    /// cross & portfolio margin: look at field totalAvailableBalance(USD), which needs to be converted into the available balance of accordingly coin through index price
-    /// Spot (margin) available balance: refer to Get Borrow Quota (Spot)
-    #[serde(default, deserialize_with = "option_decimal")]
-    pub available_to_withdraw: Option<Decimal>,
     /// Accrued interest
     pub accrued_interest: Decimal,
     /// Pre-occupied margin for order. For portfolio margin mode, it returns ""
@@ -1184,14 +1444,16 @@ pub struct WalletCoin {
     pub unrealised_pnl: Decimal,
     /// Cumulative Realised P&L
     pub cum_realised_pnl: Decimal,
-    /// Bonus. This is a unique field for accounType=UNIFIED
+    /// Bonus. This is a unique field for accountType=UNIFIED
     pub bonus: Decimal,
+    /// Whether the collateral is turned on by user (user), true: ON, false: OFF
+    /// When marginCollateral=true, then collateralSwitch is meaningful
+    pub collateral_switch: bool,
     /// Whether it can be used as a margin collateral currency (platform), true: YES, false: NO
     /// When marginCollateral=false, then collateralSwitch is meaningless
     pub margin_collateral: bool,
-    /// Whether the collateral is turned on by user (user), true: ON, false: OFF
-    // When marginCollateral=true, then collateralSwitch is meaningful
-    pub collateral_switch: bool,
+    /// Borrow amount by spot margin trade and manual borrow amount (does not include borrow amount by spot margin active order). spotBorrow field corresponding to spot liabilities is detailed in the announcement.
+    pub spot_borrow: Decimal,
 }
 
 impl Unique<String> for WalletCoin {
@@ -1214,6 +1476,106 @@ pub struct AccountInfo {
     /// Account data updated timestamp (ms)
     #[serde(deserialize_with = "number")]
     pub updated_time: Timestamp,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DCPConfiguration {
+    /// DCP config for each product
+    pub dcp_infos: Vec<DCPInfo>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DCPInfo {
+    /// SPOT, DERIVATIVES, OPTIONS
+    pub product: DCPProduct,
+    /// Disconnected-CancelAll-Prevention status: ON
+    #[serde(rename = "dcpStatus")]
+    pub status: String,
+    /// DCP trigger time window which user pre-set. Between [3, 300] seconds, default: 10 sec
+    #[serde(deserialize_with = "number")]
+    pub time_window: Second,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct APIKeyInformation {
+    /// Unique ID. Internal use
+    pub id: String,
+    /// The remark
+    pub note: String,
+    /// Api key
+    pub api_key: String,
+    /// 0：Read and Write. 1：Read only
+    pub read_only: i64,
+    /// Always ""
+    pub secret: String,
+    /// The types of permission
+    pub permissions: APIKeyPermissions,
+    /// IP bound
+    pub ips: Vec<String>,
+    /// The type of api key. 1：personal, 2：connected to the third-party app
+    #[serde(rename = "type")]
+    pub key_type: i64,
+    /// The remaining valid days of api key. Only for those api key with no IP bound or the password has been changed
+    pub deadline_day: u64,
+    /// The expiry day of the api key. Only for those api key with no IP bound or the password has been changed
+    pub expired_at: String,
+    /// The create day of the api key
+    pub created_at: String,
+    /// Whether the account to which the account upgrade to unified trade account. 0：regular account; 1：unified trade account
+    pub uta: i64,
+    /// User ID
+    #[serde(rename = "userID")]
+    pub user_id: i64,
+    /// Inviter ID (the UID of the account which invited this account to the platform)
+    #[serde(rename = "inviterID")]
+    pub inviter_id: i64,
+    /// VIP Level
+    pub vip_level: VipLevel,
+    /// Market maker level
+    pub mkt_maker_level: String,
+    /// Affiliate Id. 0 represents that there is no binding relationship.
+    #[serde(rename = "affiliateID")]
+    pub affiliate_id: i64,
+    /// Rsa public key
+    pub rsa_public_key: String,
+    /// If this api key belongs to master account or not
+    pub is_master: bool,
+    /// The main account uid. Returns "0" when the endpoint is called by main account
+    pub parent_uid: String,
+    /// Personal account kyc level. LEVEL_DEFAULT, LEVEL_1， LEVEL_2
+    pub kyc_level: String,
+    /// Personal account kyc region
+    pub kyc_region: String,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "PascalCase")]
+pub struct APIKeyPermissions {
+    /// Permission of contract trade Order, Position
+    pub contract_trade: Vec<String>,
+    /// Permission of spot SpotTrade
+    pub spot: Vec<String>,
+    /// Permission of wallet AccountTransfer, SubMemberTransfer(master account), SubMemberTransferList(sub account), Withdraw(master account)
+    pub wallet: Vec<String>,
+    /// Permission of USDC Contract. It supports trade option and USDC perpetual. OptionsTrade
+    pub options: Vec<String>,
+    /// Unified account has this permission by default DerivativesTrade
+    /// For classic account, it is always []
+    pub derivatives: Vec<String>,
+    /// Permission of convert ExchangeHistory
+    pub exchange: Vec<String>,
+    /// Permission of earn product Earn
+    #[serde(default)]
+    pub earn: Vec<String>,
+    /// Permission of blocktrade. Not applicable to subaccount, always []
+    pub block_trade: Vec<String>,
+    /// Permission of Affiliate. Only affiliate can have this permission, otherwise always []
+    pub affiliate: Vec<String>,
+    /// Always [] as Master Trader account just use ContractTrade to start CopyTrading
+    pub copy_trading: Vec<String>,
 }
 
 #[cfg(test)]
@@ -1538,7 +1900,7 @@ mod tests {
                     tp_trigger_by: Some(TriggerBy::LastPrice),
                     sl_trigger_by: Some(TriggerBy::LastPrice),
                     trigger_direction: TriggerDirection::UNKNOWN,
-                    trigger_by: TriggerBy::UNKNOWN,
+                    trigger_by: Some(TriggerBy::UNKNOWN),
                     last_price_on_created: None,
                     base_price: None,
                     reduce_only: false,
@@ -1552,6 +1914,130 @@ mod tests {
                 }],
             },
             time: Some(1684765770483),
+            ret_ext_info: Some(RetExtInfo {}),
+        };
+
+        let message = deserialize_str(json).unwrap();
+
+        assert_eq!(expected, message);
+    }
+
+    #[test]
+    fn deserialize_response_get_open_closed_orders_linear2() {
+        let json = r#"{
+            "retCode":0,
+            "retMsg":"OK",
+            "result":{
+                "nextPageCursor":"aed77e97-492f-45be-8ada-4ff350ec07a5%3A1762701687113%2Caed77e97-492f-45be-8ada-4ff350ec07a5%3A1762701687113",
+                "category":"linear",
+                "list":[
+                    {
+                        "symbol":"BTCUSDT",
+                        "orderType":"Limit",
+                        "orderLinkId":"",
+                        "slLimitPrice":"0",
+                        "orderId":"aed77e97-492f-45be-8ada-4ff350ec07a5",
+                        "cancelType":"UNKNOWN",
+                        "avgPrice":"",
+                        "stopOrderType":"",
+                        "lastPriceOnCreated":"103550",
+                        "orderStatus":"New",
+                        "createType":"CreateByUser",
+                        "takeProfit":"",
+                        "cumExecValue":"0",
+                        "tpslMode":"",
+                        "smpType":"None",
+                        "triggerDirection":0,
+                        "blockTradeId":"",
+                        "isLeverage":"",
+                        "rejectReason":"EC_NoError",
+                        "price":"103000",
+                        "orderIv":"",
+                        "createdTime":"1762701687113",
+                        "tpTriggerBy":"",
+                        "positionIdx":1,
+                        "timeInForce":"GTC",
+                        "leavesValue":"1030",
+                        "updatedTime":"1762701687113",
+                        "side":"Buy",
+                        "smpGroup":0,
+                        "triggerPrice":"",
+                        "tpLimitPrice":"0",
+                        "cumExecFee":"0",
+                        "leavesQty":"0.01",
+                        "slTriggerBy":"",
+                        "closeOnTrigger":false,
+                        "placeType":"",
+                        "cumExecQty":"0",
+                        "reduceOnly":false,
+                        "qty":"0.01",
+                        "stopLoss":"",
+                        "marketUnit":"",
+                        "smpOrderId":"",
+                        "triggerBy":""
+                    }
+                ]
+            },
+            "retExtInfo":{},
+            "time":1762711342768
+        }"#;
+        let expected = Resp {
+            ret_code: 0,
+            ret_msg: String::from("OK"),
+            result: CursorPagination {
+                category: Category::Linear,
+                next_page_cursor: Some(String::from(
+                    "aed77e97-492f-45be-8ada-4ff350ec07a5%3A1762701687113%2Caed77e97-492f-45be-8ada-4ff350ec07a5%3A1762701687113",
+                )),
+                list: vec![Order {
+                    order_id: String::from("aed77e97-492f-45be-8ada-4ff350ec07a5"),
+                    order_link_id: None,
+                    block_trade_id: None,
+                    symbol: String::from("BTCUSDT"),
+                    price: dec!(103000),
+                    qty: dec!(0.01),
+                    side: Side::Buy,
+                    is_leverage: None,
+                    position_idx: PositionIdx::Buy,
+                    order_status: OrderStatus::New,
+                    create_type: Some(CreateType::CreateByUser),
+                    cancel_type: CancelType::UNKNOWN,
+                    reject_reason: RejectReason::EcNoError,
+                    avg_price: None,
+                    leaves_qty: dec!(0.01),
+                    leaves_value: dec!(1030),
+                    cum_exec_qty: dec!(0),
+                    cum_exec_value: dec!(0),
+                    cum_exec_fee: dec!(0),
+                    time_in_force: TimeInForce::GTC,
+                    order_type: OrderType::Limit,
+                    stop_order_type: None,
+                    order_iv: None,
+                    market_unit: None,
+                    trigger_price: None,
+                    take_profit: None,
+                    stop_loss: None,
+                    tpsl_mode: None,
+                    oco_trigger_by: None,
+                    tp_limit_price: Some(dec!(0)),
+                    sl_limit_price: Some(dec!(0)),
+                    tp_trigger_by: None,
+                    sl_trigger_by: None,
+                    trigger_direction: TriggerDirection::UNKNOWN,
+                    trigger_by: None,
+                    last_price_on_created: Some(dec!(103550)),
+                    base_price: None,
+                    reduce_only: false,
+                    close_on_trigger: false,
+                    place_type: None,
+                    smp_type: SmpType::None,
+                    smp_group: 0,
+                    smp_order_id: None,
+                    created_time: 1762701687113,
+                    updated_time: 1762701687113,
+                }],
+            },
+            time: Some(1762711342768),
             ret_ext_info: Some(RetExtInfo {}),
         };
 
@@ -1586,7 +2072,9 @@ mod tests {
                         "liqPrice": "",
                         "bustPrice": "999999.00",
                         "positionMM": "0.0000015",
+                        "positionMMByMp": "0.0000015",
                         "positionIM": "0.00010923",
+                        "positionIMByMp": "0.00010923",
                         "tpslMode": "Full",
                         "takeProfit": "0.00",
                         "stopLoss": "0.00",
@@ -1624,19 +2112,18 @@ mod tests {
                     size: dec!(300),
                     avg_price: dec!(27464.50441675),
                     position_value: Some(dec!(0.01092319)),
-                    trade_mode: TradeMode::CrossMargin,
                     auto_add_margin: true,
                     position_status: PositionStatus::Normal,
                     leverage: dec!(10),
                     mark_price: dec!(28224.50),
                     liq_price: None,
-                    bust_price: Some(dec!(999999.00)),
-                    position_im: dec!(0.00010923),
-                    position_mm: dec!(0.0000015),
-                    position_balance: dec!(0.00139186),
+                    position_im: Some(dec!(0.00010923)),
+                    position_im_by_mp: Some(dec!(0.00010923)),
+                    position_mm: Some(dec!(0.0000015)),
+                    position_mm_by_mp: Some(dec!(0.0000015)),
                     take_profit: Some(dec!(0.00)),
                     stop_loss: Some(dec!(0.00)),
-                    trailing_stop: dec!(0.00),
+                    trailing_stop: Some(dec!(0.00)),
                     session_avg_price: None,
                     delta: None,
                     gamma: None,
@@ -1673,15 +2160,19 @@ mod tests {
                     {
                         "totalEquity": "3.31216591",
                         "accountIMRate": "0",
+                        "accountIMRateByMp": "0",
                         "totalMarginBalance": "3.00326056",
                         "totalInitialMargin": "0",
+                        "totalInitialMarginByMp": "0",
                         "accountType": "UNIFIED",
                         "totalAvailableBalance": "3.00326056",
                         "accountMMRate": "0",
+                        "accountMMRateByMp": "0",
                         "totalPerpUPL": "0",
                         "totalWalletBalance": "3.00326056",
                         "accountLTV": "0",
                         "totalMaintenanceMargin": "0",
+                        "totalMaintenanceMarginByMp": "0",
                         "coin": [
                             {
                                 "availableToBorrow": "3",
@@ -1701,7 +2192,8 @@ mod tests {
                                 "cumRealisedPnl": "0",
                                 "locked": "0",
                                 "marginCollateral": true,
-                                "coin": "BTC"
+                                "coin": "BTC",
+                                "spotBorrow": "0"
                             }
                         ]
                     }
@@ -1715,11 +2207,9 @@ mod tests {
             equity: dec!(0),
             usd_value: dec!(0),
             wallet_balance: dec!(0),
-            free: None,
             locked: dec!(0),
             spot_hedging_qty: dec!(0.01592413),
             borrow_amount: dec!(0.0),
-            available_to_withdraw: Some(dec!(0)),
             accrued_interest: dec!(0),
             total_order_im: Some(dec!(0)),
             total_position_im: Some(dec!(0)),
@@ -1729,8 +2219,9 @@ mod tests {
             bonus: dec!(0),
             margin_collateral: true,
             collateral_switch: true,
+            spot_borrow: dec!(0),
         };
-        let coin = HashMap::from([(coin.unique_key(), coin)]);
+        let coin = HashMap::from([(Unique::unique_key(&coin), coin)]);
         let expected = Resp {
             ret_code: 0,
             ret_msg: String::from("OK"),
@@ -1738,14 +2229,18 @@ mod tests {
                 list: vec![WalletBalance {
                     account_type: AccountType::UNIFIED,
                     account_im_rate: dec!(0),
+                    account_im_rate_by_mp: dec!(0),
                     account_mm_rate: dec!(0),
+                    account_mm_rate_by_mp: dec!(0),
                     total_equity: dec!(3.31216591),
                     total_wallet_balance: dec!(3.00326056),
                     total_margin_balance: dec!(3.00326056),
                     total_available_balance: dec!(3.00326056),
                     total_perp_upl: dec!(0),
                     total_initial_margin: dec!(0),
+                    total_initial_margin_by_mp: dec!(0),
                     total_maintenance_margin: dec!(0),
+                    total_maintenance_margin_by_mp: dec!(0),
                     coin,
                 }],
             },
@@ -1768,15 +2263,19 @@ mod tests {
                     {
                         "totalEquity":"36.42053792",
                         "accountIMRate":"0",
+                        "accountIMRateByMp":"0",
                         "totalMarginBalance":"36.42053792",
                         "totalInitialMargin":"0",
+                        "totalInitialMarginByMp":"0",
                         "accountType":"UNIFIED",
                         "totalAvailableBalance":"36.42053792",
                         "accountMMRate":"0",
+                        "accountMMRateByMp":"0",
                         "totalPerpUPL":"0",
                         "totalWalletBalance":"36.42053792",
                         "accountLTV":"0",
                         "totalMaintenanceMargin":"0",
+                        "totalMaintenanceMarginByMp":"0",
                         "coin":[
                             {
                                 "availableToBorrow":"",
@@ -1796,7 +2295,8 @@ mod tests {
                                 "cumRealisedPnl":"-2084.9938789",
                                 "locked":"0",
                                 "marginCollateral":true,
-                                "coin":"USDT"
+                                "coin":"USDT",
+                                "spotBorrow": "0"
                             }
                         ]
                     }
@@ -1810,11 +2310,9 @@ mod tests {
             equity: dec!(36.4061211),
             usd_value: dec!(36.42053792),
             wallet_balance: dec!(36.4061211),
-            free: None,
             locked: dec!(0),
             spot_hedging_qty: dec!(0),
             borrow_amount: dec!(0.000000000000000000),
-            available_to_withdraw: None,
             accrued_interest: dec!(0),
             total_order_im: Some(dec!(0)),
             total_position_im: Some(dec!(0)),
@@ -1824,8 +2322,9 @@ mod tests {
             bonus: dec!(0),
             margin_collateral: true,
             collateral_switch: true,
+            spot_borrow: dec!(0),
         };
-        let coin = HashMap::from([(coin.unique_key(), coin)]);
+        let coin = HashMap::from([(Unique::unique_key(&coin), coin)]);
         let expected = Resp {
             ret_code: 0,
             ret_msg: String::from("OK"),
@@ -1833,14 +2332,18 @@ mod tests {
                 list: vec![WalletBalance {
                     account_type: AccountType::UNIFIED,
                     account_im_rate: dec!(0),
+                    account_im_rate_by_mp: dec!(0),
                     account_mm_rate: dec!(0),
+                    account_mm_rate_by_mp: dec!(0),
                     total_equity: dec!(36.42053792),
                     total_wallet_balance: dec!(36.42053792),
                     total_margin_balance: dec!(36.42053792),
                     total_available_balance: dec!(36.42053792),
                     total_perp_upl: dec!(0),
                     total_initial_margin: dec!(0),
+                    total_initial_margin_by_mp: dec!(0),
                     total_maintenance_margin: dec!(0),
+                    total_maintenance_margin_by_mp: dec!(0),
                     coin,
                 }],
             },
