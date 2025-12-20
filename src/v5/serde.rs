@@ -1,6 +1,6 @@
 use std::{collections::HashMap, hash::Hash};
 
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, Serialize};
 
 pub fn invalid_as_none<'de, D, T>(deserializer: D) -> Result<Option<T>, D::Error>
 where
@@ -62,6 +62,8 @@ where
     }
 }
 
+// TODO: rename to `deserialize`
+#[inline]
 pub fn deserialize_str<'de, T>(
     json: &'de str,
 ) -> Result<T, serde_path_to_error::Error<serde_json::Error>>
@@ -71,6 +73,22 @@ where
     let deserializer = &mut serde_json::Deserializer::from_str(json);
 
     serde_path_to_error::deserialize(deserializer)
+}
+
+#[inline]
+pub fn serialize<T>(msg: &T) -> serde_json::Result<String>
+where
+    T: ?Sized + Serialize,
+{
+    serde_json::to_string(msg)
+}
+
+#[inline]
+pub fn serialize_query<T>(msg: &T) -> Result<String, serde_urlencoded::ser::Error>
+where
+    T: ?Sized + Serialize,
+{
+    serde_urlencoded::to_string(msg)
 }
 
 pub trait Unique<Q>
