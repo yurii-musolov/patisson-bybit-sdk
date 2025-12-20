@@ -69,8 +69,8 @@ impl SensitiveString {
 pub fn hmac_sha256(key: impl AsRef<[u8]>, message: impl AsRef<[u8]>) -> String {
     let mut mac = Hmac::<Sha256>::new_from_slice(key.as_ref()).unwrap();
     mac.update(message.as_ref());
-    let mac = mac.finalize().into_bytes().to_vec();
-    hex::encode(&mac)
+    let mac = mac.finalize().into_bytes();
+    hex::encode(mac)
 }
 
 type Timer = fn() -> Timestamp;
@@ -78,7 +78,7 @@ pub struct Signer {
     api_key: SensitiveString,
     api_secret: SensitiveString,
     /// Milliseconds.
-    recv_window: u64,
+    recv_window: Timestamp,
     timer: Timer,
 }
 
@@ -87,7 +87,7 @@ impl Signer {
     pub fn new(
         api_key: SensitiveString,
         api_secret: SensitiveString,
-        recv_window: u64,
+        recv_window: Timestamp,
         timer: Option<Timer>,
     ) -> Self {
         Self {
@@ -102,7 +102,7 @@ impl Signer {
     pub fn sign(&self, s: &str) -> (String, String) {
         let timestamp = (self.timer)().to_string();
         let api_key = self.api_key.expose();
-        let api_secret = &self.api_secret.expose();
+        let api_secret = self.api_secret.expose();
         let message = format!("{timestamp}{}{}{s}", api_key, &self.recv_window);
 
         let signature = hmac_sha256(api_secret, message);
@@ -112,8 +112,14 @@ impl Signer {
 }
 
 /// Return milliseconds.
-fn timestamp() -> Timestamp {
+pub fn timestamp() -> Timestamp {
     std::time::UNIX_EPOCH.elapsed().unwrap().as_millis() as Timestamp
+}
+
+pub fn create_stream_signature(expires: Timestamp, api_secret: SensitiveString) -> String {
+    let api_secret = api_secret.expose();
+    let message = format!("GET/realtime{expires}");
+    hmac_sha256(api_secret, message)
 }
 
 #[cfg(test)]
