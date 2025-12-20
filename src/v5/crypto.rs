@@ -1,16 +1,22 @@
 use hex;
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
-use std::fmt::{self, Display, Formatter};
+use std::fmt;
 
 use crate::v5::Timestamp;
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SensitiveString(String);
 
-impl Display for SensitiveString {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+impl fmt::Display for SensitiveString {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "REDACTED")
+    }
+}
+
+impl fmt::Debug for SensitiveString {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", "REDACTED")
     }
 }
 
