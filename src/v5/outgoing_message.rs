@@ -1,29 +1,56 @@
 use serde::Serialize;
 
-use crate::v5::Topic;
+use crate::v5::{SensitiveString, Timestamp, Topic, create_stream_signature, timestamp};
 
 #[derive(Serialize, Debug)]
 #[serde(tag = "op")]
 pub enum OutgoingMessage {
     #[serde(rename = "subscribe")]
     Subscribe {
+        #[serde(skip_serializing_if = "Option::is_none")]
         req_id: Option<String>,
         args: Vec<Topic>,
     },
     #[serde(rename = "unsubscribe")]
     Unsubscribe {
+        #[serde(skip_serializing_if = "Option::is_none")]
         req_id: Option<String>,
         args: Vec<Topic>,
     },
     #[serde(rename = "auth")]
     Auth {
+        #[serde(skip_serializing_if = "Option::is_none")]
         req_id: Option<String>,
-        args: (String, i64, String),
+        args: (String, Timestamp, String),
     },
     #[serde(rename = "ping")]
-    Ping { req_id: Option<String> },
+    Ping {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        req_id: Option<String>,
+    },
     #[serde(rename = "pong")]
-    Pong { req_id: Option<String> },
+    Pong {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        req_id: Option<String>,
+    },
+}
+
+pub fn create_outgoing_message_auth(
+    api_key: SensitiveString,
+    api_secret: SensitiveString,
+    req_id: Option<String>,
+) -> OutgoingMessage {
+    let api_key = api_key.expose().to_string();
+    // TODO: use param 'recv_window'
+    let recv_window = 20_000;
+    let expires = timestamp() + recv_window;
+
+    let signature = create_stream_signature(expires, api_secret);
+
+    OutgoingMessage::Auth {
+        req_id,
+        args: (api_key, expires, signature),
+    }
 }
 
 #[cfg(test)]
