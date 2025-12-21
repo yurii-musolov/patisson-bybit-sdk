@@ -1,15 +1,17 @@
 use std::collections::HashMap;
 
 use crate::v5::{
-    AccountType, AdlRankIndicator, Topic, WalletCoin,
-    serde::{Unique, hash_map},
+    AccountType, AdlRankIndicator, ExecType, ExtraFeeType, ExtraSubFeeType, Topic, WalletCoin,
+    serde::hash_map,
 };
 
 use super::{
     CancelType, Category, CreateType, Interval, OcoTriggerBy, OrderStatus, OrderType, PlaceType,
     PositionIdx, PositionStatus, RejectReason, Side, SlippageToleranceType, SmpType, StopOrderType,
-    TickDirection, TimeInForce, Timestamp, TpslMode, TradeMode, TriggerBy, TriggerDirection,
-    serde::{empty_string_as_none, int_to_bool, invalid_as_none, string_to_option_bool},
+    TickDirection, TimeInForce, Timestamp, TpslMode, TriggerBy, TriggerDirection,
+    serde::{
+        empty_string_as_none, int_to_bool, invalid_as_none, string_to_bool, string_to_option_bool,
+    },
 };
 use rust_decimal::{Decimal, serde::str_option::deserialize as option_decimal};
 use serde::Deserialize;
@@ -39,7 +41,7 @@ pub enum CommandMsg {
         #[serde(default, deserialize_with = "empty_string_as_none")]
         ret_msg: Option<String>,
         conn_id: String,
-        success: Option<bool>,
+        success: bool,
     },
     #[serde(rename = "unsubscribe")]
     Unsubscribe {
@@ -48,7 +50,7 @@ pub enum CommandMsg {
         #[serde(default, deserialize_with = "empty_string_as_none")]
         ret_msg: Option<String>,
         conn_id: String,
-        success: Option<bool>,
+        success: bool,
     },
     #[serde(rename = "auth")]
     Auth {
@@ -67,7 +69,7 @@ pub enum CommandMsg {
         ret_msg: Option<String>,
         conn_id: String,
         args: Option<Vec<String>>,
-        success: bool,
+        success: Option<bool>,
     },
     #[serde(rename = "ping")]
     Ping {
@@ -300,7 +302,7 @@ pub struct AllLiquidationSnapshotMsg {
 }
 
 #[derive(PartialEq, Deserialize, Debug)]
-#[serde(tag = "topic")]
+#[serde(tag = "topic")] // TODO: Use field topic
 pub enum TopicMessage {
     #[serde(rename = "order")]
     Order(PrivateMsg<Vec<OrderMsg>>),
@@ -308,6 +310,8 @@ pub enum TopicMessage {
     Position(PrivateMsg<Vec<PositionMsg>>),
     #[serde(rename = "wallet")]
     Wallet(PrivateMsg<Vec<WalletMsg>>),
+    #[serde(rename = "execution")]
+    Execution(PrivateMsg<Vec<ExecutionMsg>>),
 }
 
 #[derive(PartialEq, Deserialize, Debug)]
@@ -324,11 +328,12 @@ pub struct PublicMsg<T> {
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PrivateMsg<T> {
+    // TODO: pub topic: Topic, /// Topic name
     /// Message ID
-    id: String,
+    pub id: String,
     /// Data created timestamp (ms)
-    creation_time: Timestamp,
-    data: T,
+    pub creation_time: Timestamp,
+    pub data: T,
 }
 
 #[derive(PartialEq, Deserialize, Debug)]
@@ -394,6 +399,8 @@ pub struct OrderMsg {
     /// Classic spot: it is the latest execution fee for order.
     /// After upgraded to the Unified account, you can use execFee for each fill in Execution topic
     pub cum_exec_fee: Decimal,
+    /// linear, spot: Cumulative trading fee details instead of cumExecFee
+    pub cum_fee_detail: Option<serde_json::Value>,
     /// Closed profit and loss for each close position order. The figure is the same as "closedPnl" from Get Closed PnL
     pub closed_pnl: Decimal,
     /// Trading fee currency for Spot only. Please understand Spot trading fee currency here
@@ -491,10 +498,6 @@ pub struct PositionMsg {
     pub size: Decimal,
     /// Used to identify positions in different position modes
     pub position_idx: PositionIdx,
-    /// Trade mode
-    /// Classic & UTA1.0(inverse): 0: cross-margin, 1: isolated margin
-    /// UTA2.0, UTA1.0(execpt inverse): deprecated, always 0, check Get Account Info to know the margin mode
-    pub trade_mode: TradeMode,
     /// Position value
     pub position_value: Decimal,
     /// Risk tier ID
@@ -503,7 +506,8 @@ pub struct PositionMsg {
     pub risk_id: i64,
     /// Risk limit value
     /// for portfolio margin mode, this field returns 0, which means risk limit rules are invalid
-    pub risk_limit_value: Decimal,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub risk_limit_value: Option<Decimal>,
     /// Entry price
     pub entry_price: Decimal,
     /// Mark price
@@ -511,29 +515,41 @@ pub struct PositionMsg {
     /// Position leverage
     /// for portfolio margin mode, this field returns "", which means leverage rules are invalid
     pub leverage: Decimal,
-    /// Position margin
-    /// Classic & UTA1.0(inverse) can refer to this field to get the position initial margin
-    pub position_balance: Decimal,
     /// Whether to add margin automatically. 0: false, 1: true. For UTA, it is meaningful only when UTA enables ISOLATED_MARGIN
     #[serde(default, deserialize_with = "int_to_bool")]
     pub auto_add_margin: bool,
-    /// Initial margin
-    /// Classic & UTA1.0(inverse): ignore this field
-    /// UTA portfolio margin mode, it returns ""
-    pub position_i_m: Decimal,
-    /// Maintenance margin
-    /// Classic & UTA1.0(inverse): ignore this field
-    /// UTA portfolio margin mode, it returns ""
-    pub position_m_m: Decimal,
+    /// Initial margin, the same value as positionIMByMp, please note this change The New Margin Calculation: Adjustments and Implications
+    /// Portfolio margin mode: returns ""
+    #[serde(rename = "positionIM", default, deserialize_with = "option_decimal")]
+    pub position_im: Option<Decimal>,
+    /// Maintenance margin, the same value as positionMMByMp
+    /// Portfolio margin mode: returns ""
+    #[serde(rename = "positionMM", default, deserialize_with = "option_decimal")]
+    pub position_mm: Option<Decimal>,
+    /// Initial margin calculated by mark price, the same value as positionIM
+    /// Portfolio margin mode: returns ""
+    #[serde(
+        rename = "positionIMByMp",
+        default,
+        deserialize_with = "option_decimal"
+    )]
+    pub position_im_by_mp: Option<Decimal>,
+    /// Maintenance margin calculated by mark price, the same value as positionMM
+    /// Portfolio margin mode: returns ""
+    #[serde(
+        rename = "positionMMByMp",
+        default,
+        deserialize_with = "option_decimal"
+    )]
+    pub position_mm_by_mp: Option<Decimal>,
     /// Position liquidation price
-    /// UTA1.0(inverse) & UTA(isolated margin enabled) & Classic account: it is the real price for isolated and cross positions, and keeps "" when liqPrice <= minPrice or liqPrice >= maxPrice
-    /// UTA (Cross margin mode): it is an estimated price for cross positions(because the unified mode controls the risk rate according to the account), and keeps "" when liqPrice <= minPrice or liqPrice >= maxPrice
-    /// However, this field is empty for Portfolio Margin Mode, and no liquidation price will be provided
-    pub liq_price: Decimal,
-    /// Bankruptcy price
-    /// Unified mode returns "", no position bankruptcy price (except UTA1.0(inverse))
-    #[serde(deserialize_with = "option_decimal")]
-    pub bust_price: Option<Decimal>,
+    /// Isolated margin:
+    /// it is the real price for isolated and cross positions, and keeps "" when liqPrice <= minPrice or liqPrice >= maxPrice
+    /// Cross margin:
+    /// it is an estimated price for cross positions(because the unified mode controls the risk rate according to the account), and keeps "" when liqPrice <= minPrice or liqPrice >= maxPrice
+    /// this field is empty for Portfolio Margin Mode, and no liquidation price will be provided
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub liq_price: Option<Decimal>,
     /// Take profit price
     pub take_profit: Decimal,
     /// Stop loss price
@@ -541,12 +557,12 @@ pub struct PositionMsg {
     /// Trailing stop
     pub trailing_stop: Decimal,
     /// Unrealised profit and loss
-    #[serde(default, deserialize_with = "option_decimal")]
-    pub unrealized_pnl: Option<Decimal>,
+    pub unrealised_pnl: Decimal,
     /// The realised PnL for the current holding position
     pub cur_realised_pnl: Decimal,
     /// USDC contract session avg price, it is the same figure as avg entry price shown in the web UI
-    pub session_avg_price: Decimal,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub session_avg_price: Option<Decimal>,
     /// Delta
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub delta: Option<String>,
@@ -635,15 +651,117 @@ pub struct WalletMsg {
     pub total_initial_margin: Decimal,
     /// Account maintenance margin (USD): ∑ Asset Total Maintenance Margin Base Coin
     pub total_maintenance_margin: Decimal,
+    /// You can ignore this field, and refer to accountIMRate, which has the same calculation
+    #[serde(rename = "accountIMRateByMp")]
+    pub account_im_rate_by_mp: Decimal,
+    /// You can ignore this field, and refer to accountMMRate, which has the same calculation
+    #[serde(rename = "accountMMRateByMp")]
+    pub account_mm_rate_by_mp: Decimal,
+    /// You can ignore this field, and refer to totalInitialMargin, which has the same calculation
+    #[serde(rename = "totalInitialMarginByMp")]
+    pub total_initial_margin_by_mp: Decimal,
+    /// You can ignore this field, and refer to totalMaintenanceMargin, which has the same calculation
+    #[serde(rename = "totalMaintenanceMarginByMp")]
+    pub total_maintenance_margin_by_mp: Decimal,
     #[serde(deserialize_with = "hash_map")]
     pub coin: HashMap<String, WalletCoin>,
+}
+
+#[derive(PartialEq, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecutionMsg {
+    /// Product type spot, linear, inverse, option
+    pub category: Category,
+    /// Symbol name
+    pub symbol: String,
+    /// Whether to borrow. 0: false, 1: true
+    #[serde(default, deserialize_with = "string_to_bool")]
+    pub is_leverage: bool,
+    /// Order ID
+    pub order_id: String,
+    /// User customized order ID
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub order_link_id: Option<String>,
+    /// Side. Buy,Sell
+    pub side: Side,
+    /// Order price
+    pub order_price: Decimal,
+    /// Order qty
+    pub order_qty: Decimal,
+    /// The remaining qty not executed
+    pub leaves_qty: Decimal,
+    /// Order create type
+    /// Spot, Option do not have this key
+    pub create_type: CreateType,
+    /// Order type. Market,Limit
+    pub order_type: OrderType,
+    /// Stop order type. If the order is not stop order, any type is not returned
+    pub stop_order_type: StopOrderType,
+    /// Executed trading fee. You can get spot fee currency instruction here
+    pub exec_fee: Decimal,
+    /// Execution ID
+    pub exec_id: String,
+    /// Execution price
+    pub exec_price: Decimal,
+    /// Execution qty
+    pub exec_qty: Decimal,
+    /// Profit and Loss for each close position execution. The value keeps consistent with the field "cashFlow" in the Get Transaction Log
+    pub exec_pnl: Decimal,
+    /// Executed type
+    pub exec_type: ExecType,
+    /// Executed order value
+    pub exec_value: Decimal,
+    /// Executed timestamp (ms)
+    #[serde(deserialize_with = "number")]
+    pub exec_time: Timestamp,
+    /// Is maker order. true: maker, false: taker
+    pub is_maker: bool,
+    /// Trading fee rate
+    pub fee_rate: Decimal,
+    /// Implied volatility. valid for option
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub trade_iv: Option<Decimal>,
+    /// Implied volatility of mark price. valid for option
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub mark_iv: Option<Decimal>,
+    /// The mark price of the symbol when executing. valid for option
+    pub mark_price: Decimal,
+    /// The index price of the symbol when executing. valid for option
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub index_price: Option<Decimal>,
+    /// The underlying price of the symbol when executing. valid for option
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub underlying_price: Option<Decimal>,
+    /// Paradigm block trade ID
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub block_trade_id: Option<String>,
+    /// Closed position size
+    pub closed_size: Decimal,
+    /// Extra trading fee information. Currently, this data is returned only for kyc=Indian user or spot orders placed on the Indonesian site or spot fiat currency orders placed on the EU site. In other cases, an empty string is returned. Enum: feeType, subFeeType
+    pub extra_fees: Option<Vec<ExtraFee>>, // TODO: !!! ignore if empty string !!!
+    /// Cross sequence, used to associate each fill and each position update
+    /// The seq will be the same when conclude multiple transactions at the same time
+    /// Different symbols may have the same seq, please use seq + symbol to check unique
+    pub seq: i64,
+    /// Trading fee currency
+    pub fee_currency: String,
+}
+
+#[derive(PartialEq, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ExtraFee {
+    pub fee_coin: String,
+    pub fee_type: ExtraFeeType,
+    pub sub_fee_type: ExtraSubFeeType,
+    pub fee_rate: Decimal,
+    pub fee: Decimal,
 }
 
 #[cfg(test)]
 mod tests {
     use rust_decimal::dec;
 
-    use crate::v5::serde::deserialize_str;
+    use crate::v5::serde::{Unique, deserialize_str};
 
     use super::*;
 
@@ -654,7 +772,7 @@ mod tests {
             req_id: None,
             ret_msg: None,
             conn_id: String::from("c0c928a4-daab-460d-b186-45e90a10a3d4"),
-            success: Some(true),
+            success: true,
         });
 
         let message = deserialize_str(json).unwrap();
@@ -669,7 +787,7 @@ mod tests {
             req_id: None,
             ret_msg: None,
             conn_id: String::from("c0c928a4-daab-460d-b186-45e90a10a3d4"),
-            success: Some(true),
+            success: true,
         });
 
         let message = deserialize_str(json).unwrap();
@@ -943,7 +1061,10 @@ mod tests {
                     "smpType": "None",
                     "smpGroup": 0,
                     "smpOrderId": "",
-                    "feeCurrency": ""
+                    "feeCurrency": "",
+                    "cumFeeDetail": {
+                        "MNT": "0.00242968"
+                    }
                 }
             ]
         }"#;
@@ -1001,6 +1122,7 @@ mod tests {
                 smp_order_id: None,
                 created_time: 1672364262444,
                 updated_time: 1672364262457,
+                cum_fee_detail: Some(serde_json::from_str(r#"{"MNT": "0.00242968"}"#).unwrap()),
             }],
         };
         let expected = IncomingMessage::Topic(TopicMessage::Order(order));
@@ -1013,34 +1135,74 @@ mod tests {
     #[test]
     fn deserialize_incoming_message_position() {
         let json = r#"{
-            "id": "1003076014fb7eedb-c7e6-45d6-a8c1-270f0169171a",
+            "id": "108985347_position_1765659601915",
             "topic": "position",
-            "creationTime": 1697682317044,
+            "creationTime": 1765659601915,
             "data": [
+                {
+                    "positionIdx": 1,
+                    "tradeMode": 0,
+                    "riskId": 116,
+                    "riskLimitValue": "200000",
+                    "symbol": "ADAUSDT",
+                    "side": "Buy",
+                    "size": "18720",
+                    "entryPrice": "0.41160027",
+                    "sessionAvgPrice": "",
+                    "leverage": "75",
+                    "positionValue": "7705.157",
+                    "positionBalance": "0",
+                    "markPrice": "0.41",
+                    "positionIM": "106.51735757",
+                    "positionMM": "61.74535757",
+                    "positionIMByMp": "106.51735757",
+                    "positionMMByMp": "61.74535757",
+                    "takeProfit": "0.4321",
+                    "stopLoss": "0.3704",
+                    "trailingStop": "0",
+                    "unrealisedPnl": "-29.957",
+                    "cumRealisedPnl": "-6712.87804378",
+                    "curRealisedPnl": "-2.6317147",
+                    "createdTime": "1714594321840",
+                    "updatedTime": "1765645142548",
+                    "tpslMode": "Full",
+                    "liqPrice": "0.37000066",
+                    "bustPrice": "",
+                    "category": "linear",
+                    "positionStatus": "Normal",
+                    "adlRankIndicator": 2,
+                    "autoAddMargin": 0,
+                    "leverageSysUpdatedTime": "",
+                    "mmrSysUpdatedTime": "",
+                    "seq": 140667058318085,
+                    "isReduceOnly": false
+                },
                 {
                     "positionIdx": 2,
                     "tradeMode": 0,
-                    "riskId": 1,
-                    "riskLimitValue": "2000000",
-                    "symbol": "BTCUSDT",
+                    "riskId": 116,
+                    "riskLimitValue": "200000",
+                    "symbol": "ADAUSDT",
                     "side": "",
                     "size": "0",
                     "entryPrice": "0",
-                    "leverage": "10",
+                    "sessionAvgPrice": "",
+                    "leverage": "75",
                     "positionValue": "0",
                     "positionBalance": "0",
-                    "markPrice": "28184.5",
-                    "positionIM": "0",
-                    "positionMM": "0",
+                    "markPrice": "0.41",
+                    "positionIM": "",
+                    "positionMM": "",
+                    "positionIMByMp": "",
+                    "positionMMByMp": "",
                     "takeProfit": "0",
                     "stopLoss": "0",
                     "trailingStop": "0",
                     "unrealisedPnl": "0",
-                    "curRealisedPnl": "1.26",
-                    "cumRealisedPnl": "-25.06579337",
-                    "sessionAvgPrice": "0",
-                    "createdTime": "1694402496913",
-                    "updatedTime": "1697682317038",
+                    "cumRealisedPnl": "1618.30675974",
+                    "curRealisedPnl": "0",
+                    "createdTime": "1714594321840",
+                    "updatedTime": "1765046350698",
                     "tpslMode": "Full",
                     "liqPrice": "0",
                     "bustPrice": "",
@@ -1050,53 +1212,266 @@ mod tests {
                     "autoAddMargin": 0,
                     "leverageSysUpdatedTime": "",
                     "mmrSysUpdatedTime": "",
-                    "seq": 8327597863,
+                    "seq": 140667031311361,
                     "isReduceOnly": false
                 }
             ]
         }"#;
         let position = PrivateMsg {
-            id: String::from("1003076014fb7eedb-c7e6-45d6-a8c1-270f0169171a"),
-            creation_time: 1697682317044,
-            data: vec![PositionMsg {
-                category: Category::Linear,
-                symbol: String::from("BTCUSDT"),
-                side: None,
-                size: dec!(0.0),
-                position_idx: PositionIdx::Sell,
-                trade_mode: TradeMode::CrossMargin,
-                position_value: dec!(0.0),
-                risk_id: 1,
-                risk_limit_value: dec!(2000000.0),
-                entry_price: dec!(0.0),
-                mark_price: dec!(28184.5),
-                leverage: dec!(10.0),
-                position_balance: dec!(0.0),
-                auto_add_margin: false,
-                position_i_m: dec!(0.0),
-                position_m_m: dec!(0.0),
-                liq_price: dec!(0.0),
-                bust_price: None,
-                take_profit: dec!(0.0),
-                stop_loss: dec!(0.0),
-                trailing_stop: dec!(0.0),
-                unrealized_pnl: None,
-                cur_realised_pnl: dec!(1.26),
-                session_avg_price: dec!(0.0),
-                delta: None,
-                gamma: None,
-                vega: None,
-                theta: None,
-                cum_realised_pnl: dec!(-25.06579337),
-                position_status: PositionStatus::Normal,
-                adl_rank_indicator: AdlRankIndicator::Zero,
-                is_reduce_only: false,
-                mmr_sys_updated_time: None,
-                leverage_sys_updated_time: None,
-                created_time: 1694402496913,
-                updated_time: 1697682317038,
-                seq: 8327597863,
-            }],
+            id: String::from("108985347_position_1765659601915"),
+            creation_time: 1765659601915,
+            data: vec![
+                PositionMsg {
+                    category: Category::Linear,
+                    symbol: String::from("ADAUSDT"),
+                    side: Some(Side::Buy),
+                    size: dec!(18720),
+                    position_idx: PositionIdx::Buy,
+                    position_value: dec!(7705.157),
+                    risk_id: 116,
+                    risk_limit_value: Some(dec!(200000)),
+                    entry_price: dec!(0.41160027),
+                    mark_price: dec!(0.41),
+                    leverage: dec!(75),
+                    auto_add_margin: false,
+                    position_im: Some(dec!(106.51735757)),
+                    position_mm: Some(dec!(61.74535757)),
+                    position_im_by_mp: Some(dec!(106.51735757)),
+                    position_mm_by_mp: Some(dec!(61.74535757)),
+                    liq_price: Some(dec!(0.37000066)),
+                    take_profit: dec!(0.4321),
+                    stop_loss: dec!(0.3704),
+                    trailing_stop: dec!(0),
+                    unrealised_pnl: dec!(-29.957),
+                    cur_realised_pnl: dec!(-2.6317147),
+                    session_avg_price: None,
+                    delta: None,
+                    gamma: None,
+                    vega: None,
+                    theta: None,
+                    cum_realised_pnl: dec!(-6712.87804378),
+                    position_status: PositionStatus::Normal,
+                    adl_rank_indicator: AdlRankIndicator::Two,
+                    is_reduce_only: false,
+                    mmr_sys_updated_time: None,
+                    leverage_sys_updated_time: None,
+                    created_time: 1714594321840,
+                    updated_time: 1765645142548,
+                    seq: 140667058318085,
+                },
+                PositionMsg {
+                    category: Category::Linear,
+                    symbol: String::from("ADAUSDT"),
+                    side: None,
+                    size: dec!(0),
+                    position_idx: PositionIdx::Sell,
+                    position_value: dec!(0),
+                    risk_id: 116,
+                    risk_limit_value: Some(dec!(200000)),
+                    entry_price: dec!(0),
+                    mark_price: dec!(0.41),
+                    leverage: dec!(75),
+                    auto_add_margin: false,
+                    position_im: None,
+                    position_mm: None,
+                    position_im_by_mp: None,
+                    position_mm_by_mp: None,
+                    liq_price: Some(dec!(0)),
+                    take_profit: dec!(0),
+                    stop_loss: dec!(0),
+                    trailing_stop: dec!(0),
+                    unrealised_pnl: dec!(0),
+                    cur_realised_pnl: dec!(0),
+                    session_avg_price: None,
+                    delta: None,
+                    gamma: None,
+                    vega: None,
+                    theta: None,
+                    cum_realised_pnl: dec!(1618.30675974),
+                    position_status: PositionStatus::Normal,
+                    adl_rank_indicator: AdlRankIndicator::Zero,
+                    is_reduce_only: false,
+                    mmr_sys_updated_time: None,
+                    leverage_sys_updated_time: None,
+                    created_time: 1714594321840,
+                    updated_time: 1765046350698,
+                    seq: 140667031311361,
+                },
+            ],
+        };
+        let expected = IncomingMessage::Topic(TopicMessage::Position(position));
+
+        let message = deserialize_str(json).unwrap();
+
+        assert_eq!(expected, message);
+    }
+
+    #[test]
+    fn deserialize_incoming_message_position2() {
+        let json = r#"{
+            "id":"108985347_position_1766316605952",
+            "topic":"position",
+            "creationTime":1766316605952,
+            "data":[
+                {
+                "positionIdx":1,
+                "tradeMode":0,
+                "riskId":116,
+                "riskLimitValue":"200000",
+                "symbol":"ADAUSDT",
+                "side":"Buy",
+                "size":"43",
+                "entryPrice":"0.37293023",
+                "sessionAvgPrice":"",
+                "leverage":"75",
+                "positionValue":"16.036",
+                "positionBalance":"0",
+                "markPrice":"0.3702",
+                "positionIM":"0.22095025",
+                "positionMM":"0.12809175",
+                "positionIMByMp":"0.22095025",
+                "positionMMByMp":"0.12809175",
+                "takeProfit":"0",
+                "stopLoss":"0",
+                "trailingStop":"0",
+                "unrealisedPnl":"-0.1174",
+                "cumRealisedPnl":"-7547.8530836",
+                "curRealisedPnl":"-0.00465061",
+                "createdTime":"1714594321840",
+                "updatedTime":"1766313370061",
+                "tpslMode":"Full",
+                "liqPrice":"",
+                "bustPrice":"",
+                "category":"linear",
+                "positionStatus":"Normal",
+                "adlRankIndicator":2,
+                "autoAddMargin":0,
+                "leverageSysUpdatedTime":"",
+                "mmrSysUpdatedTime":"",
+                "seq":140667089523042,
+                "isReduceOnly":false
+                },
+                {
+                "positionIdx":2,
+                "tradeMode":0,
+                "riskId":116,
+                "riskLimitValue":"200000",
+                "symbol":"ADAUSDT",
+                "side":"",
+                "size":"0",
+                "entryPrice":"0",
+                "sessionAvgPrice":"",
+                "leverage":"75",
+                "positionValue":"0",
+                "positionBalance":"0",
+                "markPrice":"0.3702",
+                "positionIM":"",
+                "positionMM":"",
+                "positionIMByMp":"",
+                "positionMMByMp":"",
+                "takeProfit":"0",
+                "stopLoss":"0",
+                "trailingStop":"0",
+                "unrealisedPnl":"0",
+                "cumRealisedPnl":"1618.30675974",
+                "curRealisedPnl":"0",
+                "createdTime":"1714594321840",
+                "updatedTime":"1765046350698",
+                "tpslMode":"Full",
+                "liqPrice":"0",
+                "bustPrice":"",
+                "category":"linear",
+                "positionStatus":"Normal",
+                "adlRankIndicator":0,
+                "autoAddMargin":0,
+                "leverageSysUpdatedTime":"",
+                "mmrSysUpdatedTime":"",
+                "seq":140667031311361,
+                "isReduceOnly":false
+                }
+            ]
+        }"#;
+        let position = PrivateMsg {
+            id: String::from("108985347_position_1766316605952"),
+            creation_time: 1766316605952,
+            data: vec![
+                PositionMsg {
+                    category: Category::Linear,
+                    symbol: String::from("ADAUSDT"),
+                    side: Some(Side::Buy),
+                    size: dec!(43),
+                    position_idx: PositionIdx::Buy,
+                    position_value: dec!(16.036),
+                    risk_id: 116,
+                    risk_limit_value: Some(dec!(200000)),
+                    entry_price: dec!(0.37293023),
+                    mark_price: dec!(0.3702),
+                    leverage: dec!(75),
+                    auto_add_margin: false,
+                    position_im: Some(dec!(0.22095025)),
+                    position_mm: Some(dec!(0.12809175)),
+                    position_im_by_mp: Some(dec!(0.22095025)),
+                    position_mm_by_mp: Some(dec!(0.12809175)),
+                    liq_price: None,
+                    take_profit: dec!(0),
+                    stop_loss: dec!(0),
+                    trailing_stop: dec!(0),
+                    unrealised_pnl: dec!(-0.1174),
+                    cur_realised_pnl: dec!(-0.00465061),
+                    session_avg_price: None,
+                    delta: None,
+                    gamma: None,
+                    vega: None,
+                    theta: None,
+                    cum_realised_pnl: dec!(-7547.8530836),
+                    position_status: PositionStatus::Normal,
+                    adl_rank_indicator: AdlRankIndicator::Two,
+                    is_reduce_only: false,
+                    mmr_sys_updated_time: None,
+                    leverage_sys_updated_time: None,
+                    created_time: 1714594321840,
+                    updated_time: 1766313370061,
+                    seq: 140667089523042,
+                },
+                PositionMsg {
+                    category: Category::Linear,
+                    symbol: String::from("ADAUSDT"),
+                    side: None,
+                    size: dec!(0),
+                    position_idx: PositionIdx::Sell,
+                    position_value: dec!(0),
+                    risk_id: 116,
+                    risk_limit_value: Some(dec!(200000)),
+                    entry_price: dec!(0),
+                    mark_price: dec!(0.3702),
+                    leverage: dec!(75),
+                    auto_add_margin: false,
+                    position_im: None,
+                    position_mm: None,
+                    position_im_by_mp: None,
+                    position_mm_by_mp: None,
+                    liq_price: Some(dec!(0)),
+                    take_profit: dec!(0),
+                    stop_loss: dec!(0),
+                    trailing_stop: dec!(0),
+                    unrealised_pnl: dec!(0),
+                    cur_realised_pnl: dec!(0),
+                    session_avg_price: None,
+                    delta: None,
+                    gamma: None,
+                    vega: None,
+                    theta: None,
+                    cum_realised_pnl: dec!(1618.30675974),
+                    position_status: PositionStatus::Normal,
+                    adl_rank_indicator: AdlRankIndicator::Zero,
+                    is_reduce_only: false,
+                    mmr_sys_updated_time: None,
+                    leverage_sys_updated_time: None,
+                    created_time: 1714594321840,
+                    updated_time: 1765046350698,
+                    seq: 140667031311361,
+                },
+            ],
         };
         let expected = IncomingMessage::Topic(TopicMessage::Position(position));
 
@@ -1114,14 +1489,18 @@ mod tests {
             "data": [
                 {
                     "accountIMRate": "0",
+                    "accountIMRateByMp": "0",
                     "accountMMRate": "0",
+                    "accountMMRateByMp": "0",
                     "totalEquity": "10262.91335023",
                     "totalWalletBalance": "9684.46297164",
                     "totalMarginBalance": "9684.46297164",
                     "totalAvailableBalance": "9556.6056555",
                     "totalPerpUPL": "0",
                     "totalInitialMargin": "0",
+                    "totalInitialMarginByMp": "0",
                     "totalMaintenanceMargin": "0",
+                    "totalMaintenanceMarginByMp": "0",
                     "coin": [
                         {
                             "coin": "BTC",
@@ -1141,7 +1520,8 @@ mod tests {
                             "collateralSwitch": true,
                             "marginCollateral": true,
                             "locked": "0",
-                            "spotHedgingQty": "0.01592413"
+                            "spotHedgingQty": "0.01592413",
+                            "spotBorrow": "0"
                         }
                     ],
                     "accountLTV": "0",
@@ -1154,11 +1534,9 @@ mod tests {
             equity: dec!(0.00102964),
             usd_value: dec!(36.70759517),
             wallet_balance: dec!(0.00102964),
-            free: None,
             locked: dec!(0),
             spot_hedging_qty: dec!(0.01592413),
             borrow_amount: dec!(0),
-            available_to_withdraw: Some(dec!(0.00102964)),
             accrued_interest: dec!(0),
             total_order_im: None,
             total_position_im: None,
@@ -1168,26 +1546,222 @@ mod tests {
             bonus: dec!(0),
             collateral_switch: true,
             margin_collateral: true,
+            spot_borrow: Some(dec!(0)),
         };
-        let coin = HashMap::from([(coin.unique_key(), coin)]);
+        let coin = HashMap::from([(Unique::unique_key(&coin), coin)]);
         let wallet = PrivateMsg {
             id: String::from("592324d2bce751-ad38-48eb-8f42-4671d1fb4d4e"),
             creation_time: 1700034722104,
             data: vec![WalletMsg {
                 account_type: AccountType::UNIFIED,
                 account_im_rate: dec!(0),
+                account_im_rate_by_mp: dec!(0),
                 account_mm_rate: dec!(0),
+                account_mm_rate_by_mp: dec!(0),
                 total_equity: dec!(10262.91335023),
                 total_wallet_balance: dec!(9684.46297164),
                 total_margin_balance: dec!(9684.46297164),
                 total_available_balance: dec!(9556.6056555),
                 total_perp_upl: dec!(0),
                 total_initial_margin: dec!(0),
+                total_initial_margin_by_mp: dec!(0),
                 total_maintenance_margin: dec!(0),
+                total_maintenance_margin_by_mp: dec!(0),
                 coin,
             }],
         };
         let expected = IncomingMessage::Topic(TopicMessage::Wallet(wallet));
+
+        let message = deserialize_str(json).unwrap();
+
+        assert_eq!(expected, message);
+    }
+
+    #[test]
+    fn deserialize_incoming_message_wallet2() {
+        let json = r#"{
+            "id":"108985347_wallet_1766318882965",
+            "topic":"wallet",
+            "creationTime":1766318882964,
+            "data":[
+                {
+                "accountIMRate":"0.0007",
+                "accountMMRate":"0.0004",
+                "accountIMRateByMp":"0.0007",
+                "accountMMRateByMp":"0.0004",
+                "totalEquity":"102.7094181",
+                "totalWalletBalance":"102.16591975",
+                "totalMarginBalance":"102.16591975",
+                "totalAvailableBalance":"102.09402758",
+                "totalPerpUPL":"0",
+                "totalInitialMargin":"0.07189217",
+                "totalMaintenanceMargin":"0.04166941",
+                "totalInitialMarginByMp":"0.07189217",
+                "totalMaintenanceMarginByMp":"0.04166941",
+                "coin":[
+                    {
+                    "coin":"USDT",
+                    "equity":"75.5601152",
+                    "usdValue":"75.53450032",
+                    "walletBalance":"75.5601152",
+                    "availableToWithdraw":"",
+                    "availableToBorrow":"",
+                    "borrowAmount":"0",
+                    "accruedInterest":"0",
+                    "totalOrderIM":"0",
+                    "totalPositionIM":"0.07191655",
+                    "totalPositionMM":"0.04168355",
+                    "unrealisedPnl":"0",
+                    "cumRealisedPnl":"36163.8134634",
+                    "bonus":"0",
+                    "collateralSwitch":true,
+                    "marginCollateral":true,
+                    "locked":"0",
+                    "spotHedgingQty":"0"
+                    }
+                ],
+                "accountLTV":"0",
+                "accountType":"UNIFIED"
+                }
+            ]
+            }"#;
+        let coin = WalletCoin {
+            coin: String::from("USDT"),
+            equity: dec!(75.5601152),
+            usd_value: dec!(75.53450032),
+            wallet_balance: dec!(75.5601152),
+            locked: dec!(0),
+            spot_hedging_qty: dec!(0),
+            borrow_amount: dec!(0),
+            accrued_interest: dec!(0),
+            total_order_im: Some(dec!(0)),
+            total_position_im: Some(dec!(0.07191655)),
+            total_position_mm: Some(dec!(0.04168355)),
+            unrealised_pnl: dec!(0),
+            cum_realised_pnl: dec!(36163.8134634),
+            bonus: dec!(0),
+            collateral_switch: true,
+            margin_collateral: true,
+            spot_borrow: None,
+        };
+        let coin = HashMap::from([(Unique::unique_key(&coin), coin)]);
+        let wallet = PrivateMsg {
+            id: String::from("108985347_wallet_1766318882965"),
+            creation_time: 1766318882964,
+            data: vec![WalletMsg {
+                account_type: AccountType::UNIFIED,
+                account_im_rate: dec!(0.0007),
+                account_im_rate_by_mp: dec!(0.0007),
+                account_mm_rate: dec!(0.0004),
+                account_mm_rate_by_mp: dec!(0.0004),
+                total_equity: dec!(102.7094181),
+                total_wallet_balance: dec!(102.16591975),
+                total_margin_balance: dec!(102.16591975),
+                total_available_balance: dec!(102.09402758),
+                total_perp_upl: dec!(0),
+                total_initial_margin: dec!(0.07189217),
+                total_initial_margin_by_mp: dec!(0.07189217),
+                total_maintenance_margin: dec!(0.04166941),
+                total_maintenance_margin_by_mp: dec!(0.04166941),
+                coin,
+            }],
+        };
+        let expected = IncomingMessage::Topic(TopicMessage::Wallet(wallet));
+
+        let message = deserialize_str(json).unwrap();
+
+        assert_eq!(expected, message);
+    }
+
+    #[test]
+    fn deserialize_incoming_message_execution() {
+        let json = r#"{
+            "topic": "execution",
+            "id": "386825804_BTCUSDT_140612148849382",
+            "creationTime": 1746270400355,
+            "data": [
+                {
+                    "category": "linear",
+                    "symbol": "BTCUSDT",
+                    "closedSize": "0.5",
+                    "execFee": "26.3725275",
+                    "execId": "0ab1bdf7-4219-438b-b30a-32ec863018f7",
+                    "execPrice": "95900.1",
+                    "execQty": "0.5",
+                    "execType": "Trade",
+                    "execValue": "47950.05",
+                    "feeRate": "0.00055",
+                    "tradeIv": "",
+                    "markIv": "",
+                    "blockTradeId": "",
+                    "markPrice": "95901.48",
+                    "indexPrice": "",
+                    "underlyingPrice": "",
+                    "leavesQty": "0",
+                    "orderId": "9aac161b-8ed6-450d-9cab-c5cc67c21784",
+                    "orderLinkId": "",
+                    "orderPrice": "94942.5",
+                    "orderQty": "0.5",
+                    "orderType": "Market",
+                    "stopOrderType": "UNKNOWN",
+                    "side": "Sell",
+                    "execTime": "1746270400353",
+                    "isLeverage": "0",
+                    "isMaker": false,
+                    "seq": 140612148849382,
+                    "marketUnit": "",
+                    "execPnl": "0.05",
+                    "createType": "CreateByUser",
+                    "extraFees":[{"feeCoin":"USDT","feeType":"GST","subFeeType":"IND_GST","feeRate":"0.0000675","fee":"0.006403779"}],
+                    "feeCurrency": "USDT"
+                }
+            ]
+        }"#;
+        let execution = PrivateMsg {
+            id: String::from("386825804_BTCUSDT_140612148849382"),
+            creation_time: 1746270400355,
+            data: vec![ExecutionMsg {
+                category: Category::Linear,
+                symbol: String::from("BTCUSDT"),
+                is_leverage: false,
+                order_id: String::from("9aac161b-8ed6-450d-9cab-c5cc67c21784"),
+                order_link_id: None,
+                side: Side::Sell,
+                order_price: dec!(94942.5),
+                order_qty: dec!(0.5),
+                leaves_qty: dec!(0),
+                create_type: CreateType::CreateByUser,
+                order_type: OrderType::Market,
+                stop_order_type: StopOrderType::UNKNOWN,
+                exec_fee: dec!(26.3725275),
+                exec_id: String::from("0ab1bdf7-4219-438b-b30a-32ec863018f7"),
+                exec_price: dec!(95900.1),
+                exec_qty: dec!(0.5),
+                exec_pnl: dec!(0.05),
+                exec_type: ExecType::Trade,
+                exec_value: dec!(47950.05),
+                exec_time: 1746270400353,
+                is_maker: false,
+                fee_rate: dec!(0.00055),
+                trade_iv: None,
+                mark_iv: None,
+                mark_price: dec!(95901.48),
+                index_price: None,
+                underlying_price: None,
+                block_trade_id: None,
+                closed_size: dec!(0.5),
+                extra_fees: Some(vec![ExtraFee {
+                    fee_coin: String::from("USDT"),
+                    fee_type: ExtraFeeType::Gst,
+                    sub_fee_type: ExtraSubFeeType::IndGst,
+                    fee_rate: dec!(0.0000675),
+                    fee: dec!(0.006403779),
+                }]),
+                seq: 140612148849382,
+                fee_currency: String::from("USDT"),
+            }],
+        };
+        let expected = IncomingMessage::Topic(TopicMessage::Execution(execution));
 
         let message = deserialize_str(json).unwrap();
 
