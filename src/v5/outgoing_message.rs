@@ -55,15 +55,21 @@ pub fn create_outgoing_message_auth(
 
 #[cfg(test)]
 mod tests {
+    use crate::v5::*;
+
     use super::*;
 
     #[test]
     fn test_serialize_outgoing_message_subscribe() {
         let msg = OutgoingMessage::Subscribe {
             req_id: Some(String::from("request_id")),
-            args: vec![Topic::Ticker(String::from("BTCUSDT"))],
+            args: vec![
+                Topic::Ticker(String::from("BTCUSDT")),
+                Topic::Order(Category::Linear),
+            ],
         };
-        let expected = r#"{"op":"subscribe","req_id":"request_id","args":["tickers.BTCUSDT"]}"#;
+        let expected =
+            r#"{"op":"subscribe","req_id":"request_id","args":["tickers.BTCUSDT","order.linear"]}"#;
         let serialized = serde_json::to_string(&msg).unwrap();
         assert_eq!(serialized, expected);
     }
