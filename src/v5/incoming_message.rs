@@ -465,7 +465,8 @@ pub struct OrderMsg {
     /// Close on trigger.
     pub close_on_trigger: bool,
     /// Place type, option used. iv, price
-    pub place_type: PlaceType,
+    #[serde(default, deserialize_with = "invalid_as_none")]
+    pub place_type: Option<PlaceType>,
     /// SMP execution type
     pub smp_type: SmpType,
     /// Smp group ID. If the UID has no group, it is 0 by default
@@ -1116,13 +1117,81 @@ mod tests {
                 last_price_on_created: None,
                 reduce_only: false,
                 close_on_trigger: false,
-                place_type: PlaceType::Price,
+                place_type: Some(PlaceType::Price),
                 smp_type: SmpType::None,
                 smp_group: 0,
                 smp_order_id: None,
                 created_time: 1672364262444,
                 updated_time: 1672364262457,
                 cum_fee_detail: Some(serde_json::from_str(r#"{"MNT": "0.00242968"}"#).unwrap()),
+            }],
+        };
+        let expected = IncomingMessage::Topic(TopicMessage::Order(order));
+
+        let message = deserialize_str(json).unwrap();
+
+        assert_eq!(expected, message);
+    }
+
+    #[test]
+    fn deserialize_incoming_message_order2() {
+        let json = r#"{"topic":"order","id":"108985347_ADAUSDT_140667095077548","creationTime":1766436947942,"data":[{"category":"linear","symbol":"ADAUSDT","orderId":"ae802ad5-af70-4957-ba72-86ad7fc9c24d","orderLinkId":"","blockTradeId":"","side":"Buy","positionIdx":0,"orderStatus":"Filled","cancelType":"UNKNOWN","rejectReason":"EC_NoError","timeInForce":"IOC","isLeverage":"","price":"0.3862","qty":"15","avgPrice":"0.3679","leavesQty":"0","leavesValue":"0","cumExecQty":"15","cumExecValue":"5.5185","cumExecFee":"0.00303518","orderType":"Market","stopOrderType":"","orderIv":"","triggerPrice":"","takeProfit":"","stopLoss":"","triggerBy":"","tpTriggerBy":"","slTriggerBy":"","triggerDirection":0,"placeType":"","lastPriceOnCreated":"0.3679","closeOnTrigger":false,"reduceOnly":false,"smpGroup":0,"smpType":"None","smpOrderId":"","slLimitPrice":"0","tpLimitPrice":"0","tpslMode":"UNKNOWN","createType":"CreateByUser","marketUnit":"","createdTime":"1766436947940","updatedTime":"1766436947940","feeCurrency":"","closedPnl":"0","slippageTolerance":"0","slippageToleranceType":"UNKNOWN","cumFeeDetail":{}}]}"#;
+        let order = PrivateMsg {
+            id: String::from("108985347_ADAUSDT_140667095077548"),
+            creation_time: 1766436947942,
+            data: vec![OrderMsg {
+                category: Category::Linear,
+                order_id: String::from("ae802ad5-af70-4957-ba72-86ad7fc9c24d"),
+                order_link_id: None,
+                is_leverage: None,
+                block_trade_id: None,
+                symbol: String::from("ADAUSDT"),
+                price: dec!(0.3862),
+                // price: Some(dec!(0.3862)),
+                broker_order_price: None,
+                qty: dec!(15),
+                side: Side::Buy,
+                position_idx: PositionIdx::OneWay,
+                order_status: OrderStatus::Filled,
+                create_type: Some(CreateType::CreateByUser),
+                cancel_type: CancelType::UNKNOWN,
+                reject_reason: RejectReason::EcNoError,
+                avg_price: dec!(0.3679),
+                leaves_qty: Some(dec!(0)),
+                leaves_value: Some(dec!(0)),
+                cum_exec_qty: dec!(15),
+                cum_exec_value: dec!(5.5185),
+                cum_exec_fee: dec!(0.00303518),
+                closed_pnl: dec!(0),
+                fee_currency: None,
+                time_in_force: TimeInForce::IOC,
+                order_type: OrderType::Market,
+                stop_order_type: None,
+                oco_trigger_by: None,
+                order_iv: None,
+                market_unit: None,
+                slippage_tolerance_type: Some(SlippageToleranceType::UNKNOWN),
+                slippage_tolerance: Some(dec!(0)),
+                trigger_price: None,
+                take_profit: None,
+                stop_loss: None,
+                tpsl_mode: Some(TpslMode::UNKNOWN),
+                tp_limit_price: Some(dec!(0)),
+                sl_limit_price: Some(dec!(0)),
+                tp_trigger_by: None,
+                sl_trigger_by: None,
+                trigger_direction: TriggerDirection::UNKNOWN,
+                trigger_by: None,
+                last_price_on_created: Some(dec!(0.3679)),
+                reduce_only: false,
+                close_on_trigger: false,
+                place_type: None,
+                smp_type: SmpType::None,
+                smp_group: 0,
+                smp_order_id: None,
+                created_time: 1766436947940,
+                updated_time: 1766436947940,
+                cum_fee_detail: Some(serde_json::from_str(r#"{}"#).unwrap()),
             }],
         };
         let expected = IncomingMessage::Topic(TopicMessage::Order(order));
