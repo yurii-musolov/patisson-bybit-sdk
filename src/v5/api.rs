@@ -816,6 +816,7 @@ impl Order {
         self.block_trade_id = msg.block_trade_id;
         self.symbol = msg.symbol;
         self.price = msg.price;
+        // self.price = msg.price.unwrap_or(Decimal::ZERO); // TYPE MARKET
         self.qty = msg.qty;
         self.side = msg.side;
         self.is_leverage = msg.is_leverage;
@@ -854,7 +855,7 @@ impl Order {
         // TODO: self.base_price
         self.reduce_only = msg.reduce_only;
         self.close_on_trigger = msg.close_on_trigger;
-        self.place_type = Some(msg.place_type);
+        self.place_type = msg.place_type;
         self.smp_type = msg.smp_type;
         self.smp_group = msg.smp_group;
         self.smp_order_id = msg.smp_order_id;
@@ -1150,7 +1151,8 @@ pub struct Position {
     pub risk_id: i64,
     /// Risk limit value
     /// for portfolio margin mode, this field returns 0, which means risk limit rules are invalid
-    pub risk_limit_value: Decimal,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub risk_limit_value: Option<Decimal>,
     /// Symbol name
     pub symbol: String,
     /// Position side. Buy: long, Sell: short
@@ -1291,13 +1293,14 @@ impl Position {
         self.symbol = msg.symbol;
         self.side = msg.side;
         self.size = msg.size;
-        self.avg_price = msg.entry_price;
+        self.avg_price = msg.mark_price;
         self.position_value = Some(msg.position_value);
         self.auto_add_margin = msg.auto_add_margin;
         self.position_status = msg.position_status;
         self.leverage = msg.leverage;
         self.mark_price = msg.mark_price;
-        self.liq_price = Some(msg.liq_price);
+        self.liq_price = msg.liq_price;
+        // self.liq_price = Some(msg.liq_price);
         // INFO: self.position_im updated in self.update_with_a_wallet_coin
         // INFO: self.position_mm updated in self.update_with_a_wallet_coin
         self.take_profit = Some(msg.take_profit);
@@ -1453,7 +1456,8 @@ pub struct WalletCoin {
     /// When marginCollateral=false, then collateralSwitch is meaningless
     pub margin_collateral: bool,
     /// Borrow amount by spot margin trade and manual borrow amount (does not include borrow amount by spot margin active order). spotBorrow field corresponding to spot liabilities is detailed in the announcement.
-    pub spot_borrow: Decimal,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub spot_borrow: Option<Decimal>,
 }
 
 impl Unique<String> for WalletCoin {
@@ -2106,7 +2110,7 @@ mod tests {
                 list: vec![Position {
                     position_idx: PositionIdx::OneWay,
                     risk_id: 1,
-                    risk_limit_value: dec!(150),
+                    risk_limit_value: Some(dec!(150)),
                     symbol: String::from("BTCUSD"),
                     side: Some(Side::Sell),
                     size: dec!(300),
@@ -2219,7 +2223,7 @@ mod tests {
             bonus: dec!(0),
             margin_collateral: true,
             collateral_switch: true,
-            spot_borrow: dec!(0),
+            spot_borrow: Some(dec!(0)),
         };
         let coin = HashMap::from([(Unique::unique_key(&coin), coin)]);
         let expected = Resp {
@@ -2322,7 +2326,7 @@ mod tests {
             bonus: dec!(0),
             margin_collateral: true,
             collateral_switch: true,
-            spot_borrow: dec!(0),
+            spot_borrow: Some(dec!(0)),
         };
         let coin = HashMap::from([(Unique::unique_key(&coin), coin)]);
         let expected = Resp {
