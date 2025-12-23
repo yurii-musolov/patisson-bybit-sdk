@@ -1025,6 +1025,7 @@ pub enum Env {
 pub enum TpslMode {
     Full,
     Partial,
+    UNKNOWN,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
