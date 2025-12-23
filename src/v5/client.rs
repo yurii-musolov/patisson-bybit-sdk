@@ -1,8 +1,11 @@
 use reqwest::{self, Method, RequestBuilder, header::HeaderMap};
 
 use crate::v5::{
-    APIErrorResponse, AccountInfo, GetPositionInfoParams, GetWalletBalanceParams, List, Position,
-    WalletBalance, crypto::Signer, serde::deserialize_str,
+    APIErrorResponse, APIKeyInformation, AccountInfo, AmendOrderRequest, AmendOrderResponse,
+    GetPositionInfoParams, GetWalletBalanceParams, List, PlaceOrderRequest, PlaceOrderResponse,
+    Position, Timestamp, WalletBalance,
+    crypto::Signer,
+    serde::{deserialize_str, serialize, serialize_query},
 };
 
 use super::{
@@ -16,14 +19,18 @@ pub struct ClientConfig {
     pub api_key: Option<SensitiveString>,
     pub api_secret: Option<SensitiveString>,
     /// Milliseconds.
-    pub recv_window: u64,
+    pub recv_window: Timestamp,
     /// HTTP the header for broker users only.
     pub referer: Option<String>,
 }
 
+// TODO: use proxy
+#[derive(Debug)]
 pub struct Client {
     base_url: String,
     headers: HeaderMap,
+    // TODO: use one instance reqwest::Client
+    // client: reqwest::Client,
     signer: Option<Signer>,
 }
 
@@ -46,7 +53,6 @@ impl Client {
 
         let signer = cfg
             .api_secret
-            .clone()
             .map(|api_secret| Signer::new(cfg.api_key.unwrap(), api_secret, cfg.recv_window, None));
 
         Self {
@@ -133,6 +139,91 @@ impl Client {
 
 // Trade.
 impl Client {
+    /// Place Order
+    /// This endpoint supports to create the order for Spot, Margin trading, USDT perpetual, USDT futures, USDC perpetual, USDC futures, Inverse Futures and Options.
+    ///
+    /// INFO:
+    /// Supported order type (orderType):
+    /// Limit order: orderType=Limit, it is necessary to specify order qty and price.
+    ///
+    /// Market order: orderType=Market, execute at the best price in the Bybit market until the transaction is completed. When selecting a market order, the "price" can be empty. In the futures trading system, in order to protect traders against the serious slippage of the Market order, Bybit trading engine will convert the market order into an IOC limit order for matching. If there are no orderbook entries within price slippage limit, the order will not be executed. If there is insufficient liquidity, the order will be cancelled. The slippage threshold refers to the percentage that the order price deviates from the mark price. You can learn more here: Adjustments to Bybit's Derivative Trading Price Limit Mechanism
+    /// Supported timeInForce strategy:
+    /// GTC
+    /// IOC
+    /// FOK
+    /// PostOnly: If the order would be filled immediately when submitted, it will be cancelled. The purpose of this is to protect your order during the submission process. If the matching system cannot entrust the order to the order book due to price changes on the market, it will be cancelled.
+    /// RPI: Retail Price Improvement order. Assigned market maker can place this kind of order, and it is a post only order, only match with the order from Web or APP.
+    ///
+    /// How to create a conditional order:
+    /// When submitting an order, if triggerPrice is set, the order will be automatically converted into a conditional order. In addition, the conditional order does not occupy the margin. If the margin is insufficient after the conditional order is triggered, the order will be cancelled.
+    ///
+    /// Take profit / Stop loss: You can set TP/SL while placing orders. Besides, you could modify the position's TP/SL.
+    ///
+    /// Order quantity: The quantity of perpetual contracts you are going to buy/sell. For the order quantity, Bybit only supports positive number at present.
+    ///
+    /// Order price: Place a limit order, this parameter is required. If you have position, the price should be higher than the liquidation price. For the minimum unit of the price change, please refer to the priceFilter > tickSize field in the instruments-info endpoint.
+    ///
+    /// orderLinkId: You can customize the active order ID. We can link this ID to the order ID in the system. Once the active order is successfully created, we will send the unique order ID in the system to you. Then, you can use this order ID to cancel active orders, and if both orderId and orderLinkId are entered in the parameter input, Bybit will prioritize the orderId to process the corresponding order. Meanwhile, your customized order ID should be no longer than 36 characters and should be unique.
+    ///
+    /// Open orders up limit:
+    /// Perps & Futures:
+    /// a) Each account can hold a maximum of 500 active orders simultaneously per symbol.
+    /// b) conditional orders: each account can hold a maximum of 10 active orders simultaneously per symbol.
+    /// Spot: 500 orders in total, including a maximum of 30 open TP/SL orders, a maximum of 30 open conditional orders for each symbol per account
+    /// Option: a maximum of 50 open orders per account
+    ///
+    /// Rate limit:
+    /// Please refer to rate limit table. If you need to raise the rate limit, please contact your client manager or submit an application via here
+    ///
+    /// Risk control limit notice:
+    /// Bybit will monitor on your API requests. When the total number of orders of a single user (aggregated the number of orders across main account and subaccounts) within a day (UTC 0 - UTC 24) exceeds a certain upper limit, the platform will reserve the right to remind, warn, and impose necessary restrictions. Customers who use API default to acceptance of these terms and have the obligation to cooperate with adjustments.
+    ///
+    /// Reduce only orders:
+    /// If reduceOnly=true and order qty > max order qty, the order will automatically be split up into multiple orders.
+    ///
+    /// Spot Stop Order
+    /// Spot supports TP/SL order, Conditional order, however, the system logic is different between classic account and Unified account
+    /// classic account: When the stop order is created, you will get an order ID. After it is triggered, you will get a new order ID
+    /// Unified account: When the stop order is created, you will get an order ID. After it is triggered, the order ID will not be changed
+    pub async fn place_order(
+        &self,
+        request: PlaceOrderRequest,
+    ) -> Result<Response<PlaceOrderResponse>, Error> {
+        let url = format!("{}{}", self.base_url, Path::TradeOrderCreate);
+        let json = serialize(&request)?;
+        let headers = self.get_signed_headers(&json);
+
+        let client = reqwest::Client::builder().build()?;
+        let request = client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(json);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Amend Order
+    /// info
+    /// You can only modify unfilled or partially filled orders.
+    pub async fn amend_order(
+        &self,
+        request: AmendOrderRequest,
+    ) -> Result<Response<AmendOrderResponse>, Error> {
+        let url = format!("{}{}", self.base_url, Path::TradeOrderAmend);
+        let json = serialize(&request)?;
+        let headers = self.get_signed_headers(&json);
+
+        let client = reqwest::Client::builder().build()?;
+        let request = client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(json);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
     /// Get Open & Closed Orders.
     /// Primarily query unfilled or partially filled orders in real-time, but also supports querying recent 500 closed status (Cancelled, Filled) orders. Please see the usage of request param openOnly.
     /// And to query older order records, please use the order history interface.
@@ -150,8 +241,8 @@ impl Client {
         &self,
         params: GetOpenClosedOrdersParams,
     ) -> Result<Response<CursorPagination<Order>>, Error> {
-        let query = serde_urlencoded::to_string(&params)?;
-        let url = format!("{}{}?{query}", self.base_url, Path::OrderRealtime);
+        let query = serialize_query(&params)?;
+        let url = format!("{}{}?{query}", self.base_url, Path::TradeOrderRealtime);
         let headers = self.get_signed_headers(&query);
 
         let client = reqwest::Client::builder().build()?;
@@ -178,7 +269,7 @@ impl Client {
         &self,
         params: GetPositionInfoParams,
     ) -> Result<Response<CursorPagination<Position>>, Error> {
-        let query = serde_urlencoded::to_string(&params)?;
+        let query = serialize_query(&params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::PositionList);
         let headers = self.get_signed_headers(&query);
 
@@ -197,7 +288,7 @@ impl Client {
         &self,
         params: GetWalletBalanceParams,
     ) -> Result<Response<List<WalletBalance>>, Error> {
-        let query = serde_urlencoded::to_string(&params)?;
+        let query = serialize_query(&params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::AccountWalletBalance);
         let headers = self.get_signed_headers(&query);
 
@@ -211,8 +302,27 @@ impl Client {
     /// Query the account information, like margin mode, account mode, etc.
     pub async fn get_account_info(&self) -> Result<Response<AccountInfo>, Error> {
         let url = format!("{}{}", self.base_url, Path::AccountInfo);
-        let headers = self.get_signed_headers(&"");
+        let query = "";
+        let headers = self.get_signed_headers(query);
 
+        let client = reqwest::Client::builder().build()?;
+        let request = client.request(Method::GET, url).headers(headers);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+}
+
+// User.
+impl Client {
+    /// Get API Key Information.
+    /// Get the information of the api key. Use the api key pending to be checked to call the endpoint. Both master and sub user's api key are applicable.
+    pub async fn get_api_key_information(&self) -> Result<Response<APIKeyInformation>, Error> {
+        let url = format!("{}{}", self.base_url, Path::UserQueryApi);
+        let query = "";
+        let headers = self.get_signed_headers(query);
+
+        // TODO: The `Client` holds a connection pool internally, so it is advised that you create one and **reuse** it.
         let client = reqwest::Client::builder().build()?;
         let request = client.request(Method::GET, url).headers(headers);
 
