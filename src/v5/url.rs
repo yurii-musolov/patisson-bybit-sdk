@@ -24,6 +24,7 @@ pub const BASE_URL_STREAM_TESTNET: &str = "wss://stream-testnet.bybit.com";
 
 // Demo trading.
 pub const BASE_URL_API_DEMO: &str = "https://api-demo.bybit.com";
+pub const BASE_URL_STREAM_DEMO: &str = "wss://stream-demo.bybit.com";
 
 // The following HTTP header keys must be used for authentication:
 /// API key.
