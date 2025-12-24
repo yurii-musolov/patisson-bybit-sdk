@@ -5,35 +5,43 @@
 //! ```
 
 use tokio;
+use tracing::{Level, debug};
+use tracing_subscriber::FmtSubscriber;
 
-use bybit::v5::{
-    BASE_URL_API_MAINNET_1, Client, ClientConfig, GetWalletBalanceParams, SensitiveString,
-};
+use bybit::v5::{AccountType, BASE_URL_API_DEMO, Client, ClientConfig, GetWalletBalanceParams};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let api_key = std::env::var("API_KEY").expect("environment variable API_KEY is required");
-    let api_secret =
-        std::env::var("API_SECRET").expect("environment variable API_SECRET is required");
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(Level::TRACE)
+        .finish();
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
-    let base_url = BASE_URL_API_MAINNET_1;
+    let api_key = std::env::var("API_KEY")
+        .expect("environment variable API_KEY is required")
+        .into();
+    let api_secret = std::env::var("API_SECRET")
+        .expect("environment variable API_SECRET is required")
+        .into();
+
+    let base_url = BASE_URL_API_DEMO;
 
     let cfg = ClientConfig {
         base_url: base_url.to_owned(),
-        api_key: Some(SensitiveString::from(api_key.to_owned())),
-        api_secret: Some(SensitiveString::from(api_secret.to_owned())),
+        api_key: Some(api_key),
+        api_secret: Some(api_secret),
         recv_window: 5000, // Milliseconds.
         referer: None,
     };
     let client = Client::new(cfg);
 
     let params = GetWalletBalanceParams {
-        account_type: String::from("UNIFIED"),
+        account_type: AccountType::UNIFIED,
         coin: None,
     };
 
     let response = client.get_wallet_balance(params).await?;
-    println!("{response:#?}");
+    debug!(?response);
 
     Ok(())
 }
