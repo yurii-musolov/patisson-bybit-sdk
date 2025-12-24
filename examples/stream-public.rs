@@ -7,6 +7,8 @@
 use std::time::Duration;
 
 use tokio::{self, time::sleep};
+use tracing::{Level, debug};
+use tracing_subscriber::FmtSubscriber;
 
 use bybit::v5::{
     BASE_URL_STREAM_MAINNET_1, DEFAULT_PING_INTERVAL, Interval, OutgoingMessage, Path, Topic,
@@ -15,6 +17,11 @@ use bybit::v5::{
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(Level::TRACE)
+        .finish();
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
+
     let url = format!("{}{}", BASE_URL_STREAM_MAINNET_1, Path::PublicLinear);
     let symbol = String::from("BTCUSDT");
     let messages = {
@@ -54,7 +61,7 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let (tx, mut rx, response) = stream(&url, DEFAULT_PING_INTERVAL).await?;
-    println!("{response:#?}");
+    debug!(?response);
 
     tokio::spawn(async move {
         for message in messages {
@@ -64,7 +71,7 @@ async fn main() -> anyhow::Result<()> {
     });
 
     while let Some(message) = rx.recv().await {
-        println!("{message:#?}");
+        debug!(?message);
     }
 
     Ok(())

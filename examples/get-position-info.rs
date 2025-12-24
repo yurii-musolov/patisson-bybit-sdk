@@ -5,24 +5,31 @@
 //! ```
 
 use tokio;
+use tracing::{Level, debug};
+use tracing_subscriber::FmtSubscriber;
 
-use bybit::v5::{
-    BASE_URL_API_DEMO_TRADING, Category, Client, ClientConfig, GetPositionInfoParams,
-    SensitiveString,
-};
+use bybit::v5::{BASE_URL_API_DEMO, Category, Client, ClientConfig, GetPositionInfoParams};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let api_key = std::env::var("API_KEY").expect("environment variable API_KEY is required");
-    let api_secret =
-        std::env::var("API_SECRET").expect("environment variable API_SECRET is required");
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(Level::TRACE)
+        .finish();
+    tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
-    let base_url = BASE_URL_API_DEMO_TRADING; // or BASE_URL_API_MAINNET_1, BASE_URL_API_TESTNET
+    let api_key = std::env::var("API_KEY")
+        .expect("environment variable API_KEY is required")
+        .into();
+    let api_secret = std::env::var("API_SECRET")
+        .expect("environment variable API_SECRET is required")
+        .into();
+
+    let base_url = BASE_URL_API_DEMO; // or BASE_URL_API_MAINNET_1, BASE_URL_API_TESTNET
 
     let cfg = ClientConfig {
         base_url: base_url.to_owned(),
-        api_key: Some(SensitiveString::from(api_key.to_owned())),
-        api_secret: Some(SensitiveString::from(api_secret.to_owned())),
+        api_key: Some(api_key),
+        api_secret: Some(api_secret),
         recv_window: 5000, // Milliseconds.
         referer: None,
     };
@@ -30,13 +37,14 @@ async fn main() -> anyhow::Result<()> {
 
     let params = GetPositionInfoParams {
         category: Category::Linear,
-        symbol: Some(String::from("BTCUSDT")),
+        symbol: None,
         base_coin: None,
-        settle_coin: None,
+        settle_coin: Some(String::from("USDT")),
         limit: Some(10),
         cursor: None,
     };
     let response = client.get_position_info(params).await?;
+    debug!(?response);
     println!("{response:#?}");
 
     Ok(())

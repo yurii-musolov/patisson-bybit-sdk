@@ -10,8 +10,8 @@ use tracing_subscriber::FmtSubscriber;
 
 use Topic::{ExecutionAllCategory, OrderAllCategory, PositionAllCategory, Wallet};
 use bybit::v5::{
-    BASE_URL_STREAM_MAINNET_1, DEFAULT_PING_INTERVAL, OutgoingMessage, Path, SensitiveString,
-    Topic, create_outgoing_message_auth, stream,
+    BASE_URL_STREAM_MAINNET_1, DEFAULT_PING_INTERVAL, OutgoingMessage, Path, Topic,
+    create_outgoing_message_auth, stream,
 };
 
 #[tokio::main]
@@ -21,12 +21,12 @@ async fn main() -> anyhow::Result<()> {
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
-    let api_key = SensitiveString::from(
-        std::env::var("API_KEY").expect("environment variable API_KEY is required"),
-    );
-    let api_secret = SensitiveString::from(
-        std::env::var("API_SECRET").expect("environment variable API_SECRET is required"),
-    );
+    let api_key = std::env::var("API_KEY")
+        .expect("environment variable API_KEY is required")
+        .into();
+    let api_secret = std::env::var("API_SECRET")
+        .expect("environment variable API_SECRET is required")
+        .into();
 
     let url = format!("{}{}", BASE_URL_STREAM_MAINNET_1, Path::Private);
     let messages = vec![

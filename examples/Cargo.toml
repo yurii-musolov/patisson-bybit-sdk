@@ -6,6 +6,10 @@ authors.workspace = true
 publish = false
 
 [[example]]
+name = "get-api-key-information"
+path = "get-api-key-information.rs"
+
+[[example]]
 name = "get-open-orders"
 path = "get-open-orders.rs"
 
@@ -22,6 +26,10 @@ name = "kline"
 path = "kline.rs"
 
 [[example]]
+name = "place-order"
+path = "place-order.rs"
+
+[[example]]
 name = "recent-trading-history"
 path = "recent-trading-history.rs"
 
@@ -32,6 +40,10 @@ path = "server-time.rs"
 [[example]]
 name = "stream-all-liquidation"
 path = "stream-all-liquidation.rs"
+
+[[example]]
+name = "stream-private"
+path = "stream-private.rs"
 
 [[example]]
 name = "stream-public"

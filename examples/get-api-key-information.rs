@@ -8,7 +8,7 @@ use tokio;
 use tracing::{Level, debug};
 use tracing_subscriber::FmtSubscriber;
 
-use bybit::v5::{BASE_URL_API_DEMO, Client, ClientConfig, SensitiveString};
+use bybit::v5::{BASE_URL_API_DEMO, Client, ClientConfig};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -17,12 +17,12 @@ async fn main() -> anyhow::Result<()> {
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
-    let api_key = SensitiveString::from(
-        std::env::var("API_KEY").expect("environment variable API_KEY is required"),
-    );
-    let api_secret = SensitiveString::from(
-        std::env::var("API_SECRET").expect("environment variable API_SECRET is required"),
-    );
+    let api_key = std::env::var("API_KEY")
+        .expect("environment variable API_KEY is required")
+        .into();
+    let api_secret = std::env::var("API_SECRET")
+        .expect("environment variable API_SECRET is required")
+        .into();
 
     let base_url = BASE_URL_API_DEMO; // or BASE_URL_API_MAINNET_1, BASE_URL_API_TESTNET
 
