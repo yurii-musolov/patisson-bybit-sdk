@@ -1,6 +1,6 @@
 [package]
 name = "patisson-bybit-sdk"
-version = "0.1.8"
+version = "0.1.9"
 edition = "2024"
 authors = ["Yurii Musolov <yurii.musolov@gmail.com>"]
 description = "Unofficial Rust SDK for the Bybit exchange API"
@@ -17,26 +17,30 @@ name = "bybit"
 path = "src/lib.rs"
 
 [dependencies]
-anyhow = "1.0"
+anyhow = "1.0.100"
 futures-util = { version = "0.3.31", default-features = false, features = [
   "sink",
   "std",
 ] }
 hex = "0.4.3"
 hmac = "0.12.1"
-reqwest = { version = "0.12.22", features = ["json"] }
-rust_decimal = { version = "1.37", features = [
+reqwest = { version = "0.12.28", features = ["json"] }
+rust_decimal = { version = "1.39.0", features = [
   "std",
   "macros",
   "serde-str",
   "serde-with-str",
 ] }
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive"] }
 serde-aux = "4.7"
-serde_json = "1.0"
-serde_path_to_error = "0.1.17"
+serde_json = "1.0.147"
+serde_path_to_error = "0.1.20"
 serde_repr = "0.1.20"
 serde_urlencoded = "0.7.1"
 sha2 = "0.10.9"
-tokio = { version = "1.46", features = ["full"] }
-tokio-tungstenite = { version = "0.27", features = ["native-tls"] }
+tokio = { version = "1.48.0", features = ["full"] }
+tokio-tungstenite = { version = "0.28.0", features = ["native-tls"] }
+tracing = "0.1.44"
+
+[dev-dependencies]
+tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
