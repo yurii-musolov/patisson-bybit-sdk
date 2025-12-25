@@ -1111,8 +1111,39 @@ pub struct AmendOrderRequest {
 pub struct AmendOrderResponse {
     /// Order ID
     pub order_id: String,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     /// User customised order ID
-    pub order_link_id: String,
+    pub order_link_id: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelOrderRequest {
+    /// Product type. linear, inverse, spot, option
+    pub category: Category,
+    /// Symbol name, like BTCUSDT, uppercase only
+    pub symbol: String,
+    /// Order ID. Either orderId or orderLinkId is required
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_id: Option<String>,
+    /// User customised order ID. Either orderId or orderLinkId is required
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_link_id: Option<String>,
+    /// Spot trading only
+    /// Order, tpslOrder, StopOrder
+    /// If not passed, Order by default
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_filter: Option<OrderFilter>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelOrderResponse {
+    /// Order ID
+    pub order_id: String,
+    /// User customised order ID
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub order_link_id: Option<String>,
 }
 
 #[derive(Serialize)]
