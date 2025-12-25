@@ -2,8 +2,8 @@ use reqwest::{self, Method, RequestBuilder, header::HeaderMap};
 
 use crate::v5::{
     APIErrorResponse, APIKeyInformation, AccountInfo, AmendOrderRequest, AmendOrderResponse,
-    GetPositionInfoParams, GetWalletBalanceParams, List, PlaceOrderRequest, PlaceOrderResponse,
-    Position, Timestamp, WalletBalance,
+    CancelOrderRequest, CancelOrderResponse, GetPositionInfoParams, GetWalletBalanceParams, List,
+    PlaceOrderRequest, PlaceOrderResponse, Position, Timestamp, WalletBalance,
     crypto::Signer,
     serde::{deserialize_str, serialize, serialize_query},
 };
@@ -211,6 +211,29 @@ impl Client {
         request: AmendOrderRequest,
     ) -> Result<Response<AmendOrderResponse>, Error> {
         let url = format!("{}{}", self.base_url, Path::TradeOrderAmend);
+        let json = serialize(&request)?;
+        let headers = self.get_signed_headers(&json);
+
+        let client = reqwest::Client::builder().build()?;
+        let request = client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(json);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Cancel Order
+    /// important
+    /// You must specify orderId or orderLinkId to cancel the order.
+    /// If orderId and orderLinkId do not match, the system will process orderId first.
+    /// You can only cancel unfilled or partially filled orders.
+    pub async fn cancel_order(
+        &self,
+        request: CancelOrderRequest,
+    ) -> Result<Response<CancelOrderResponse>, Error> {
+        let url = format!("{}{}", self.base_url, Path::TradeOrderCancel);
         let json = serialize(&request)?;
         let headers = self.get_signed_headers(&json);
 
