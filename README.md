@@ -8,8 +8,10 @@ Unofficial Rust SDK for the [Bybit exchange API](https://bybit-exchange.github.i
 
 ## Features
 
-- REST API support (Spot, Linear, Inverse, Option)
+- REST API support
+- Websocket API support
 - Only async clients
+- All categories: Spot, Linear, Inverse, Option
 
 ## Examples
 
@@ -20,22 +22,23 @@ use bybit::v5::{BASE_URL_API_MAINNET_1, Category, Client, GetTickersParams};
 
 let cfg = ClientConfig {
     base_url: BASE_URL_API_MAINNET_1.to_string(),
-    api_key: String::default(),
-    api_secret: String::default(),
+    api_key: None,
+    api_secret: None,
     recv_window: 5000, // Milliseconds.
+    referer: None,
 };
 let client = Client::new(cfg);
 let params = GetTickersParams {
     category: Category::Linear,
     symbol: Some(String::from("BTCUSDT")),
-    base_coin: None,
+    base_coin: None, // If category=option, symbol or baseCoin must be passed.
     exp_date: None,
 };
 let response = client.get_tickers(params).await?;
 println!("{response:#?}");
 ```
 
-### Subscribe to ticker
+### Subscribe to public channel 'ticker'
 
 ```rust
 use bybit::v5::{
@@ -56,7 +59,49 @@ println!("{response:#?}");
 
 tokio::spawn(async move {
     if let Err(err) = tx.send(message).await {
-        println!("{err}");
+        eprintln!("{err}");
+    }
+});
+
+while let Some(message) = rx.recv().await {
+    println!("{message:#?}");
+}
+```
+
+### Subscribe to private channels
+
+```rust
+use Topic::{ExecutionAllCategory, OrderAllCategory, PositionAllCategory, Wallet};
+use bybit::v5::{
+    BASE_URL_STREAM_MAINNET_1, DEFAULT_PING_INTERVAL, OutgoingMessage, Path, SensitiveString,
+    Topic, create_outgoing_message_auth, stream,
+};
+
+let api_key = SensitiveString::from("XXXXXXXX");
+let api_secret = SensitiveString::from("XXXXXXXXXXXXXXXX");
+
+let url = format!("{}{}", BASE_URL_STREAM_MAINNET_1, Path::Private);
+let messages = vec![
+    create_outgoing_message_auth(api_key, api_secret, Some(String::from("req-0001"))),
+    OutgoingMessage::Subscribe {
+        req_id: Some(String::from("req-0002")),
+        args: vec![
+            ExecutionAllCategory,
+            OrderAllCategory,
+            PositionAllCategory,
+            Wallet,
+        ],
+    },
+];
+
+let (tx, mut rx, response) = stream(&url, DEFAULT_PING_INTERVAL).await?;
+println!("{response:#?}");
+
+tokio::spawn(async move {
+    for message in messages {
+        if let Err(err) = tx.send(message).await {
+            eprintln!("{err}");
+        }
     }
 });
 
