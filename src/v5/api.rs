@@ -663,14 +663,14 @@ pub struct GetOpenClosedOrdersParams {
     pub cursor: Option<String>,
 }
 
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Serialize)]
 pub enum OrderFilter {
     /// active order,
     Order,
     /// conditional order for Futures and Spot,
     StopOrder,
     /// spot TP/SL order,
+    #[serde(rename = "camelCase")]
     TpslOrder,
     /// Spot oco order,
     OcoOrder,
@@ -816,7 +816,6 @@ impl Order {
         self.block_trade_id = msg.block_trade_id;
         self.symbol = msg.symbol;
         self.price = msg.price;
-        // self.price = msg.price.unwrap_or(Decimal::ZERO); // TYPE MARKET
         self.qty = msg.qty;
         self.side = msg.side;
         self.is_leverage = msg.is_leverage;
@@ -825,7 +824,7 @@ impl Order {
         self.create_type = msg.create_type;
         self.cancel_type = msg.cancel_type;
         self.reject_reason = msg.reject_reason;
-        self.avg_price = Some(msg.avg_price);
+        self.avg_price = msg.avg_price;
         if let Some(leaves_qty) = msg.leaves_qty {
             self.leaves_qty = leaves_qty;
         }
@@ -1331,7 +1330,6 @@ impl Position {
         self.leverage = msg.leverage;
         self.mark_price = msg.mark_price;
         self.liq_price = msg.liq_price;
-        // self.liq_price = Some(msg.liq_price);
         // INFO: self.position_im updated in self.update_with_a_wallet_coin
         // INFO: self.position_mm updated in self.update_with_a_wallet_coin
         self.take_profit = Some(msg.take_profit);

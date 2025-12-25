@@ -74,6 +74,8 @@ pub fn hmac_sha256(key: impl AsRef<[u8]>, message: impl AsRef<[u8]>) -> String {
 }
 
 type Timer = fn() -> Timestamp;
+
+#[derive(Debug)]
 pub struct Signer {
     api_key: SensitiveString,
     api_secret: SensitiveString,
