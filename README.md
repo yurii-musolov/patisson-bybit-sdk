@@ -6,6 +6,28 @@
 
 Unofficial Rust SDK for the [Bybit exchange API](https://bybit-exchange.github.io/docs/v5/intro).
 
+## Disclaimer
+
+### Stability & Versioning Policy
+
+No stability or backward-compatibility guarantees are provided.
+
+Every version change must be treated as a breaking change, including minor and patch releases.
+
+Users are strongly advised to pin an exact version, for example:
+
+```rs
+patisson-bybit-sdk = "=0.1.9"
+```
+
+### Maintenance Policy
+
+This package is developed only in the author’s free time.
+
+Releases are best-effort and not planned in advance.
+
+The scope of the package is intentionally limited to the most commonly used functionality.
+
 ## Features
 
 - REST API support
