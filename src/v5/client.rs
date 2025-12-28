@@ -29,8 +29,7 @@ pub struct ClientConfig {
 pub struct Client {
     base_url: String,
     headers: HeaderMap,
-    // TODO: use one instance reqwest::Client
-    // client: reqwest::Client,
+    client: reqwest::Client,
     signer: Option<Signer>,
 }
 
@@ -58,6 +57,7 @@ impl Client {
         Self {
             base_url: cfg.base_url,
             headers,
+            client: reqwest::Client::builder().build().unwrap(),
             signer,
         }
     }
@@ -80,8 +80,7 @@ impl Client {
     pub async fn get_server_time(&self) -> Result<Response<ServerTime>, Error> {
         let url = format!("{}{}", self.base_url, Path::MarketServerTime);
 
-        let client = reqwest::Client::builder().build()?;
-        let request = client.request(Method::GET, url);
+        let request = self.client.request(Method::GET, url);
 
         let response = send(request).await?;
         Ok(response)
@@ -90,8 +89,7 @@ impl Client {
     pub async fn get_kline(&self, params: GetKLinesParams) -> Result<Response<KLine>, Error> {
         let url = format!("{}{}", self.base_url, Path::MarketKline);
 
-        let client = reqwest::Client::builder().build()?;
-        let request = client.request(Method::GET, url).query(&params);
+        let request = self.client.request(Method::GET, url).query(&params);
 
         let response = send(request).await?;
         Ok(response)
@@ -103,8 +101,7 @@ impl Client {
     pub async fn get_tickers(&self, params: GetTickersParams) -> Result<Response<Ticker>, Error> {
         let url = format!("{}{}", self.base_url, Path::MarketTickers);
 
-        let client = reqwest::Client::builder().build()?;
-        let request = client.request(Method::GET, url).query(&params);
+        let request = self.client.request(Method::GET, url).query(&params);
 
         let response = send(request).await?;
         Ok(response)
@@ -116,8 +113,7 @@ impl Client {
     ) -> Result<Response<InstrumentsInfo>, Error> {
         let url = format!("{}{}", self.base_url, Path::MarketInstrumentsInfo);
 
-        let client = reqwest::Client::builder().build()?;
-        let request = client.request(Method::GET, url).query(&params);
+        let request = self.client.request(Method::GET, url).query(&params);
 
         let response = send(request).await?;
         Ok(response)
@@ -129,8 +125,7 @@ impl Client {
     ) -> Result<Response<Trade>, Error> {
         let url = format!("{}{}", self.base_url, Path::MarketRecentTrade);
 
-        let client = reqwest::Client::builder().build()?;
-        let request = client.request(Method::GET, url).query(&params);
+        let request = self.client.request(Method::GET, url).query(&params);
 
         let response = send(request).await?;
         Ok(response)
@@ -193,8 +188,8 @@ impl Client {
         let json = serialize(&request)?;
         let headers = self.get_signed_headers(&json);
 
-        let client = reqwest::Client::builder().build()?;
-        let request = client
+        let request = self
+            .client
             .request(Method::POST, url)
             .headers(headers)
             .body(json);
@@ -214,8 +209,8 @@ impl Client {
         let json = serialize(&request)?;
         let headers = self.get_signed_headers(&json);
 
-        let client = reqwest::Client::builder().build()?;
-        let request = client
+        let request = self
+            .client
             .request(Method::POST, url)
             .headers(headers)
             .body(json);
@@ -237,8 +232,8 @@ impl Client {
         let json = serialize(&request)?;
         let headers = self.get_signed_headers(&json);
 
-        let client = reqwest::Client::builder().build()?;
-        let request = client
+        let request = self
+            .client
             .request(Method::POST, url)
             .headers(headers)
             .body(json);
@@ -268,8 +263,7 @@ impl Client {
         let url = format!("{}{}?{query}", self.base_url, Path::TradeOrderRealtime);
         let headers = self.get_signed_headers(&query);
 
-        let client = reqwest::Client::builder().build()?;
-        let request = client.request(Method::GET, url).headers(headers);
+        let request = self.client.request(Method::GET, url).headers(headers);
 
         let response = send(request).await?;
         Ok(response)
@@ -296,8 +290,7 @@ impl Client {
         let url = format!("{}{}?{query}", self.base_url, Path::PositionList);
         let headers = self.get_signed_headers(&query);
 
-        let client = reqwest::Client::builder().build()?;
-        let request = client.request(Method::GET, url).headers(headers);
+        let request = self.client.request(Method::GET, url).headers(headers);
 
         let response = send(request).await?;
         Ok(response)
@@ -315,8 +308,7 @@ impl Client {
         let url = format!("{}{}?{query}", self.base_url, Path::AccountWalletBalance);
         let headers = self.get_signed_headers(&query);
 
-        let client = reqwest::Client::builder().build()?;
-        let request = client.request(Method::GET, url).headers(headers);
+        let request = self.client.request(Method::GET, url).headers(headers);
 
         let response = send(request).await?;
         Ok(response)
@@ -328,8 +320,7 @@ impl Client {
         let query = "";
         let headers = self.get_signed_headers(query);
 
-        let client = reqwest::Client::builder().build()?;
-        let request = client.request(Method::GET, url).headers(headers);
+        let request = self.client.request(Method::GET, url).headers(headers);
 
         let response = send(request).await?;
         Ok(response)
@@ -345,9 +336,7 @@ impl Client {
         let query = "";
         let headers = self.get_signed_headers(query);
 
-        // TODO: The `Client` holds a connection pool internally, so it is advised that you create one and **reuse** it.
-        let client = reqwest::Client::builder().build()?;
-        let request = client.request(Method::GET, url).headers(headers);
+        let request = self.client.request(Method::GET, url).headers(headers);
 
         let response = send(request).await?;
         Ok(response)
