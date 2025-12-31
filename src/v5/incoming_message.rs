@@ -336,7 +336,7 @@ pub struct PrivateMsg<T> {
     pub data: T,
 }
 
-#[derive(PartialEq, Deserialize, Debug)]
+#[derive(PartialEq, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderMsg {
     /// Product type
@@ -483,7 +483,7 @@ pub struct OrderMsg {
     pub updated_time: Timestamp,
 }
 
-#[derive(PartialEq, Deserialize, Debug)]
+#[derive(PartialEq, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PositionMsg {
     /// Product type
@@ -618,7 +618,7 @@ pub struct PositionMsg {
     pub seq: i64,
 }
 
-#[derive(PartialEq, Deserialize, Debug)]
+#[derive(PartialEq, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct WalletMsg {
     /// Account type.
@@ -668,7 +668,7 @@ pub struct WalletMsg {
     pub coin: HashMap<String, WalletCoin>,
 }
 
-#[derive(PartialEq, Deserialize, Debug)]
+#[derive(PartialEq, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionMsg {
     /// Product type spot, linear, inverse, option
@@ -748,7 +748,7 @@ pub struct ExecutionMsg {
     pub fee_currency: String,
 }
 
-#[derive(PartialEq, Deserialize, Debug)]
+#[derive(PartialEq, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ExtraFee {
     pub fee_coin: String,

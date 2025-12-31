@@ -39,10 +39,9 @@ pub fn create_outgoing_message_auth(
     api_key: SensitiveString,
     api_secret: SensitiveString,
     req_id: Option<String>,
+    recv_window: Timestamp,
 ) -> OutgoingMessage {
     let api_key = api_key.expose().to_string();
-    // TODO: use param 'recv_window'
-    let recv_window = 20_000;
     let expires = timestamp() + recv_window;
 
     let signature = create_stream_signature(expires, api_secret);
