@@ -1091,6 +1091,14 @@ pub enum Side {
     Buy,
     Sell,
 }
+impl Side {
+    pub fn reverse(&self) -> Self {
+        match self {
+            Side::Buy => Self::Sell,
+            Side::Sell => Self::Buy,
+        }
+    }
+}
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Pair {

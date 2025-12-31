@@ -30,7 +30,7 @@ async fn main() -> anyhow::Result<()> {
 
     let url = format!("{}{}", BASE_URL_STREAM_MAINNET_1, Path::Private);
     let messages = vec![
-        create_outgoing_message_auth(api_key, api_secret, Some(String::from("req-0001"))),
+        create_outgoing_message_auth(api_key, api_secret, Some(String::from("req-0001")), 5_000),
         OutgoingMessage::Subscribe {
             req_id: Some(String::from("req-0002")),
             args: vec![

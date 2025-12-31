@@ -89,6 +89,7 @@ impl UserState {
 /// State for the symbol. An instance for each symbol (ticker).
 pub struct SymbolState {
     /// User wallet.
+    #[allow(unused)]
     wallet: Rc<WalletState>,
     /// State with orders for only current symbol (ticker)
     orders: HashMap<String, Order>,

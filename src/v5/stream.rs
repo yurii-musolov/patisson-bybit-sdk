@@ -9,7 +9,7 @@ use tokio_tungstenite::{
     connect_async,
     tungstenite::{Utf8Bytes, http, protocol::Message},
 };
-use tracing::{debug, warn};
+use tracing::{debug, trace, warn};
 
 use crate::v5::serde::deserialize_str;
 
@@ -64,15 +64,15 @@ pub async fn stream(
                             }
                         };
                     }
-                    Message::Binary(d) => debug!("Binary got {} bytes: {:?}", d.len(), d),
+                    Message::Binary(d) => trace!("Binary got {} bytes: {:?}", d.len(), d),
                     Message::Close(close_frame) => {
                         match close_frame {
-                            Some(close_frame) => debug!(
+                            Some(close_frame) => trace!(
                                 "Close got close with code {} and reason `{}`",
                                 close_frame.code, close_frame.reason
                             ),
                             None => {
-                                debug!("Close somehow got close message without CloseFrame")
+                                trace!("Close somehow got close message without CloseFrame")
                             }
                         }
 
@@ -94,13 +94,13 @@ pub async fn stream(
             let message = match serde_json::to_string(&message) {
                 Ok(serialized) => Message::Text(Utf8Bytes::from(&serialized)),
                 Err(e) => {
-                    warn!("Serialize OutgoingMessage failed with {e}");
+                    warn!("Serialize OutgoingMessage failed with: {e}");
                     continue;
                 }
             };
 
             if let Err(e) = sender.send(message).await {
-                warn!("Send OutgoingMessage failed with {e}");
+                warn!("Send OutgoingMessage failed with: {e}");
             };
         }
     });

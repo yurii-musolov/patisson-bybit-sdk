@@ -1323,7 +1323,7 @@ impl Position {
         self.symbol = msg.symbol;
         self.side = msg.side;
         self.size = msg.size;
-        self.avg_price = msg.mark_price;
+        self.avg_price = msg.entry_price;
         self.position_value = Some(msg.position_value);
         self.auto_add_margin = msg.auto_add_margin;
         self.position_status = msg.position_status;
@@ -1436,7 +1436,7 @@ impl WalletBalance {
     }
 }
 
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct WalletCoin {
     /// Coin name, such as BTC, ETH, USDT, USDC
