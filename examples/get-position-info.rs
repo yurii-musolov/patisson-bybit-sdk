@@ -45,7 +45,6 @@ async fn main() -> anyhow::Result<()> {
     };
     let response = client.get_position_info(params).await?;
     debug!(?response);
-    println!("{response:#?}");
 
     Ok(())
 }

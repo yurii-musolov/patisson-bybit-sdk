@@ -1,14 +1,17 @@
 //! Run with
 //!
 //! ```not_rust
-//! cargo run --example get-open-orders
+//! cargo run --example get-transaction-log
 //! ```
 
+use std::collections::HashMap;
+
+use rust_decimal::Decimal;
 use tokio;
 use tracing::{Level, debug};
 use tracing_subscriber::FmtSubscriber;
 
-use bybit::v5::{BASE_URL_API_DEMO, Category, Client, ClientConfig, GetOpenClosedOrdersParams};
+use bybit::v5::{BASE_URL_API_DEMO, Category, Client, ClientConfig, GetTransactionLogParams};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -30,25 +33,35 @@ async fn main() -> anyhow::Result<()> {
         base_url: base_url.to_owned(),
         api_key: Some(api_key),
         api_secret: Some(api_secret),
-        recv_window: 5000, // Milliseconds.
+        recv_window: 5_000, // Milliseconds.
         referer: None,
     };
     let client = Client::new(cfg);
 
-    let params = GetOpenClosedOrdersParams {
-        category: Category::Linear,
-        symbol: None,
+    let params = GetTransactionLogParams {
+        account_type: None,
+        category: Some(Category::Linear),
+        currency: None,
         base_coin: None,
         settle_coin: Some(String::from("USDT")),
-        order_id: None,
-        order_link_id: None,
-        open_only: None,
-        order_filter: None,
-        limit: Some(10),
+        log_type: None,
+        trans_sub_type: None,
+        start_time: None,
+        end_time: None,
+        limit: Some(50),
         cursor: None,
     };
-    let response = client.get_open_closed_orders(params).await?;
-    debug!(?response);
+    let response = client.get_transaction_log(params).await?;
+
+    let pnl = response
+        .result
+        .list
+        .into_iter()
+        .fold(HashMap::new(), |mut acc, transaction| {
+            *acc.entry(transaction.symbol).or_insert(Decimal::ZERO) += transaction.change;
+            acc
+        });
+    debug!(?pnl);
 
     Ok(())
 }

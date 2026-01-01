@@ -1,12 +1,12 @@
-use reqwest::{self, Method, RequestBuilder, header::HeaderMap};
-
 use crate::v5::{
     APIErrorResponse, APIKeyInformation, AccountInfo, AmendOrderRequest, AmendOrderResponse,
-    CancelOrderRequest, CancelOrderResponse, GetPositionInfoParams, GetWalletBalanceParams, List,
-    PlaceOrderRequest, PlaceOrderResponse, Position, Timestamp, WalletBalance,
+    CancelOrderRequest, CancelOrderResponse, GetPositionInfoParams, GetTransactionLogParams,
+    GetWalletBalanceParams, List, PlaceOrderRequest, PlaceOrderResponse, Position, Timestamp,
+    TransactionLog, WalletBalance,
     crypto::Signer,
     serde::{deserialize_str, serialize, serialize_query},
 };
+use reqwest::{self, Method, RequestBuilder, header::HeaderMap};
 
 use super::{
     CursorPagination, Error, GetInstrumentsInfoParams, GetKLinesParams, GetOpenClosedOrdersParams,
@@ -306,6 +306,22 @@ impl Client {
     ) -> Result<Response<List<WalletBalance>>, Error> {
         let query = serialize_query(&params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::AccountWalletBalance);
+        let headers = self.get_signed_headers(&query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Transaction Log
+    /// Query for transaction logs in your Unified account. It supports up to 2 years worth of data.
+    pub async fn get_transaction_log(
+        &self,
+        params: GetTransactionLogParams,
+    ) -> Result<Response<CursorPagination<TransactionLog>>, Error> {
+        let query = serialize_query(&params)?;
+        let url = format!("{}{}?{query}", self.base_url, Path::AccountTransactionLog);
         let headers = self.get_signed_headers(&query);
 
         let request = self.client.request(Method::GET, url).headers(headers);

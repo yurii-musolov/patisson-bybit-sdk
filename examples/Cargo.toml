@@ -18,6 +18,10 @@ name = "get-position-info"
 path = "get-position-info.rs"
 
 [[example]]
+name = "get-transaction-log"
+path = "get-transaction-log.rs"
+
+[[example]]
 name = "instruments-info"
 path = "instruments-info.rs"
 
