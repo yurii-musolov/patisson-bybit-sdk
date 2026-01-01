@@ -50,7 +50,7 @@ pub struct Response<T> {
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct CursorPagination<T> {
-    pub category: Category,
+    pub category: Option<Category>,
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub next_page_cursor: Option<String>,
     pub list: Vec<T>,
@@ -626,19 +626,24 @@ pub struct GetOpenClosedOrdersParams {
     /// classic account: linear, inverse, spot
     pub category: Category,
     /// Symbol name, like BTCUSDT, uppercase only. For linear, either symbol, baseCoin, settleCoin is required
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub symbol: Option<String>,
     /// Base coin, uppercase only
     /// Supports linear, inverse & option
     /// option: it returns all option open orders by default
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub base_coin: Option<String>,
     /// Settle coin, uppercase only
     /// linear: either symbol, baseCoin or settleCoin is required
     /// spot: not supported
     /// option: USDT or USDC
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub settle_coin: Option<String>,
     /// Order ID
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub order_id: Option<String>,
     /// User customized order ID
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub order_link_id: Option<String>,
     /// 0(default): UTA2.0, UTA1.0, classic account query open status orders (e.g., New, PartiallyFilled) only
     /// 1: UTA2.0, UTA1.0(except inverse)
@@ -647,6 +652,7 @@ pub struct GetOpenClosedOrdersParams {
     /// If the Bybit service is restarted due to an update, this part of the data will be cleared and accumulated again, but the order records will still be queried in order history
     /// openOnly param will be ignored when query by orderId or orderLinkId
     /// Classic spot: not supported
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub open_only: Option<i32>,
     /// Order: active order,
     /// StopOrder: conditional order for Futures and Spot,
@@ -655,11 +661,13 @@ pub struct GetOpenClosedOrdersParams {
     /// BidirectionalTpslOrder: Spot bidirectional TPSL order
     /// - classic account spot: return Order active order by default
     /// - Others: all kinds of orders by default
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub order_filter: Option<OrderFilter>,
     /// Limit for data size per page. [1, 50]. Default: 20
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<i32>,
     /// Cursor. Use the nextPageCursor token from the response to retrieve the next page of the result set
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
 }
 
@@ -1155,15 +1163,20 @@ pub struct GetPositionInfoParams {
     /// Symbol name, like BTCUSDT, uppercase only
     /// If symbol passed, it returns data regardless of having position or not.
     /// If symbol=null and settleCoin specified, it returns position size greater than zero.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub symbol: Option<String>,
     /// Base coin, uppercase only. option only. Return all option positions if not passed
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub base_coin: Option<String>,
     /// Settle coin
     /// linear: either symbol or settleCoin is required. symbol has a higher priority
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub settle_coin: Option<String>,
     /// Limit for data size per page. [1, 200]. Default: 20
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u64>,
     /// Cursor. Use the nextPageCursor token from the response to retrieve the next page of the result set
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
 }
 
@@ -1611,6 +1624,111 @@ pub struct APIKeyPermissions {
     pub copy_trading: Vec<String>,
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetTransactionLogParams {
+    /// Account Type. UNIFIED
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub account_type: Option<AccountType>,
+    /// Product type spot,linear,option,inverse
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub category: Option<Category>,
+    /// Currency, uppercase only
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+    /// BaseCoin, uppercase only. e.g., BTC of BTCPERP
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base_coin: Option<String>,
+    /// Not documented.
+    /// Settle coin
+    /// linear: either symbol or settleCoin is required. symbol has a higher priority
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub settle_coin: Option<String>,
+    /// Types of transaction logs
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub log_type: Option<String>,
+    /// movePosition, used to filter trans logs of Move Position only
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trans_sub_type: Option<String>,
+    /// The start timestamp (ms)
+    /// startTime and endTime are not passed, return 24 hours by default
+    /// Only startTime is passed, return range between startTime and startTime+24 hours
+    /// Only endTime is passed, return range between endTime-24 hours and endTime
+    /// If both are passed, the rule is endTime - startTime <= 7 days
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_time: Option<Timestamp>,
+    /// The end timestamp (ms)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_time: Option<Timestamp>,
+    /// Limit for data size per page. [1, 50]. Default: 20
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u64>,
+    /// Cursor. Use the nextPageCursor token from the response to retrieve the next page of the result set
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct TransactionLog {
+    /// Unique id
+    pub id: String,
+    /// Symbol name
+    pub symbol: String,
+    /// Product type
+    pub category: Category,
+    /// Side. Buy,Sell,None
+    pub side: Side,
+    /// Transaction timestamp (ms)
+    #[serde(deserialize_with = "number")]
+    pub transaction_time: Timestamp,
+    /// Type
+    #[serde(rename = "type")]
+    pub log_type: String,
+    /// Transaction sub type, movePosition, used for the logs generated by move position. "" by default
+    pub trans_sub_type: String,
+    /// Quantity
+    /// Spot: the negative means the qty of this currency is decreased, the positive means the qty of this currency is increased
+    /// Perps & Futures: it is the quantity for each trade entry and it does not have direction
+    pub qty: Decimal,
+    /// Size. The rest position size after the trade is executed, and it has direction, i.e., short with "-"
+    pub size: Decimal,
+    /// e.g., USDC, USDT, BTC, ETH
+    pub currency: String,
+    /// Trade price
+    pub trade_price: Decimal,
+    /// Funding fee
+    /// Positive fee value means receive funding; negative fee value means pay funding. This is opposite to the execFee from Get Trade History.
+    /// For USDC Perp, as funding settlement and session settlement occur at the same time, they are represented in a single record at settlement. Please refer to funding to understand funding fee, and cashFlow to understand 8-hour P&L.
+    pub funding: Decimal,
+    /// Trading fee
+    /// Positive fee value means expense
+    /// Negative fee value means rebates
+    pub fee: Decimal,
+    /// Cash flow, e.g., (1) close the position, and unRPL converts to RPL, (2) 8-hour session settlement for USDC Perp and Futures, (3) transfer in or transfer out. This does not include trading fee, funding fee
+    pub cash_flow: Decimal,
+    /// Change = cashFlow + funding - fee
+    pub change: Decimal,
+    /// Cash balance. This is the wallet balance after a cash change
+    pub cash_balance: Decimal,
+    ///
+    /// When type=TRADE, then it is trading fee rate
+    /// When type=SETTLEMENT, it means funding fee rate. For side=Buy, feeRate=market fee rate; For side=Sell, feeRate= - market fee rate
+    pub fee_rate: Decimal,
+    /// The change of bonus
+    pub bonus_change: Decimal,
+    /// Trade ID
+    pub trade_id: String,
+    /// Order ID
+    pub order_id: String,
+    /// User customised order ID
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub order_link_id: Option<String>,
+    /// Trading fee rate information. Currently, this data is returned only for spot orders placed on the Indonesian site or spot fiat currency orders placed on the EU site. In other cases, an empty string is returned. Enum: feeType, subFeeType
+    #[serde(default)]
+    pub extra_fees: Option<serde_json::Value>,
+}
+
 #[cfg(test)]
 mod tests {
     use rust_decimal::dec;
@@ -1894,7 +2012,7 @@ mod tests {
             ret_code: 0,
             ret_msg: String::from("OK"),
             result: CursorPagination {
-                category: Category::Linear,
+                category: Some(Category::Linear),
                 next_page_cursor: Some(String::from(
                     "page_args%3Dfd4300ae-7847-404e-b947-b46980a4d140%26symbol%3D6%26",
                 )),
@@ -2018,7 +2136,7 @@ mod tests {
             ret_code: 0,
             ret_msg: String::from("OK"),
             result: CursorPagination {
-                category: Category::Linear,
+                category: Some(Category::Linear),
                 next_page_cursor: Some(String::from(
                     "aed77e97-492f-45be-8ada-4ff350ec07a5%3A1762701687113%2Caed77e97-492f-45be-8ada-4ff350ec07a5%3A1762701687113",
                 )),
@@ -2134,7 +2252,7 @@ mod tests {
             ret_code: 0,
             ret_msg: String::from("OK"),
             result: CursorPagination {
-                category: Category::Inverse,
+                category: Some(Category::Inverse),
                 next_page_cursor: None,
                 list: vec![Position {
                     position_idx: PositionIdx::OneWay,
