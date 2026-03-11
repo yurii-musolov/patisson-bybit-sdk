@@ -10,6 +10,8 @@ mod state;
 mod stream;
 mod url;
 
+pub mod ws;
+
 pub use api::*;
 pub use client::{Client, ClientConfig};
 pub use crypto::*;
