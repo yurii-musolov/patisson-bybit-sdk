@@ -31,6 +31,33 @@ pub enum IncomingMessage {
     Topic(TopicMessage),
 }
 
+impl IncomingMessage {
+    pub fn is_pong(&self) -> bool {
+        matches!(
+            self,
+            IncomingMessage::Command(CommandMsg::Pong {
+                req_id: _,
+                ret_msg: _,
+                conn_id: _,
+                args: _,
+                success: _,
+            })
+        )
+    }
+    pub fn is_ping(&self) -> bool {
+        matches!(
+            self,
+            IncomingMessage::Command(CommandMsg::Ping {
+                req_id: _,
+                ret_msg: _,
+                conn_id: _,
+                args: _,
+                success: _,
+            })
+        )
+    }
+}
+
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(tag = "op")]
 pub enum CommandMsg {
