@@ -7,12 +7,12 @@
 use std::time::Duration;
 
 use tokio::{self, time::sleep};
-use tracing::{Level, debug};
+use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::v5::{
-    BASE_URL_STREAM_MAINNET_1, DEFAULT_PING_INTERVAL, Interval, OutgoingMessage, Path, Topic,
-    stream,
+    BASE_URL_STREAM_MAINNET_1, Interval, OutgoingMessage, Path, Topic,
+    ws::{self, DEFAULT_PING_INTERVAL, DEFAULT_PONG_TIMEOUT},
 };
 
 #[tokio::main]
@@ -24,54 +24,43 @@ async fn main() -> anyhow::Result<()> {
 
     let url = format!("{}{}", BASE_URL_STREAM_MAINNET_1, Path::PublicLinear);
     let symbol = String::from("BTCUSDT");
-    let messages = {
-        let ticker = Topic::Ticker(symbol.clone());
-        let trade = Topic::Trade(symbol.clone());
-        let kline = Topic::Kline {
-            symbol: symbol.clone(),
-            interval: Interval::Minute1,
-        };
+    let ticker = Topic::Ticker(symbol.clone());
+    let trade = Topic::Trade(symbol.clone());
+    let kline = Topic::Kline {
+        symbol,
+        interval: Interval::Minute1,
+    };
+    let args = vec![ticker, trade, kline];
 
-        vec![
-            OutgoingMessage::Subscribe {
-                req_id: Some(String::from("req-0001")),
-                args: vec![ticker.clone()],
-            },
-            OutgoingMessage::Unsubscribe {
-                req_id: Some(String::from("req-0002")),
-                args: vec![ticker],
-            },
-            OutgoingMessage::Subscribe {
-                req_id: Some(String::from("req-0003")),
-                args: vec![trade.clone()],
-            },
-            OutgoingMessage::Unsubscribe {
-                req_id: Some(String::from("req-0004")),
-                args: vec![trade],
-            },
-            OutgoingMessage::Subscribe {
-                req_id: Some(String::from("req-0005")),
-                args: vec![kline.clone()],
-            },
-            OutgoingMessage::Unsubscribe {
-                req_id: Some(String::from("req-0006")),
-                args: vec![kline],
-            },
-        ]
+    let sub = OutgoingMessage::Subscribe {
+        req_id: Some(String::from("req-0001")),
+        args: args.clone(),
+    };
+    let unsub = OutgoingMessage::Unsubscribe {
+        req_id: Some(String::from("req-0002")),
+        args,
     };
 
-    let (tx, mut rx, response) = stream(&url, DEFAULT_PING_INTERVAL).await?;
-    debug!(?response);
+    let cfg = ws::Config::new(url)
+        .ping_interval(Some(DEFAULT_PING_INTERVAL))
+        .pong_timeout(DEFAULT_PONG_TIMEOUT);
+    let (handle, mut events) = ws::spawn(cfg);
 
     tokio::spawn(async move {
-        for message in messages {
-            let _ = tx.send(message).await;
-            sleep(Duration::from_secs(4)).await;
-        }
+        let _ = handle.connect().await;
+        let _ = handle.send_command(sub).await;
+        sleep(Duration::from_secs(20)).await;
+        let _ = handle.send_command(unsub).await;
+        sleep(Duration::from_secs(2)).await;
+        let _ = handle.disconnect().await;
     });
 
-    while let Some(message) = rx.recv().await {
-        debug!(?message);
+    while let Some(event) = events.recv().await {
+        info!(?event);
+        if matches!(event, ws::Event::Disconnected { reason: _ }) {
+            info!("disconnected");
+            break;
+        }
     }
 
     Ok(())
