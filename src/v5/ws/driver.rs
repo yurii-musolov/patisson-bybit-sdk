@@ -155,10 +155,11 @@ impl Driver {
                             Message::Text(json) => {
                                 match deserialize_str::<IncomingMessage>(&json){
                                     Ok(msg) => {
-                                        // INFO: Bybit heartbeat process
-                                        // - send ping: { "op": "ping" }
-                                        // - receive pong: { "op": "ping", "ret_msg": "pong", "success": true }
-                                        if msg.is_ping() && matches!(hb, HeartbeatState::PingSent) {
+                                        // INFO: Bybit heartbeat process.
+                                        // - send to server: { "op": "ping" }
+                                        // - for public channels receive from server: { "op": "ping", "ret_msg": "pong", "success": true }
+                                        // - for private channels receive from server: { "op": "pong" }
+                                        if matches!(hb, HeartbeatState::PingSent) && (msg.is_ping() || msg.is_pong()) {
                                             debug!("receiving heartbeat pong");
                                             hb = HeartbeatState::Idle;
                                             pong_timer.as_mut().reset(far_future_instant());
@@ -169,7 +170,7 @@ impl Driver {
 
                                         self.emit(Event::Message(msg));
                                     }
-                                    Err(err) => warn!(error = %err, "parsing IncomingMessage failed")
+                                    Err(e) => warn!(error = %e, "parsing IncomingMessage failed")
                                 }
                             }
                             Message::Binary(bytes) => debug!("binary message received ({}B)", bytes.len()),
