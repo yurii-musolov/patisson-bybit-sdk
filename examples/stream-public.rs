@@ -31,7 +31,6 @@ async fn main() -> anyhow::Result<()> {
         interval: Interval::Minute1,
     };
     let args = vec![ticker, trade, kline];
-
     let sub = OutgoingMessage::Subscribe {
         req_id: Some(String::from("req-0001")),
         args: args.clone(),
@@ -58,7 +57,6 @@ async fn main() -> anyhow::Result<()> {
     while let Some(event) = events.recv().await {
         info!(?event);
         if matches!(event, ws::Event::Disconnected { reason: _ }) {
-            info!("disconnected");
             break;
         }
     }

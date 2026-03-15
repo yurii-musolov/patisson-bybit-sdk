@@ -4,13 +4,15 @@
 //! cargo run --example stream-all-liquidation
 //! ```
 
-use tokio;
-use tracing::{Level, debug, warn};
+use std::time::Duration;
+
+use tokio::{self, time::sleep};
+use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::v5::{
-    BASE_URL_STREAM_MAINNET_1, DEFAULT_PING_INTERVAL, IncomingMessage, OutgoingMessage, Path,
-    Topic, stream,
+    BASE_URL_STREAM_MAINNET_1, OutgoingMessage, Path, Topic,
+    ws::{self, DEFAULT_PING_INTERVAL, DEFAULT_PONG_TIMEOUT},
 };
 
 #[tokio::main]
@@ -22,24 +24,35 @@ async fn main() -> anyhow::Result<()> {
 
     let url = format!("{}{}", BASE_URL_STREAM_MAINNET_1, Path::PublicLinear);
     let symbol = String::from("BTCUSDT");
-    let topic = Topic::AllLiquidation(symbol);
-    let message = OutgoingMessage::Subscribe {
+    let args = vec![Topic::AllLiquidation(symbol)];
+
+    let sub = OutgoingMessage::Subscribe {
         req_id: Some(String::from("req-0001")),
-        args: vec![topic],
+        args: args.clone(),
+    };
+    let unsub = OutgoingMessage::Unsubscribe {
+        req_id: Some(String::from("req-0002")),
+        args,
     };
 
-    let (tx, mut rx, response) = stream(&url, DEFAULT_PING_INTERVAL).await?;
-    debug!(?response);
+    let cfg = ws::Config::new(url)
+        .ping_interval(Some(DEFAULT_PING_INTERVAL))
+        .pong_timeout(DEFAULT_PONG_TIMEOUT);
+    let (handle, mut events) = ws::spawn(cfg);
 
     tokio::spawn(async move {
-        if let Err(err) = tx.send(message).await {
-            warn!(?err);
-        }
+        let _ = handle.connect().await;
+        let _ = handle.send_command(sub).await;
+        sleep(Duration::from_hours(24)).await;
+        let _ = handle.send_command(unsub).await;
+        sleep(Duration::from_secs(2)).await;
+        let _ = handle.disconnect().await;
     });
 
-    while let Some(message) = rx.recv().await {
-        if let IncomingMessage::AllLiquidation(message) = message {
-            debug!(?message);
+    while let Some(event) = events.recv().await {
+        info!(?event);
+        if matches!(event, ws::Event::Disconnected { reason: _ }) {
+            break;
         }
     }
 
