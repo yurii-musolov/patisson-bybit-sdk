@@ -7,7 +7,6 @@ mod incoming_message;
 mod outgoing_message;
 mod serde;
 mod state;
-mod stream;
 mod url;
 
 pub mod ws;
@@ -20,7 +19,6 @@ pub use error::*;
 pub use incoming_message::*;
 pub use outgoing_message::*;
 pub use state::*;
-pub use stream::{DEFAULT_PING_INTERVAL, stream};
 pub use url::{
     BASE_URL_API_DEMO, BASE_URL_API_MAINNET_1, BASE_URL_API_MAINNET_2, BASE_URL_API_MAINNET_3,
     BASE_URL_API_MAINNET_4, BASE_URL_API_MAINNET_5, BASE_URL_API_MAINNET_6, BASE_URL_API_TESTNET,
