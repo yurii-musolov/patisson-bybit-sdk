@@ -4,7 +4,7 @@ use crate::v5::{
     GetWalletBalanceParams, List, PlaceOrderRequest, PlaceOrderResponse, Position, Timestamp,
     TransactionLog, WalletBalance,
     crypto::Signer,
-    serde::{deserialize_str, serialize, serialize_query},
+    serde::{deserialize_json, serialize_json, serialize_query},
 };
 use reqwest::{self, Method, RequestBuilder, header::HeaderMap};
 
@@ -185,7 +185,7 @@ impl Client {
         request: PlaceOrderRequest,
     ) -> Result<Response<PlaceOrderResponse>, Error> {
         let url = format!("{}{}", self.base_url, Path::TradeOrderCreate);
-        let json = serialize(&request)?;
+        let json = serialize_json(&request)?;
         let headers = self.get_signed_headers(&json);
 
         let request = self
@@ -206,7 +206,7 @@ impl Client {
         request: AmendOrderRequest,
     ) -> Result<Response<AmendOrderResponse>, Error> {
         let url = format!("{}{}", self.base_url, Path::TradeOrderAmend);
-        let json = serialize(&request)?;
+        let json = serialize_json(&request)?;
         let headers = self.get_signed_headers(&json);
 
         let request = self
@@ -229,7 +229,7 @@ impl Client {
         request: CancelOrderRequest,
     ) -> Result<Response<CancelOrderResponse>, Error> {
         let url = format!("{}{}", self.base_url, Path::TradeOrderCancel);
-        let json = serialize(&request)?;
+        let json = serialize_json(&request)?;
         let headers = self.get_signed_headers(&json);
 
         let request = self
@@ -367,11 +367,11 @@ where
     let headers = parse_headers(response.headers());
     let json = response.text().await?;
     if !headers.is_ret_code_ok() {
-        let msg: APIErrorResponse = deserialize_str(&json)?;
+        let msg: APIErrorResponse = deserialize_json(&json)?;
         return Err(msg.into());
     }
 
-    let response: Resp<_> = deserialize_str(&json)?;
+    let response: Resp<_> = deserialize_json(&json)?;
     let response = Response {
         result: response.result,
         time: response.time,
