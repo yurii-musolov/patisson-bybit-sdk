@@ -44,6 +44,7 @@ pub const HEADER_X_BAPI_LIMIT_STATUS: &str = "X-Bapi-Limit-Status";
 /// The timestamp indicating when your request limit resets if you have exceeded your rate_limit. Otherwise, this is just the current timestamp (it may not exactly match timeNow).
 pub const HEADER_X_BAPI_LIMIT_RESET_TIMESTAMP: &str = "X-Bapi-Limit-Reset-Timestamp";
 ///  To assist in diagnosing advanced network problems. Its value should be unique for each request.
+// TODO: use this constant.
 #[allow(dead_code)]
 pub const HEADER_CDN_REQUEST_ID: &str = "cdn-request-id";
 
