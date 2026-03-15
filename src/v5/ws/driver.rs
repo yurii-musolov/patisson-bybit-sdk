@@ -9,7 +9,7 @@ use tracing::{debug, error, info, warn};
 
 use crate::v5::{
     IncomingMessage, OutgoingMessage,
-    serde::{deserialize_str, serialize},
+    serde::{deserialize_json, serialize_json},
 };
 
 use super::{
@@ -153,7 +153,7 @@ impl Driver {
                     Some(Ok(msg)) => {
                         match msg {
                             Message::Text(json) => {
-                                match deserialize_str::<IncomingMessage>(&json){
+                                match deserialize_json::<IncomingMessage>(&json){
                                     Ok(msg) => {
                                         // INFO: Bybit heartbeat process.
                                         // - send to server: { "op": "ping" }
@@ -194,7 +194,7 @@ impl Driver {
                         return WsState::Closing { sink };
                     }
                     Some(Command::Send(msg)) => {
-                        let json = serialize(&msg).expect("serialize outgoing message failed");
+                        let json = serialize_json(&msg).expect("serialize outgoing message failed");
                         let msg = Message::Text(json.into());
                         if let Err(e) = sink.send(msg).await {
                             error!(error = %e, "send error");
@@ -287,6 +287,6 @@ fn far_future_instant() -> Instant {
 #[inline]
 fn ping() -> Message {
     let msg = OutgoingMessage::Ping { req_id: None };
-    let json = serialize(&msg).expect("serialize ping outgoing message failed");
+    let json = serialize_json(&msg).expect("serialize ping outgoing message failed");
     Message::Text(json.into())
 }

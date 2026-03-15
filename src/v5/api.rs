@@ -1733,7 +1733,7 @@ pub struct TransactionLog {
 mod tests {
     use rust_decimal::dec;
 
-    use crate::v5::serde::deserialize_str;
+    use crate::v5::serde::deserialize_json;
 
     use super::*;
 
@@ -1817,7 +1817,7 @@ mod tests {
             ret_ext_info: Some(RetExtInfo {}),
         };
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }
@@ -1899,7 +1899,7 @@ mod tests {
             ret_ext_info: Some(RetExtInfo {}),
         };
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }
@@ -1946,7 +1946,7 @@ mod tests {
             ret_ext_info: Some(RetExtInfo {}),
         };
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }
@@ -2068,7 +2068,7 @@ mod tests {
             ret_ext_info: Some(RetExtInfo {}),
         };
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }
@@ -2192,7 +2192,7 @@ mod tests {
             ret_ext_info: Some(RetExtInfo {}),
         };
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }
@@ -2296,7 +2296,7 @@ mod tests {
             ret_ext_info: Some(RetExtInfo {}),
         };
 
-        let message: Resp<CursorPagination<Position>> = deserialize_str(json).unwrap();
+        let message: Resp<CursorPagination<Position>> = deserialize_json(json).unwrap();
 
         assert_eq!(message, expected);
     }
@@ -2399,7 +2399,7 @@ mod tests {
             ret_ext_info: Some(RetExtInfo {}),
         };
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }
@@ -2502,7 +2502,7 @@ mod tests {
             ret_ext_info: Some(RetExtInfo {}),
         };
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }
@@ -2537,7 +2537,7 @@ mod tests {
             ret_ext_info: None,
         };
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }

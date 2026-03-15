@@ -789,7 +789,7 @@ pub struct ExtraFee {
 mod tests {
     use rust_decimal::dec;
 
-    use crate::v5::serde::{Unique, deserialize_str};
+    use crate::v5::serde::{Unique, deserialize_json};
 
     use super::*;
 
@@ -803,7 +803,7 @@ mod tests {
             success: true,
         });
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }
@@ -818,7 +818,7 @@ mod tests {
             success: true,
         });
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }
@@ -879,7 +879,7 @@ mod tests {
         };
         let expected = IncomingMessage::Ticker(Box::new(ticker_delta));
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }
@@ -954,7 +954,7 @@ mod tests {
         };
         let expected = IncomingMessage::Ticker(Box::new(ticker_snapshot));
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }
@@ -1000,7 +1000,7 @@ mod tests {
             }],
         });
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }
@@ -1034,7 +1034,7 @@ mod tests {
             }],
         };
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }
@@ -1155,7 +1155,7 @@ mod tests {
         };
         let expected = IncomingMessage::Topic(TopicMessage::Order(order));
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }
@@ -1222,7 +1222,7 @@ mod tests {
         };
         let expected = IncomingMessage::Topic(TopicMessage::Order(order));
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }
@@ -1289,7 +1289,7 @@ mod tests {
         };
         let expected = IncomingMessage::Topic(TopicMessage::Order(order));
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }
@@ -1463,7 +1463,7 @@ mod tests {
         };
         let expected = IncomingMessage::Topic(TopicMessage::Position(position));
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }
@@ -1637,7 +1637,7 @@ mod tests {
         };
         let expected = IncomingMessage::Topic(TopicMessage::Position(position));
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }
@@ -1734,7 +1734,7 @@ mod tests {
         };
         let expected = IncomingMessage::Topic(TopicMessage::Wallet(wallet));
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }
@@ -1830,7 +1830,7 @@ mod tests {
         };
         let expected = IncomingMessage::Topic(TopicMessage::Wallet(wallet));
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }
@@ -1925,7 +1925,7 @@ mod tests {
         };
         let expected = IncomingMessage::Topic(TopicMessage::Execution(execution));
 
-        let message = deserialize_str(json).unwrap();
+        let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
     }

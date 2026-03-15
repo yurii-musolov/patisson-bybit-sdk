@@ -62,9 +62,8 @@ where
     }
 }
 
-// TODO: rename to `deserialize`
 #[inline]
-pub fn deserialize_str<'de, T>(
+pub fn deserialize_json<'de, T>(
     json: &'de str,
 ) -> Result<T, serde_path_to_error::Error<serde_json::Error>>
 where
@@ -76,7 +75,7 @@ where
 }
 
 #[inline]
-pub fn serialize<T>(msg: &T) -> serde_json::Result<String>
+pub fn serialize_json<T>(msg: &T) -> serde_json::Result<String>
 where
     T: ?Sized + Serialize,
 {

@@ -1359,7 +1359,7 @@ pub fn spot_fee_currency(side: Side, is_maker_order: bool, maker_fee_rate: f64) 
 
 #[cfg(test)]
 mod tests {
-    use crate::v5::serde::deserialize_str;
+    use crate::v5::serde::deserialize_json;
 
     use super::*;
 
@@ -1386,7 +1386,7 @@ mod tests {
             (r#""spot""#, Category::Spot),
         ];
         cases.iter().for_each(|(json, expected)| {
-            let message: Category = deserialize_str(json).unwrap();
+            let message: Category = deserialize_json(json).unwrap();
             assert_eq!(message, *expected);
         });
     }
@@ -1432,7 +1432,7 @@ mod tests {
             (r#""M""#, Interval::Month1),
         ];
         cases.iter().for_each(|(json, expected)| {
-            let message: Interval = deserialize_str(json).unwrap();
+            let message: Interval = deserialize_json(json).unwrap();
             assert_eq!(message, *expected);
         });
     }
@@ -1522,7 +1522,7 @@ mod tests {
             (r#""dcp.future""#, Topic::Dcp(DcpFunction::Future)),
         ];
         cases.iter().for_each(|(json, expected)| {
-            let message = deserialize_str(json).unwrap();
+            let message = deserialize_json(json).unwrap();
             assert_eq!(*expected, message);
         });
     }
