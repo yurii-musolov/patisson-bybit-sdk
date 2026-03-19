@@ -83,7 +83,9 @@ impl Driver {
                     return WsState::Connecting { attempt: 1 };
                 }
                 None => return WsState::Done,
-                Some(Command::Disconnect) => {}
+                Some(Command::Disconnect) => {
+                    warn!("Command disconnect ignored - not connected");
+                }
                 Some(Command::Send(_)) => {
                     warn!("Send ignored - not connected");
                 }
@@ -120,7 +122,7 @@ impl Driver {
             }
             Err(e) => {
                 error!(error = %e, attempt, "connection failed");
-                next_reconnect_state(&self.config, attempt, e.to_string())
+                self.next_reconnect_state(attempt + 1, e.to_string())
             }
         }
     }
@@ -148,7 +150,7 @@ impl Driver {
                     None => {
                         info!("remote closed the connection");
                         read_task.abort();
-                        return next_reconnect_state(&self.config, 1, "remote closed".into());
+                        return self.next_reconnect_state(1, "remote closed".into());
                     }
                     Some(Ok(msg)) => {
                         match msg {
@@ -183,7 +185,7 @@ impl Driver {
                     Some(Err(e)) => {
                         error!(error = %e, "websocket read error");
                         read_task.abort();
-                        return next_reconnect_state(&self.config, 1, e.to_string());
+                        return self.next_reconnect_state(1, e.to_string());
                     }
                 },
 
@@ -199,7 +201,7 @@ impl Driver {
                         if let Err(e) = sink.send(msg).await {
                             error!(error = %e, "send error");
                             read_task.abort();
-                            return next_reconnect_state(&self.config, 1, e.to_string());
+                            return self.next_reconnect_state(1, e.to_string());
                         }
                     }
                     Some(Command::Connect) => warn!("Connect ignored - already connected")
@@ -210,7 +212,7 @@ impl Driver {
                     if let Err(e) = sink.send(ping()).await {
                         error!(error = %e, "ping send error");
                         read_task.abort();
-                        return next_reconnect_state(&self.config, 1, e.to_string());
+                        return self.next_reconnect_state(1, e.to_string());
                     }
 
                     hb = HeartbeatState::PingSent;
@@ -221,10 +223,7 @@ impl Driver {
                 () = &mut pong_timer, if matches!(hb, HeartbeatState::PingSent) => {
                     warn!("pong timeout - connection appears dead");
                     read_task.abort();
-                    self.emit(Event::Disconnected {
-                        reason: DisconnectReason::PongTimeout,
-                    });
-                    return next_reconnect_state(&self.config, 1, "pong timeout".into());
+                    return self.next_reconnect_state( 1, "pong timeout".into());
                 },
             }
         }
@@ -250,30 +249,40 @@ impl Driver {
     }
 
     async fn step_closing(&mut self, mut sink: Sink) -> WsState {
-        let _ = sink.send(Message::Close(None)).await;
-        let _ = timeout(self.config.close_timeout, self.cmd_rx.recv()).await;
+        if let Err(e) = sink.send(Message::Close(None)).await {
+            error!(error = %e, "send close message failed");
+        }
+        if let Err(e) = timeout(self.config.close_timeout, self.cmd_rx.recv()).await {
+            error!(error = %e, "waiting for a clean close handshake failed");
+        }
 
         self.emit(Event::Disconnected {
             reason: DisconnectReason::Requested,
         });
-
         WsState::Idle
     }
-}
 
-fn next_reconnect_state(config: &Config, next_attempt: u32, reason: String) -> WsState {
-    if config.max_reconnect_attempts == 0 || next_attempt > config.max_reconnect_attempts {
-        return WsState::Idle;
-    }
+    fn next_reconnect_state(&self, next_attempt: u32, reason: String) -> WsState {
+        if self.config.max_reconnect_attempts == 0
+            || next_attempt > self.config.max_reconnect_attempts
+        {
+            self.emit(Event::Disconnected {
+                reason: DisconnectReason::Error(String::from(
+                    "all reconnection attempts have failed",
+                )),
+            });
+            return WsState::Idle;
+        }
 
-    let base_ms = config.reconnect_base_delay.as_millis() as u64;
-    let max_ms = config.reconnect_max_delay.as_millis() as u64;
-    let delay_ms = (base_ms.saturating_mul(1u64 << (next_attempt - 1).min(10))).min(max_ms);
+        let base_ms = self.config.reconnect_base_delay.as_millis() as u64;
+        let max_ms = self.config.reconnect_max_delay.as_millis() as u64;
+        let delay_ms = (base_ms.saturating_mul(1u64 << (next_attempt - 1).min(10))).min(max_ms);
 
-    debug!(next_attempt, delay_ms, reason, "scheduling reconnect");
-    WsState::Reconnecting {
-        attempt: next_attempt,
-        delay_ms,
+        debug!(next_attempt, delay_ms, reason, "scheduling reconnect");
+        WsState::Reconnecting {
+            attempt: next_attempt,
+            delay_ms,
+        }
     }
 }
 
