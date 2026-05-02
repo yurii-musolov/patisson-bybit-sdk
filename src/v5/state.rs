@@ -5,7 +5,18 @@ use crate::v5::{
     WalletMsg,
 };
 
-/// State for the user. An instance for each user ID.
+/// Aggregated trading state for a single user account.
+///
+/// Owns per-symbol state maps for each [`Category`] and a shared reference to
+/// the user's wallet.  The wallet is shared via [`Rc`] so that every
+/// [`SymbolState`] can read margin/PnL data without copying.
+///
+/// # Single-threaded only
+/// Uses [`Rc`] (non-atomic reference counting), so `UserState` is intentionally
+/// `!Send + !Sync`.  It is designed to live entirely within one async task —
+/// typically the task that drives a private WebSocket stream and feeds incoming
+/// order/position/wallet messages into this state.  Do not move it across
+/// thread boundaries or share it between tasks.
 pub struct UserState {
     spot: HashMap<String, SymbolState>,
     linear: HashMap<String, SymbolState>,
@@ -86,18 +97,27 @@ impl UserState {
     }
 }
 
-/// State for the symbol. An instance for each symbol (ticker).
+/// Per-symbol trading state: open orders and positions for one ticker.
+///
+/// Created lazily by [`UserState`] the first time a message arrives for a
+/// symbol.  Holds a shared reference to the owning user's [`WalletState`] so
+/// that position data can be enriched with wallet coin information when a
+/// [`WalletMsg`] arrives.
+///
+/// # Single-threaded only
+/// Stores the wallet reference as [`Rc`], which is `!Send + !Sync`.
+/// Must remain on the same thread as its parent [`UserState`].
 pub struct SymbolState {
-    /// User wallet.
+    /// Shared reference to the user wallet (for margin/PnL enrichment).
     #[allow(unused)]
     wallet: Rc<WalletState>,
-    /// State with orders for only current symbol (ticker)
+    /// Open orders keyed by `order_id`.
     orders: HashMap<String, Order>,
-    // one-way mode position
+    /// One-way mode position (PositionIdx::OneWay).
     one_way: Option<Position>,
-    // Buy side of hedge-mode position
+    /// Buy side of a hedge-mode position (PositionIdx::Buy).
     buy: Option<Position>,
-    // Sell side of hedge-mode position
+    /// Sell side of a hedge-mode position (PositionIdx::Sell).
     sell: Option<Position>,
 }
 
@@ -170,7 +190,16 @@ impl SymbolState {
     }
 }
 
-/// State for the user wallet.
+/// Wallet balance shared across all [`SymbolState`] instances of one user.
+///
+/// Wrapped in [`Rc`] so multiple symbol states can hold a reference without
+/// cloning the balance.  Interior mutability is provided by [`RefCell`],
+/// allowing `update_wallet` to take `&self` while the wallet is shared.
+///
+/// # Single-threaded only
+/// [`RefCell`] is `!Sync`, so `WalletState` must not be accessed from multiple
+/// threads simultaneously.  This is guaranteed as long as the owning
+/// [`UserState`] stays within a single async task.
 pub struct WalletState {
     balance: RefCell<WalletBalance>,
 }
