@@ -618,7 +618,7 @@ pub struct AuctionFeeInfo {
     pub maker_fee_rate: Decimal,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetOpenClosedOrdersParams {
     /// Product type
@@ -725,7 +725,7 @@ impl GetOpenClosedOrdersParams {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub enum OrderFilter {
     /// active order,
     Order,
@@ -1371,7 +1371,7 @@ pub struct CancelOrderResponse {
     pub order_link_id: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetPositionInfoParams {
     /// Product type
@@ -1876,7 +1876,7 @@ pub struct APIKeyPermissions {
     pub copy_trading: Vec<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetTransactionLogParams {
     /// Account Type. UNIFIED
