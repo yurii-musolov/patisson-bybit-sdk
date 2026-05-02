@@ -24,7 +24,7 @@ async fn main() -> anyhow::Result<()> {
         recv_window: 5000,
         referer: None,
     };
-    let client = Client::new(cfg);
+    let client = Client::new(cfg)?;
     let params = GetInstrumentsInfoParams {
         category: Category::Linear,
         symbol: Some(String::from("BTCUSDT")),

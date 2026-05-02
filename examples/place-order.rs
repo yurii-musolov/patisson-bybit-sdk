@@ -40,7 +40,7 @@ async fn main() -> anyhow::Result<()> {
         recv_window: 15000, // Milliseconds.
         referer: None,
     };
-    let client = Client::new(cfg);
+    let client = Client::new(cfg)?;
 
     // -------------------------------------------------------------------------
 
