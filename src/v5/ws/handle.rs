@@ -2,55 +2,64 @@ use tokio::sync::mpsc;
 
 use crate::v5::{
     OutgoingMessage,
-    ws::{Command, WsError},
+    ws::{self, Command},
 };
 
 #[derive(Clone)]
-pub struct WsHandle {
+pub struct Handle {
     cmd_tx: mpsc::Sender<Command>,
 }
 
-impl WsHandle {
+impl Handle {
     pub fn new(cmd_tx: mpsc::Sender<Command>) -> Self {
-        WsHandle { cmd_tx }
+        Self { cmd_tx }
     }
 
-    pub async fn connect(&self) -> Result<(), WsError> {
+    pub async fn connect(&self) -> Result<(), ws::Error> {
         let cmd = Command::Connect;
-        self.cmd_tx.send(cmd).await.map_err(|_| WsError::DriverGone)
+        self.cmd_tx
+            .send(cmd)
+            .await
+            .map_err(|_| ws::Error::DriverGone)
     }
 
-    pub fn try_connect(&self) -> Result<(), WsError> {
+    pub fn try_connect(&self) -> Result<(), ws::Error> {
         let cmd = Command::Connect;
         self.cmd_tx.try_send(cmd).map_err(|e| match e {
-            mpsc::error::TrySendError::Full(_) => WsError::QueueFull,
-            mpsc::error::TrySendError::Closed(_) => WsError::DriverGone,
+            mpsc::error::TrySendError::Full(_) => ws::Error::QueueFull,
+            mpsc::error::TrySendError::Closed(_) => ws::Error::DriverGone,
         })
     }
 
-    pub async fn disconnect(&self) -> Result<(), WsError> {
+    pub async fn disconnect(&self) -> Result<(), ws::Error> {
         let cmd = Command::Disconnect;
-        self.cmd_tx.send(cmd).await.map_err(|_| WsError::DriverGone)
+        self.cmd_tx
+            .send(cmd)
+            .await
+            .map_err(|_| ws::Error::DriverGone)
     }
 
-    pub fn try_disconnect(&self) -> Result<(), WsError> {
+    pub fn try_disconnect(&self) -> Result<(), ws::Error> {
         let cmd = Command::Disconnect;
         self.cmd_tx.try_send(cmd).map_err(|e| match e {
-            mpsc::error::TrySendError::Full(_) => WsError::QueueFull,
-            mpsc::error::TrySendError::Closed(_) => WsError::DriverGone,
+            mpsc::error::TrySendError::Full(_) => ws::Error::QueueFull,
+            mpsc::error::TrySendError::Closed(_) => ws::Error::DriverGone,
         })
     }
 
-    pub async fn send_command(&self, msg: OutgoingMessage) -> Result<(), WsError> {
+    pub async fn send_command(&self, msg: OutgoingMessage) -> Result<(), ws::Error> {
         let cmd = Command::Send(msg);
-        self.cmd_tx.send(cmd).await.map_err(|_| WsError::DriverGone)
+        self.cmd_tx
+            .send(cmd)
+            .await
+            .map_err(|_| ws::Error::DriverGone)
     }
 
-    pub fn try_send_command(&self, msg: OutgoingMessage) -> Result<(), WsError> {
+    pub fn try_send_command(&self, msg: OutgoingMessage) -> Result<(), ws::Error> {
         let cmd = Command::Send(msg);
         self.cmd_tx.try_send(cmd).map_err(|e| match e {
-            mpsc::error::TrySendError::Full(_) => WsError::QueueFull,
-            mpsc::error::TrySendError::Closed(_) => WsError::DriverGone,
+            mpsc::error::TrySendError::Full(_) => ws::Error::QueueFull,
+            mpsc::error::TrySendError::Closed(_) => ws::Error::DriverGone,
         })
     }
 }

@@ -1,7 +1,5 @@
-use thiserror::Error;
-
-#[derive(Debug, Error)]
-pub enum WsError {
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
     #[error("invalid URL: {0}")]
     InvalidUrl(String),
 
