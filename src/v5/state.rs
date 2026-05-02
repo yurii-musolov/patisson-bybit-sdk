@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::v5::{
-    Category, Order, OrderMsg, Position, PositionIdx, PositionMsg, WalletBalance, WalletCoin,
+    Category, Error, Order, OrderMsg, Position, PositionIdx, PositionMsg, WalletBalance, WalletCoin,
     WalletMsg,
 };
 
@@ -52,9 +52,9 @@ impl UserState {
             .add_order(order);
     }
 
-    pub fn update_order(&mut self, category: Category, msg: OrderMsg) {
+    pub fn update_order(&mut self, category: Category, msg: OrderMsg) -> Result<(), Error> {
         self.symbol_state(category, msg.symbol.clone())
-            .update_order(msg);
+            .update_order(msg)
     }
 
     pub fn remove_order(&mut self, category: Category, order: Order) {
@@ -137,9 +137,13 @@ impl SymbolState {
         let _ = self.orders.insert(id, order);
     }
 
-    pub fn update_order(&mut self, msg: OrderMsg) {
-        let order = self.orders.get_mut(&msg.order_id).unwrap();
+    pub fn update_order(&mut self, msg: OrderMsg) -> Result<(), Error> {
+        let order = self
+            .orders
+            .get_mut(&msg.order_id)
+            .ok_or_else(|| Error::from(format!("order {} not found", msg.order_id)))?;
         order.update(msg);
+        Ok(())
     }
 
     pub fn remove_order(&mut self, order: Order) {
