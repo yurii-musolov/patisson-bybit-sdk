@@ -671,6 +671,60 @@ pub struct GetOpenClosedOrdersParams {
     pub cursor: Option<String>,
 }
 
+impl GetOpenClosedOrdersParams {
+    pub fn new(category: Category) -> Self {
+        Self {
+            category,
+            symbol: None,
+            base_coin: None,
+            settle_coin: None,
+            order_id: None,
+            order_link_id: None,
+            open_only: None,
+            order_filter: None,
+            limit: None,
+            cursor: None,
+        }
+    }
+
+    pub fn with_symbol(mut self, v: String) -> Self {
+        self.symbol = Some(v);
+        self
+    }
+    pub fn with_base_coin(mut self, v: String) -> Self {
+        self.base_coin = Some(v);
+        self
+    }
+    pub fn with_settle_coin(mut self, v: String) -> Self {
+        self.settle_coin = Some(v);
+        self
+    }
+    pub fn with_order_id(mut self, v: String) -> Self {
+        self.order_id = Some(v);
+        self
+    }
+    pub fn with_order_link_id(mut self, v: String) -> Self {
+        self.order_link_id = Some(v);
+        self
+    }
+    pub fn with_open_only(mut self, v: i32) -> Self {
+        self.open_only = Some(v);
+        self
+    }
+    pub fn with_order_filter(mut self, v: OrderFilter) -> Self {
+        self.order_filter = Some(v);
+        self
+    }
+    pub fn with_limit(mut self, v: i32) -> Self {
+        self.limit = Some(v);
+        self
+    }
+    pub fn with_cursor(mut self, v: String) -> Self {
+        self.cursor = Some(v);
+        self
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub enum OrderFilter {
     /// active order,
@@ -1085,6 +1139,115 @@ impl PlaceOrderRequest {
             bbo_level: None,
         }
     }
+
+    pub fn with_is_leverage(mut self, v: i64) -> Self {
+        self.is_leverage = Some(v);
+        self
+    }
+    pub fn with_market_unit(mut self, v: String) -> Self {
+        self.market_unit = Some(v);
+        self
+    }
+    pub fn with_slippage_tolerance_type(mut self, v: Decimal) -> Self {
+        self.slippage_tolerance_type = Some(v);
+        self
+    }
+    pub fn with_slippage_tolerance(mut self, v: Decimal) -> Self {
+        self.slippage_tolerance = Some(v);
+        self
+    }
+    pub fn with_price(mut self, v: Decimal) -> Self {
+        self.price = Some(v);
+        self
+    }
+    pub fn with_trigger_direction(mut self, v: TriggerDirection) -> Self {
+        self.trigger_direction = Some(v);
+        self
+    }
+    pub fn with_order_filter(mut self, v: String) -> Self {
+        self.order_filter = Some(v);
+        self
+    }
+    pub fn with_trigger_price(mut self, v: Decimal) -> Self {
+        self.trigger_price = Some(v);
+        self
+    }
+    pub fn with_trigger_by(mut self, v: TriggerBy) -> Self {
+        self.trigger_by = Some(v);
+        self
+    }
+    pub fn with_order_iv(mut self, v: Decimal) -> Self {
+        self.order_iv = Some(v);
+        self
+    }
+    pub fn with_time_in_force(mut self, v: TimeInForce) -> Self {
+        self.time_in_force = Some(v);
+        self
+    }
+    pub fn with_position_idx(mut self, v: PositionIdx) -> Self {
+        self.position_idx = Some(v);
+        self
+    }
+    pub fn with_order_link_id(mut self, v: String) -> Self {
+        self.order_link_id = Some(v);
+        self
+    }
+    pub fn with_take_profit(mut self, v: Decimal) -> Self {
+        self.take_profit = Some(v);
+        self
+    }
+    pub fn with_stop_loss(mut self, v: Decimal) -> Self {
+        self.stop_loss = Some(v);
+        self
+    }
+    pub fn with_tp_trigger_by(mut self, v: TriggerBy) -> Self {
+        self.tp_trigger_by = Some(v);
+        self
+    }
+    pub fn with_sl_trigger_by(mut self, v: TriggerBy) -> Self {
+        self.sl_trigger_by = Some(v);
+        self
+    }
+    pub fn with_reduce_only(mut self, v: bool) -> Self {
+        self.reduce_only = Some(v);
+        self
+    }
+    pub fn with_close_on_trigger(mut self, v: bool) -> Self {
+        self.close_on_trigger = Some(v);
+        self
+    }
+    pub fn with_smp_type(mut self, v: SmpType) -> Self {
+        self.smp_type = Some(v);
+        self
+    }
+    pub fn with_mmp(mut self, v: bool) -> Self {
+        self.mmp = Some(v);
+        self
+    }
+    pub fn with_tpsl_mode(mut self, v: TpslMode) -> Self {
+        self.tpsl_mode = Some(v);
+        self
+    }
+    pub fn with_tp_limit_price(mut self, v: Decimal) -> Self {
+        self.tp_limit_price = Some(v);
+        self
+    }
+    pub fn with_sl_limit_price(mut self, v: Decimal) -> Self {
+        self.sl_limit_price = Some(v);
+        self
+    }
+    pub fn with_tp_order_type(mut self, v: OrderType) -> Self {
+        self.tp_order_type = Some(v);
+        self
+    }
+    pub fn with_sl_order_type(mut self, v: OrderType) -> Self {
+        self.sl_order_type = Some(v);
+        self
+    }
+    pub fn with_bbo_level(mut self, v: String) -> Self {
+        self.bbo_level = Some(v);
+        self
+    }
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -1111,6 +1274,36 @@ pub struct AmendOrderRequest {
     pub qty: Option<Decimal>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub price: Option<Decimal>,
+}
+
+impl AmendOrderRequest {
+    pub fn new(category: Category, symbol: String) -> Self {
+        Self {
+            category,
+            symbol,
+            order_id: None,
+            order_link_id: None,
+            qty: None,
+            price: None,
+        }
+    }
+
+    pub fn with_order_id(mut self, v: String) -> Self {
+        self.order_id = Some(v);
+        self
+    }
+    pub fn with_order_link_id(mut self, v: String) -> Self {
+        self.order_link_id = Some(v);
+        self
+    }
+    pub fn with_qty(mut self, v: Decimal) -> Self {
+        self.qty = Some(v);
+        self
+    }
+    pub fn with_price(mut self, v: Decimal) -> Self {
+        self.price = Some(v);
+        self
+    }
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -1141,6 +1334,31 @@ pub struct CancelOrderRequest {
     /// If not passed, Order by default
     #[serde(skip_serializing_if = "Option::is_none")]
     pub order_filter: Option<OrderFilter>,
+}
+
+impl CancelOrderRequest {
+    pub fn new(category: Category, symbol: String) -> Self {
+        Self {
+            category,
+            symbol,
+            order_id: None,
+            order_link_id: None,
+            order_filter: None,
+        }
+    }
+
+    pub fn with_order_id(mut self, v: String) -> Self {
+        self.order_id = Some(v);
+        self
+    }
+    pub fn with_order_link_id(mut self, v: String) -> Self {
+        self.order_link_id = Some(v);
+        self
+    }
+    pub fn with_order_filter(mut self, v: OrderFilter) -> Self {
+        self.order_filter = Some(v);
+        self
+    }
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -1178,6 +1396,40 @@ pub struct GetPositionInfoParams {
     /// Cursor. Use the nextPageCursor token from the response to retrieve the next page of the result set
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
+}
+
+impl GetPositionInfoParams {
+    pub fn new(category: Category) -> Self {
+        Self {
+            category,
+            symbol: None,
+            base_coin: None,
+            settle_coin: None,
+            limit: None,
+            cursor: None,
+        }
+    }
+
+    pub fn with_symbol(mut self, v: String) -> Self {
+        self.symbol = Some(v);
+        self
+    }
+    pub fn with_base_coin(mut self, v: String) -> Self {
+        self.base_coin = Some(v);
+        self
+    }
+    pub fn with_settle_coin(mut self, v: String) -> Self {
+        self.settle_coin = Some(v);
+        self
+    }
+    pub fn with_limit(mut self, v: u64) -> Self {
+        self.limit = Some(v);
+        self
+    }
+    pub fn with_cursor(mut self, v: String) -> Self {
+        self.cursor = Some(v);
+        self
+    }
 }
 
 // TODO: check fields
@@ -1666,6 +1918,75 @@ pub struct GetTransactionLogParams {
     /// Cursor. Use the nextPageCursor token from the response to retrieve the next page of the result set
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
+}
+
+impl GetTransactionLogParams {
+    pub fn new() -> Self {
+        Self {
+            account_type: None,
+            category: None,
+            currency: None,
+            base_coin: None,
+            settle_coin: None,
+            log_type: None,
+            trans_sub_type: None,
+            start_time: None,
+            end_time: None,
+            limit: None,
+            cursor: None,
+        }
+    }
+
+    pub fn with_account_type(mut self, v: AccountType) -> Self {
+        self.account_type = Some(v);
+        self
+    }
+    pub fn with_category(mut self, v: Category) -> Self {
+        self.category = Some(v);
+        self
+    }
+    pub fn with_currency(mut self, v: String) -> Self {
+        self.currency = Some(v);
+        self
+    }
+    pub fn with_base_coin(mut self, v: String) -> Self {
+        self.base_coin = Some(v);
+        self
+    }
+    pub fn with_settle_coin(mut self, v: String) -> Self {
+        self.settle_coin = Some(v);
+        self
+    }
+    pub fn with_log_type(mut self, v: String) -> Self {
+        self.log_type = Some(v);
+        self
+    }
+    pub fn with_trans_sub_type(mut self, v: String) -> Self {
+        self.trans_sub_type = Some(v);
+        self
+    }
+    pub fn with_start_time(mut self, v: Timestamp) -> Self {
+        self.start_time = Some(v);
+        self
+    }
+    pub fn with_end_time(mut self, v: Timestamp) -> Self {
+        self.end_time = Some(v);
+        self
+    }
+    pub fn with_limit(mut self, v: u64) -> Self {
+        self.limit = Some(v);
+        self
+    }
+    pub fn with_cursor(mut self, v: String) -> Self {
+        self.cursor = Some(v);
+        self
+    }
+}
+
+impl Default for GetTransactionLogParams {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
