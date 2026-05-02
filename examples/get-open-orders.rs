@@ -5,7 +5,7 @@
 //! ```
 
 use tokio;
-use tracing::{Level, debug};
+use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::v5::{BASE_URL_API_DEMO, Category, Client, ClientConfig, GetOpenClosedOrdersParams};
@@ -48,7 +48,7 @@ async fn main() -> anyhow::Result<()> {
         cursor: None,
     };
     let response = client.get_open_closed_orders(params).await?;
-    debug!(?response);
+    info!(?response);
 
     Ok(())
 }

@@ -5,7 +5,7 @@
 //! ```
 
 use tokio;
-use tracing::{Level, debug};
+use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::v5::{
@@ -36,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
         limit: Some(2),
     };
     let response = client.get_kline(params).await?;
-    debug!(?response);
+    info!(?response);
 
     Ok(())
 }

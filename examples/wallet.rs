@@ -5,7 +5,7 @@
 //! ```
 
 use tokio;
-use tracing::{Level, debug};
+use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::v5::{AccountType, BASE_URL_API_DEMO, Client, ClientConfig, GetWalletBalanceParams};
@@ -41,7 +41,7 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let response = client.get_wallet_balance(params).await?;
-    debug!(?response);
+    info!(?response);
 
     Ok(())
 }

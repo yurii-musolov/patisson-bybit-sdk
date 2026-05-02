@@ -5,7 +5,7 @@
 //! ```
 
 use tokio;
-use tracing::{Level, debug};
+use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::v5::{BASE_URL_API_MAINNET_1, Client, ClientConfig};
@@ -26,7 +26,7 @@ async fn main() -> anyhow::Result<()> {
     };
     let client = Client::new(cfg);
     let response = client.get_server_time().await?;
-    debug!(?response);
+    info!(?response);
 
     Ok(())
 }

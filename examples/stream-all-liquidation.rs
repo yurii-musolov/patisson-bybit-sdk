@@ -38,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
     let cfg = ws::Config::new(url)
         .ping_interval(Some(DEFAULT_PING_INTERVAL))
         .pong_timeout(DEFAULT_PONG_TIMEOUT);
-    let (handle, mut events) = ws::spawn(cfg);
+    let (handle, mut events) = ws::Stream::new(cfg);
 
     tokio::spawn(async move {
         let _ = handle.connect().await;

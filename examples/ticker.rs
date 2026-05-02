@@ -5,7 +5,7 @@
 //! ```
 
 use tokio;
-use tracing::{Level, debug};
+use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::v5::{BASE_URL_API_MAINNET_1, Category, Client, ClientConfig, GetTickersParams};
@@ -32,7 +32,7 @@ async fn main() -> anyhow::Result<()> {
         exp_date: None,
     };
     let response = client.get_tickers(params).await?;
-    debug!(?response);
+    info!(?response);
 
     Ok(())
 }
