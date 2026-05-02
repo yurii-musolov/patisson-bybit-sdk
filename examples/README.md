@@ -4,7 +4,7 @@ This directory contains a number of examples showcasing various capabilities of 
 
 ## Example list
 
-`instruments-info`, `kline`, `recent-trading-history`, `ticker`, `server-time`, `stream-public`, `stream-all-liquidation`
+`get-api-key-information`, `get-open-orders`, `get-position-info`, `get-transaction-log`, `instruments-info`, `kline`, `place-order`,`recent-trading-history`, `server-time`, `stream-all-liquidation`,`stream-private`,`stream-public`, `ticker`, `wallet`
 
 All examples can be executed with:
 
