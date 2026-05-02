@@ -37,7 +37,7 @@ async fn main() -> anyhow::Result<()> {
         recv_window: 5_000, // Milliseconds.
         referer: None,
     };
-    let client = Client::new(cfg);
+    let client = Client::new(cfg)?;
 
     let settle_coin = String::from("USDT");
     let day = 24 * 60 * 60 * 1000;

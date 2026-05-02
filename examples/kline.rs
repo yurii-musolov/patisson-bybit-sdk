@@ -26,7 +26,7 @@ async fn main() -> anyhow::Result<()> {
         recv_window: 5000, // Milliseconds.
         referer: None,
     };
-    let client = Client::new(cfg);
+    let client = Client::new(cfg)?;
     let params = GetKLinesParams {
         category: Category::Linear,
         symbol: String::from("BTCUSDT"),

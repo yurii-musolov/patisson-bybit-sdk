@@ -33,7 +33,7 @@ async fn main() -> anyhow::Result<()> {
         recv_window: 5000, // Milliseconds.
         referer: None,
     };
-    let client = Client::new(cfg);
+    let client = Client::new(cfg)?;
 
     let response = client.get_api_key_information().await?;
     info!(?response);

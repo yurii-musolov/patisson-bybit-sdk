@@ -1,6 +1,7 @@
 #[derive(Debug)]
 pub enum Error {
     Api { code: i64, msg: String },
+    InvalidHeaderValue(reqwest::header::InvalidHeaderValue),
     Io(std::io::Error),
     Msg(String),
     Reqwest(reqwest::Error),
@@ -13,6 +14,7 @@ impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Error::Api { code, msg } => write!(f, "Bybit API error: code: {code}, message: {msg}"),
+            Error::InvalidHeaderValue(error) => write!(f, "invalid header value: {error}"),
             Error::Io(error) => write!(f, "I/O error: {error}"),
             Error::Msg(msg) => write!(f, "{msg}"),
             Error::Reqwest(error) => write!(f, "reqwest error: {error}"),
@@ -54,6 +56,12 @@ impl From<super::APIErrorResponse> for Error {
             code: resp.ret_code,
             msg: resp.ret_msg,
         }
+    }
+}
+
+impl From<reqwest::header::InvalidHeaderValue> for Error {
+    fn from(err: reqwest::header::InvalidHeaderValue) -> Self {
+        Error::InvalidHeaderValue(err)
     }
 }
 

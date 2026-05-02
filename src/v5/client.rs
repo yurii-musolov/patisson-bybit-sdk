@@ -34,32 +34,36 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(cfg: ClientConfig) -> Self {
+    pub fn new(cfg: ClientConfig) -> Result<Self, Error> {
         let mut headers = HeaderMap::new();
 
         if let Some(api_key) = cfg.api_key.as_ref() {
-            let api_key = api_key.expose().parse().unwrap();
+            let api_key = api_key.expose().parse()?;
             headers.append(HEADER_X_BAPI_API_KEY, api_key);
         }
 
-        let recv_window = cfg.recv_window.to_string().parse().unwrap();
+        let recv_window = cfg.recv_window.to_string().parse()?;
         headers.append(HEADER_X_BAPI_RECV_WINDOW, recv_window);
 
         if let Some(referer) = cfg.referer {
-            let referer = referer.parse().unwrap();
+            let referer = referer.parse()?;
             headers.append(HEADER_X_REFERER, referer);
         }
 
         let signer = cfg
             .api_secret
-            .map(|api_secret| Signer::new(cfg.api_key.unwrap(), api_secret, cfg.recv_window, None));
+            .map(|api_secret| -> Result<Signer, Error> {
+                let api_key = cfg.api_key.ok_or_else(|| Error::from("api_key is required when api_secret is set"))?;
+                Ok(Signer::new(api_key, api_secret, cfg.recv_window, None))
+            })
+            .transpose()?;
 
-        Self {
+        Ok(Self {
             base_url: cfg.base_url,
             headers,
-            client: reqwest::Client::builder().build().unwrap(),
+            client: reqwest::Client::builder().build()?,
             signer,
-        }
+        })
     }
 
     fn get_signed_headers(&self, s: &str) -> HeaderMap {
