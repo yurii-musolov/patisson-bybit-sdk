@@ -6,7 +6,7 @@ pub type Sink = Box<
     dyn futures_util::Sink<Message, Error = tokio_tungstenite::tungstenite::Error> + Send + Unpin,
 >;
 
-pub enum WsState {
+pub enum State {
     Idle,
     Connecting {
         attempt: u32,

@@ -13,54 +13,54 @@ use crate::v5::{
 };
 
 use super::{
-    Command, Config, DisconnectReason, Event, WsHandle,
-    state::{FrameResult, HeartbeatState, Sink, WsState},
+    Command, Config, DisconnectReason, Event, Handle,
+    state::{FrameResult, HeartbeatState, Sink, State},
 };
 
-pub fn spawn(config: Config) -> (WsHandle, mpsc::Receiver<Event>) {
-    let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(config.command_queue_size);
-    let (evt_tx, evt_rx) = mpsc::channel::<Event>(config.event_queue_size);
-
-    let driver = Driver {
-        config,
-        cmd_rx,
-        evt_tx,
-    };
-
-    tokio::spawn(driver.run());
-
-    (WsHandle::new(cmd_tx), evt_rx)
-}
-
-struct Driver {
+pub struct Stream {
     config: Config,
     cmd_rx: mpsc::Receiver<Command>,
     evt_tx: mpsc::Sender<Event>,
 }
 
-impl Driver {
+impl Stream {
+    pub fn new(config: Config) -> (Handle, mpsc::Receiver<Event>) {
+        let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(config.command_queue_size);
+        let (evt_tx, evt_rx) = mpsc::channel::<Event>(config.event_queue_size);
+
+        let stream = Self {
+            config,
+            cmd_rx,
+            evt_tx,
+        };
+
+        tokio::spawn(stream.run());
+
+        (Handle::new(cmd_tx), evt_rx)
+    }
+
     async fn run(mut self) {
-        info!("driver started");
-        let mut state = WsState::Idle;
+        info!("stream started");
+        let mut state = State::Idle;
 
         loop {
             state = match state {
-                WsState::Idle => self.step_idle().await,
-                WsState::Connecting { attempt } => self.step_connecting(attempt).await,
-                WsState::Connected {
+                State::Idle => self.step_idle().await,
+                State::Connecting { attempt } => self.step_connecting(attempt).await,
+                State::Connected {
                     frame_rx,
                     read_task,
                     sink,
                 } => self.step_connected(frame_rx, read_task, sink).await,
-                WsState::Reconnecting { attempt, delay_ms } => {
+                State::Reconnecting { attempt, delay_ms } => {
                     self.step_reconnecting(attempt, delay_ms).await
                 }
-                WsState::Closing { sink } => self.step_closing(sink).await,
-                WsState::Done => break,
+                State::Closing { sink } => self.step_closing(sink).await,
+                State::Done => break,
             };
         }
 
-        info!("driver shut down");
+        info!("stream shut down");
     }
 
     fn emit(&self, event: Event) {
@@ -76,13 +76,13 @@ impl Driver {
         }
     }
 
-    async fn step_idle(&mut self) -> WsState {
+    async fn step_idle(&mut self) -> State {
         loop {
             match self.cmd_rx.recv().await {
                 Some(Command::Connect) => {
-                    return WsState::Connecting { attempt: 1 };
+                    return State::Connecting { attempt: 1 };
                 }
-                None => return WsState::Done,
+                None => return State::Done,
                 Some(Command::Disconnect) => {
                     warn!("Command disconnect ignored - not connected");
                 }
@@ -93,7 +93,7 @@ impl Driver {
         }
     }
 
-    async fn step_connecting(&mut self, attempt: u32) -> WsState {
+    async fn step_connecting(&mut self, attempt: u32) -> State {
         debug!(attempt, "connecting…");
 
         match connect_async(&self.config.url).await {
@@ -114,7 +114,7 @@ impl Driver {
                     }
                 });
 
-                WsState::Connected {
+                State::Connected {
                     frame_rx,
                     read_task,
                     sink: Box::new(sink),
@@ -132,7 +132,7 @@ impl Driver {
         mut frame_rx: mpsc::Receiver<FrameResult>,
         read_task: tokio::task::JoinHandle<()>,
         mut sink: Sink,
-    ) -> WsState {
+    ) -> State {
         let ping_interval = self.config.ping_interval;
         let pong_timeout = self.config.pong_timeout;
         let mut ping_timer = Box::pin(match ping_interval {
@@ -193,7 +193,7 @@ impl Driver {
                     None | Some(Command::Disconnect) => {
                         info!("disconnect requested");
                         read_task.abort();
-                        return WsState::Closing { sink };
+                        return State::Closing { sink };
                     }
                     Some(Command::Send(msg)) => {
                         let json = serialize_json(&msg).expect("serialize outgoing message failed");
@@ -229,7 +229,7 @@ impl Driver {
         }
     }
 
-    async fn step_reconnecting(&mut self, attempt: u32, delay_ms: u64) -> WsState {
+    async fn step_reconnecting(&mut self, attempt: u32, delay_ms: u64) -> State {
         warn!(attempt, delay_ms, "waiting before reconnect");
         self.emit(Event::Reconnecting { attempt, delay_ms });
 
@@ -242,13 +242,13 @@ impl Driver {
             self.emit(Event::Disconnected {
                 reason: DisconnectReason::Requested,
             });
-            WsState::Idle
+            State::Idle
         } else {
-            WsState::Connecting { attempt }
+            State::Connecting { attempt }
         }
     }
 
-    async fn step_closing(&mut self, mut sink: Sink) -> WsState {
+    async fn step_closing(&mut self, mut sink: Sink) -> State {
         if let Err(e) = sink.send(Message::Close(None)).await {
             error!(error = %e, "send close message failed");
         }
@@ -259,10 +259,10 @@ impl Driver {
         self.emit(Event::Disconnected {
             reason: DisconnectReason::Requested,
         });
-        WsState::Idle
+        State::Idle
     }
 
-    fn next_reconnect_state(&self, next_attempt: u32, reason: String) -> WsState {
+    fn next_reconnect_state(&self, next_attempt: u32, reason: String) -> State {
         if self.config.max_reconnect_attempts == 0
             || next_attempt > self.config.max_reconnect_attempts
         {
@@ -271,7 +271,7 @@ impl Driver {
                     "all reconnection attempts have failed",
                 )),
             });
-            return WsState::Idle;
+            return State::Idle;
         }
 
         let base_ms = self.config.reconnect_base_delay.as_millis() as u64;
@@ -279,7 +279,7 @@ impl Driver {
         let delay_ms = (base_ms.saturating_mul(1u64 << (next_attempt - 1).min(10))).min(max_ms);
 
         debug!(next_attempt, delay_ms, reason, "scheduling reconnect");
-        WsState::Reconnecting {
+        State::Reconnecting {
             attempt: next_attempt,
             delay_ms,
         }
