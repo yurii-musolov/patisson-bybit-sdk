@@ -5,7 +5,7 @@
 //! ```
 
 use tokio;
-use tracing::{Level, debug};
+use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::v5::{BASE_URL_API_MAINNET_1, Category, Client, ClientConfig, GetTradesParams};
@@ -33,7 +33,7 @@ async fn main() -> anyhow::Result<()> {
         limit: Some(2),
     };
     let response = client.get_public_recent_trading_history(params).await?;
-    debug!(?response);
+    info!(?response);
 
     Ok(())
 }

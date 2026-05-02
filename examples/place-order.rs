@@ -8,7 +8,7 @@ use core::panic;
 
 use rust_decimal::dec;
 use tokio;
-use tracing::{Level, debug};
+use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::v5::{
@@ -100,7 +100,7 @@ async fn main() -> anyhow::Result<()> {
     request.stop_loss = Some(price.clone() - dec!(100));
     request.sl_limit_price = Some(price.clone() - dec!(110));
     let response = client.place_order(request).await?;
-    debug!(?response);
+    info!(?response);
 
     // -------------------------------------------------------------------------
 
@@ -117,7 +117,7 @@ async fn main() -> anyhow::Result<()> {
         cursor: None,
     };
     let response = client.get_open_closed_orders(params).await?;
-    debug!(?response);
+    info!(?response);
 
     Ok(())
 }
