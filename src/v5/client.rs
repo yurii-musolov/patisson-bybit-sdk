@@ -272,6 +272,26 @@ impl Client {
         let response = send(request).await?;
         Ok(response)
     }
+
+    /// Collect all pages of open/closed orders into a single `Vec`.
+    /// Repeatedly calls [`get_open_closed_orders`] following `next_page_cursor`
+    /// until the last page is reached.
+    pub async fn get_open_closed_orders_all(
+        &self,
+        params: GetOpenClosedOrdersParams,
+    ) -> Result<Vec<Order>, Error> {
+        let mut all = Vec::new();
+        let mut p = params;
+        loop {
+            let page = self.get_open_closed_orders(p.clone()).await?;
+            all.extend(page.result.list);
+            match page.result.next_page_cursor {
+                Some(cursor) => p = p.with_cursor(cursor),
+                None => break,
+            }
+        }
+        Ok(all)
+    }
 }
 
 // Position.
@@ -298,6 +318,26 @@ impl Client {
 
         let response = send(request).await?;
         Ok(response)
+    }
+
+    /// Collect all pages of position info into a single `Vec`.
+    /// Repeatedly calls [`get_position_info`] following `next_page_cursor`
+    /// until the last page is reached.
+    pub async fn get_position_info_all(
+        &self,
+        params: GetPositionInfoParams,
+    ) -> Result<Vec<Position>, Error> {
+        let mut all = Vec::new();
+        let mut p = params;
+        loop {
+            let page = self.get_position_info(p.clone()).await?;
+            all.extend(page.result.list);
+            match page.result.next_page_cursor {
+                Some(cursor) => p = p.with_cursor(cursor),
+                None => break,
+            }
+        }
+        Ok(all)
     }
 }
 
@@ -332,6 +372,26 @@ impl Client {
 
         let response = send(request).await?;
         Ok(response)
+    }
+
+    /// Collect all pages of transaction log entries into a single `Vec`.
+    /// Repeatedly calls [`get_transaction_log`] following `next_page_cursor`
+    /// until the last page is reached.
+    pub async fn get_transaction_log_all(
+        &self,
+        params: GetTransactionLogParams,
+    ) -> Result<Vec<TransactionLog>, Error> {
+        let mut all = Vec::new();
+        let mut p = params;
+        loop {
+            let page = self.get_transaction_log(p.clone()).await?;
+            all.extend(page.result.list);
+            match page.result.next_page_cursor {
+                Some(cursor) => p = p.with_cursor(cursor),
+                None => break,
+            }
+        }
+        Ok(all)
     }
 
     /// Query the account information, like margin mode, account mode, etc.
