@@ -9,9 +9,7 @@ use super::{
     CancelType, Category, CreateType, Interval, OcoTriggerBy, OrderStatus, OrderType, PlaceType,
     PositionIdx, PositionStatus, RejectReason, Side, SlippageToleranceType, SmpType, StopOrderType,
     TickDirection, TimeInForce, Timestamp, TpslMode, TriggerBy, TriggerDirection,
-    serde::{
-        empty_string_as_none, int_to_bool, invalid_as_none, string_to_bool, string_to_option_bool,
-    },
+    serde::{empty_string_as_none, int_to_bool, string_to_bool, string_to_option_bool},
 };
 use rust_decimal::{Decimal, serde::str_option::deserialize as option_decimal};
 use serde::Deserialize;
@@ -176,7 +174,7 @@ pub struct TickerSnapshotMsg {
 #[serde(rename_all = "camelCase")]
 pub struct TickerDeltaMsg {
     pub symbol: String,
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub tick_direction: Option<TickDirection>,
     #[serde(default, deserialize_with = "option_decimal")]
     pub last_price: Option<Decimal>,
@@ -401,7 +399,7 @@ pub struct OrderMsg {
     /// Order create type
     /// Only for category=linear or inverse
     /// Spot, Option do not have this key
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub create_type: Option<CreateType>,
     /// Cancel type
     pub cancel_type: CancelType,
@@ -438,10 +436,10 @@ pub struct OrderMsg {
     /// Order type. Market,Limit. For TP/SL order, it means the order type after triggered
     pub order_type: OrderType,
     /// Stop order type
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub stop_order_type: Option<StopOrderType>,
     /// The trigger type of Spot OCO order.OcoTriggerByUnknown, OcoTriggerByTp, OcoTriggerByBySl. Classic spot is not supported
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub oco_trigger_by: Option<OcoTriggerBy>,
     /// Implied volatility
     #[serde(deserialize_with = "option_decimal")]
@@ -450,7 +448,7 @@ pub struct OrderMsg {
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub market_unit: Option<String>,
     /// Spot and Futures market order slippage tolerance type TickSize, Percent, UNKNOWN(default)
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub slippage_tolerance_type: Option<SlippageToleranceType>,
     /// Slippage tolerance value
     #[serde(default, deserialize_with = "option_decimal")]
@@ -465,7 +463,7 @@ pub struct OrderMsg {
     #[serde(deserialize_with = "option_decimal")]
     pub stop_loss: Option<Decimal>,
     /// TP/SL mode, Full: entire position for TP/SL. Partial: partial position tp/sl. Spot does not have this field, and Option returns always ""
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub tpsl_mode: Option<TpslMode>,
     /// The limit order price when take profit price is triggered
     #[serde(deserialize_with = "option_decimal")]
@@ -474,15 +472,15 @@ pub struct OrderMsg {
     #[serde(deserialize_with = "option_decimal")]
     pub sl_limit_price: Option<Decimal>,
     /// The price type to trigger take profit
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub tp_trigger_by: Option<TriggerBy>,
     /// The price type to trigger stop loss
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub sl_trigger_by: Option<TriggerBy>,
     /// Trigger direction. 1: rise, 2: fall
     pub trigger_direction: TriggerDirection,
     /// The price type of trigger price
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub trigger_by: Option<TriggerBy>,
     /// Last price when place the order, Spot is not applicable
     #[serde(deserialize_with = "option_decimal")]
@@ -492,7 +490,7 @@ pub struct OrderMsg {
     /// Close on trigger.
     pub close_on_trigger: bool,
     /// Place type, option used. iv, price
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub place_type: Option<PlaceType>,
     /// SMP execution type
     pub smp_type: SmpType,
@@ -520,7 +518,7 @@ pub struct PositionMsg {
     /// Position side. Buy: long, Sell: short
     /// one-way mode: classic & UTA1.0(inverse), an empty position returns None.
     /// UTA2.0(linear, inverse) & UTA1.0(linear): either one-way or hedge mode returns an empty string "" for an empty position.
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub side: Option<Side>,
     /// Position size
     pub size: Decimal,
