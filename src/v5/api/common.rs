@@ -30,6 +30,8 @@ pub struct Response<T> {
     pub result: T,
     pub time: Option<Timestamp>,
     pub headers: Headers,
+    /// Per-item results for batch endpoints; `None` for all non-batch calls.
+    pub ret_ext_info: Option<RetExtInfo>,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -67,4 +69,20 @@ impl Headers {
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
-pub struct RetExtInfo {}
+pub struct BatchItemResult {
+    pub code: i64,
+    pub msg: String,
+}
+
+/// Per-item status for batch trade endpoints.
+/// For all other endpoints `retExtInfo` is `{}` — the `list` defaults to empty.
+#[derive(Debug, Default, Deserialize, PartialEq)]
+pub struct RetExtInfo {
+    #[serde(default)]
+    pub list: Vec<BatchItemResult>,
+}
+
+/// Returned by position-management and other void-result endpoints whose
+/// `result` field is the empty object `{}`.
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct EmptyResult {}

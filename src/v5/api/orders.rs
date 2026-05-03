@@ -2,6 +2,7 @@ use rust_decimal::{Decimal, serde::str_option::deserialize as option_decimal};
 use serde::{Deserialize, Serialize};
 use serde_aux::prelude::deserialize_number_from_string as number;
 
+use super::common::List;
 use crate::v5::{
     CancelType, CreateType, OcoTriggerBy, OrderMsg, OrderStatus, OrderType, PlaceType, PositionIdx,
     RejectReason, Side, SmpType, TimeInForce, TpslMode, TriggerBy, TriggerDirection,
@@ -758,6 +759,215 @@ pub struct CancelOrderResponse {
     /// Order ID
     pub order_id: String,
     /// User customised order ID
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub order_link_id: Option<String>,
+}
+
+// ── Cancel All Orders ────────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelAllOrdersRequest {
+    pub category: Category,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub symbol: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base_coin: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub settle_coin: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_filter: Option<OrderFilter>,
+    /// For futures only: TakeProfit, StopLoss, TrailingStop
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_order_type: Option<StopOrderType>,
+}
+
+impl CancelAllOrdersRequest {
+    pub fn new(category: Category) -> Self {
+        Self {
+            category,
+            symbol: None,
+            base_coin: None,
+            settle_coin: None,
+            order_filter: None,
+            stop_order_type: None,
+        }
+    }
+
+    pub fn with_symbol(mut self, v: String) -> Self {
+        self.symbol = Some(v);
+        self
+    }
+    pub fn with_base_coin(mut self, v: String) -> Self {
+        self.base_coin = Some(v);
+        self
+    }
+    pub fn with_settle_coin(mut self, v: String) -> Self {
+        self.settle_coin = Some(v);
+        self
+    }
+    pub fn with_order_filter(mut self, v: OrderFilter) -> Self {
+        self.order_filter = Some(v);
+        self
+    }
+    pub fn with_stop_order_type(mut self, v: StopOrderType) -> Self {
+        self.stop_order_type = Some(v);
+        self
+    }
+}
+
+/// Response for cancel-all: a flat list of cancelled order IDs.
+pub type CancelAllOrdersResponse = List<CancelOrderResponse>;
+
+// ── Order History ────────────────────────────────────────────────────────────
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetOrderHistoryParams {
+    pub category: Category,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub symbol: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base_coin: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub settle_coin: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_link_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_filter: Option<OrderFilter>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_status: Option<OrderStatus>,
+    /// Start timestamp (ms)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_time: Option<Timestamp>,
+    /// End timestamp (ms)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_time: Option<Timestamp>,
+    /// [1, 50]. Default: 20
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+}
+
+impl GetOrderHistoryParams {
+    pub fn new(category: Category) -> Self {
+        Self {
+            category,
+            symbol: None,
+            base_coin: None,
+            settle_coin: None,
+            order_id: None,
+            order_link_id: None,
+            order_filter: None,
+            order_status: None,
+            start_time: None,
+            end_time: None,
+            limit: None,
+            cursor: None,
+        }
+    }
+
+    pub fn with_symbol(mut self, v: String) -> Self {
+        self.symbol = Some(v);
+        self
+    }
+    pub fn with_base_coin(mut self, v: String) -> Self {
+        self.base_coin = Some(v);
+        self
+    }
+    pub fn with_settle_coin(mut self, v: String) -> Self {
+        self.settle_coin = Some(v);
+        self
+    }
+    pub fn with_order_id(mut self, v: String) -> Self {
+        self.order_id = Some(v);
+        self
+    }
+    pub fn with_order_link_id(mut self, v: String) -> Self {
+        self.order_link_id = Some(v);
+        self
+    }
+    pub fn with_order_filter(mut self, v: OrderFilter) -> Self {
+        self.order_filter = Some(v);
+        self
+    }
+    pub fn with_order_status(mut self, v: OrderStatus) -> Self {
+        self.order_status = Some(v);
+        self
+    }
+    pub fn with_start_time(mut self, v: Timestamp) -> Self {
+        self.start_time = Some(v);
+        self
+    }
+    pub fn with_end_time(mut self, v: Timestamp) -> Self {
+        self.end_time = Some(v);
+        self
+    }
+    pub fn with_limit(mut self, v: i32) -> Self {
+        self.limit = Some(v);
+        self
+    }
+    pub fn with_cursor(mut self, v: String) -> Self {
+        self.cursor = Some(v);
+        self
+    }
+}
+
+// ── Batch Orders ─────────────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaceOrderBatchRequest {
+    pub category: Category,
+    pub request: Vec<PlaceOrderRequest>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AmendOrderBatchRequest {
+    pub category: Category,
+    pub request: Vec<AmendOrderRequest>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelOrderBatchRequest {
+    pub category: Category,
+    pub request: Vec<CancelOrderRequest>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaceOrderBatchResult {
+    pub category: Category,
+    pub symbol: String,
+    pub order_id: String,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub order_link_id: Option<String>,
+    /// Order creation timestamp (ms). Note: Bybit uses the non-standard key "createAt".
+    #[serde(rename = "createAt", default)]
+    pub create_at: Option<Timestamp>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct AmendOrderBatchResult {
+    pub category: Category,
+    pub symbol: String,
+    pub order_id: String,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub order_link_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CancelOrderBatchResult {
+    pub category: Category,
+    pub symbol: String,
+    pub order_id: String,
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub order_link_id: Option<String>,
 }
