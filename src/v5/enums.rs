@@ -346,6 +346,15 @@ pub enum PositionIdx {
     Sell = 2,
 }
 
+#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
+#[repr(u8)]
+pub enum PositionMode {
+    /// 0: Merged Single (one-way)
+    OneWay = 0,
+    /// 3: Both Sides (hedge)
+    Hedge = 3,
+}
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum PositionStatus {
     Normal,

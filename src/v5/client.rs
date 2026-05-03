@@ -1,8 +1,13 @@
 use crate::v5::{
-    APIErrorResponse, APIKeyInformation, AccountInfo, AmendOrderRequest, AmendOrderResponse,
-    CancelOrderRequest, CancelOrderResponse, GetPositionInfoParams, GetTransactionLogParams,
-    GetWalletBalanceParams, List, PlaceOrderRequest, PlaceOrderResponse, Position, Timestamp,
-    TransactionLog, WalletBalance,
+    APIErrorResponse, APIKeyInformation, AccountInfo, AmendOrderBatchRequest, AmendOrderBatchResult,
+    AmendOrderRequest, AmendOrderResponse, CancelAllOrdersRequest, CancelAllOrdersResponse,
+    CancelOrderBatchRequest, CancelOrderBatchResult, CancelOrderRequest, CancelOrderResponse,
+    ClosedPnl, EmptyResult, ExecutionEntry, GetClosedPnlParams, GetExecutionListParams,
+    GetOrderHistoryParams, GetPositionInfoParams, GetTransactionLogParams, GetWalletBalanceParams,
+    List, PlaceOrderBatchRequest, PlaceOrderBatchResult, PlaceOrderRequest, PlaceOrderResponse,
+    Position, SetAutoAddMarginRequest, SetLeverageRequest, SetRiskLimitRequest,
+    SetRiskLimitResponse, SetTradingStopRequest, SwitchCrossIsolatedMarginRequest,
+    SwitchPositionModeRequest, Timestamp, TransactionLog, WalletBalance,
     crypto::Signer,
     serde::{deserialize_json, serialize_json, serialize_query},
 };
@@ -302,6 +307,130 @@ impl Client {
         }
         Ok(all)
     }
+
+    /// Cancel All Orders.
+    /// Cancel all open orders. Support linear, inverse, spot, and option.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn cancel_all_orders(
+        &self,
+        request: CancelAllOrdersRequest,
+    ) -> Result<Response<CancelAllOrdersResponse>, Error> {
+        let url = format!("{}{}", self.base_url, Path::TradeOrderCancelAll);
+        let json = serialize_json(&request)?;
+        let headers = self.get_signed_headers(&json);
+
+        let request = self
+            .client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(json);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Order History.
+    /// Query order history. As order creation/cancellation is asynchronous, the data returned may be delayed.
+    /// Supports up to 2 years of data.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_order_history(
+        &self,
+        params: GetOrderHistoryParams,
+    ) -> Result<Response<CursorPagination<Order>>, Error> {
+        let query = serialize_query(&params)?;
+        let url = format!("{}{}?{query}", self.base_url, Path::TradeOrderHistory);
+        let headers = self.get_signed_headers(&query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Collect all pages of order history into a single `Vec`.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_order_history_all(
+        &self,
+        params: GetOrderHistoryParams,
+    ) -> Result<Vec<Order>, Error> {
+        let mut all = Vec::new();
+        let mut p = params;
+        loop {
+            let page = self.get_order_history(p.clone()).await?;
+            all.extend(page.result.list);
+            match page.result.next_page_cursor {
+                Some(cursor) => p = p.with_cursor(cursor),
+                None => break,
+            }
+        }
+        Ok(all)
+    }
+
+    /// Place Batch Orders.
+    /// Supports up to 20 orders per request.
+    /// Per-item results are in `response.ret_ext_info.list` (parallel to `response.result.list`).
+    #[tracing::instrument(skip(self), err)]
+    pub async fn place_orders_batch(
+        &self,
+        request: PlaceOrderBatchRequest,
+    ) -> Result<Response<List<PlaceOrderBatchResult>>, Error> {
+        let url = format!("{}{}", self.base_url, Path::TradeOrderCreateBatch);
+        let json = serialize_json(&request)?;
+        let headers = self.get_signed_headers(&json);
+
+        let request = self
+            .client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(json);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Amend Batch Orders.
+    /// Supports up to 20 orders per request.
+    /// Per-item results are in `response.ret_ext_info.list` (parallel to `response.result.list`).
+    #[tracing::instrument(skip(self), err)]
+    pub async fn amend_orders_batch(
+        &self,
+        request: AmendOrderBatchRequest,
+    ) -> Result<Response<List<AmendOrderBatchResult>>, Error> {
+        let url = format!("{}{}", self.base_url, Path::TradeOrderAmendBatch);
+        let json = serialize_json(&request)?;
+        let headers = self.get_signed_headers(&json);
+
+        let request = self
+            .client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(json);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Cancel Batch Orders.
+    /// Supports up to 20 orders per request.
+    /// Per-item results are in `response.ret_ext_info.list` (parallel to `response.result.list`).
+    #[tracing::instrument(skip(self), err)]
+    pub async fn cancel_orders_batch(
+        &self,
+        request: CancelOrderBatchRequest,
+    ) -> Result<Response<List<CancelOrderBatchResult>>, Error> {
+        let url = format!("{}{}", self.base_url, Path::TradeOrderCancelBatch);
+        let json = serialize_json(&request)?;
+        let headers = self.get_signed_headers(&json);
+
+        let request = self
+            .client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(json);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
 }
 
 // Position.
@@ -343,6 +472,204 @@ impl Client {
         let mut p = params;
         loop {
             let page = self.get_position_info(p.clone()).await?;
+            all.extend(page.result.list);
+            match page.result.next_page_cursor {
+                Some(cursor) => p = p.with_cursor(cursor),
+                None => break,
+            }
+        }
+        Ok(all)
+    }
+
+    /// Set Leverage.
+    /// Set the leverage for a position. Only for isolated margin mode.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn set_leverage(
+        &self,
+        request: SetLeverageRequest,
+    ) -> Result<Response<EmptyResult>, Error> {
+        let url = format!("{}{}", self.base_url, Path::PositionSetLeverage);
+        let json = serialize_json(&request)?;
+        let headers = self.get_signed_headers(&json);
+
+        let request = self
+            .client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(json);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Set Trading Stop.
+    /// Set take profit, stop loss, or trailing stop for a position.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn set_trading_stop(
+        &self,
+        request: SetTradingStopRequest,
+    ) -> Result<Response<EmptyResult>, Error> {
+        let url = format!("{}{}", self.base_url, Path::PositionTradingStop);
+        let json = serialize_json(&request)?;
+        let headers = self.get_signed_headers(&json);
+
+        let request = self
+            .client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(json);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Switch Cross/Isolated Margin.
+    /// Switch the margin mode for a symbol between cross and isolated.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn switch_cross_isolated_margin(
+        &self,
+        request: SwitchCrossIsolatedMarginRequest,
+    ) -> Result<Response<EmptyResult>, Error> {
+        let url = format!("{}{}", self.base_url, Path::PositionSwitchIsolated);
+        let json = serialize_json(&request)?;
+        let headers = self.get_signed_headers(&json);
+
+        let request = self
+            .client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(json);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Switch Position Mode.
+    /// Switch between one-way (merged single) and hedge (both sides) position mode.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn switch_position_mode(
+        &self,
+        request: SwitchPositionModeRequest,
+    ) -> Result<Response<EmptyResult>, Error> {
+        let url = format!("{}{}", self.base_url, Path::PositionSwitchMode);
+        let json = serialize_json(&request)?;
+        let headers = self.get_signed_headers(&json);
+
+        let request = self
+            .client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(json);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Set Auto Add Margin.
+    /// Turn on/off auto-add-margin for an isolated margin position.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn set_auto_add_margin(
+        &self,
+        request: SetAutoAddMarginRequest,
+    ) -> Result<Response<EmptyResult>, Error> {
+        let url = format!("{}{}", self.base_url, Path::PositionSetAutoAddMargin);
+        let json = serialize_json(&request)?;
+        let headers = self.get_signed_headers(&json);
+
+        let request = self
+            .client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(json);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Set Risk Limit.
+    /// Set the risk limit for a position. The response includes the new risk limit and its value.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn set_risk_limit(
+        &self,
+        request: SetRiskLimitRequest,
+    ) -> Result<Response<SetRiskLimitResponse>, Error> {
+        let url = format!("{}{}", self.base_url, Path::PositionSetRiskLimit);
+        let json = serialize_json(&request)?;
+        let headers = self.get_signed_headers(&json);
+
+        let request = self
+            .client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(json);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Closed P&L.
+    /// Query the closed profit and loss records of positions.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_closed_pnl(
+        &self,
+        params: GetClosedPnlParams,
+    ) -> Result<Response<CursorPagination<ClosedPnl>>, Error> {
+        let query = serialize_query(&params)?;
+        let url = format!("{}{}?{query}", self.base_url, Path::PositionClosedPnl);
+        let headers = self.get_signed_headers(&query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Collect all pages of closed P&L into a single `Vec`.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_closed_pnl_all(
+        &self,
+        params: GetClosedPnlParams,
+    ) -> Result<Vec<ClosedPnl>, Error> {
+        let mut all = Vec::new();
+        let mut p = params;
+        loop {
+            let page = self.get_closed_pnl(p.clone()).await?;
+            all.extend(page.result.list);
+            match page.result.next_page_cursor {
+                Some(cursor) => p = p.with_cursor(cursor),
+                None => break,
+            }
+        }
+        Ok(all)
+    }
+
+    /// Get Execution List.
+    /// Query users' execution (trading) records, sorted by execTime descending.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_execution_list(
+        &self,
+        params: GetExecutionListParams,
+    ) -> Result<Response<CursorPagination<ExecutionEntry>>, Error> {
+        let query = serialize_query(&params)?;
+        let url = format!("{}{}?{query}", self.base_url, Path::ExecutionList);
+        let headers = self.get_signed_headers(&query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Collect all pages of execution list entries into a single `Vec`.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_execution_list_all(
+        &self,
+        params: GetExecutionListParams,
+    ) -> Result<Vec<ExecutionEntry>, Error> {
+        let mut all = Vec::new();
+        let mut p = params;
+        loop {
+            let page = self.get_execution_list(p.clone()).await?;
             all.extend(page.result.list);
             match page.result.next_page_cursor {
                 Some(cursor) => p = p.with_cursor(cursor),
@@ -466,6 +793,7 @@ where
         result: response.result,
         time: response.time,
         headers,
+        ret_ext_info: response.ret_ext_info,
     };
     Ok(response)
 }

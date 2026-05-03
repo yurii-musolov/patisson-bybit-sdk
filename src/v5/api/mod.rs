@@ -105,7 +105,7 @@ mod tests {
                 ],
             },
             time: Some(1672025956592),
-            ret_ext_info: Some(RetExtInfo {}),
+            ret_ext_info: Some(RetExtInfo::default()),
         };
 
         let message = deserialize_json(json).unwrap();
@@ -187,7 +187,7 @@ mod tests {
                 }],
             },
             time: Some(1672376496682),
-            ret_ext_info: Some(RetExtInfo {}),
+            ret_ext_info: Some(RetExtInfo::default()),
         };
 
         let message = deserialize_json(json).unwrap();
@@ -234,7 +234,7 @@ mod tests {
                 }],
             },
             time: Some(1672053054358),
-            ret_ext_info: Some(RetExtInfo {}),
+            ret_ext_info: Some(RetExtInfo::default()),
         };
 
         let message = deserialize_json(json).unwrap();
@@ -356,7 +356,7 @@ mod tests {
                 }],
             },
             time: Some(1684765770483),
-            ret_ext_info: Some(RetExtInfo {}),
+            ret_ext_info: Some(RetExtInfo::default()),
         };
 
         let message = deserialize_json(json).unwrap();
@@ -480,7 +480,7 @@ mod tests {
                 }],
             },
             time: Some(1762711342768),
-            ret_ext_info: Some(RetExtInfo {}),
+            ret_ext_info: Some(RetExtInfo::default()),
         };
 
         let message = deserialize_json(json).unwrap();
@@ -584,7 +584,7 @@ mod tests {
                 }],
             },
             time: Some(1697684980172),
-            ret_ext_info: Some(RetExtInfo {}),
+            ret_ext_info: Some(RetExtInfo::default()),
         };
 
         let message: Resp<CursorPagination<Position>> = deserialize_json(json).unwrap();
@@ -687,7 +687,7 @@ mod tests {
                 }],
             },
             time: Some(1690872862481),
-            ret_ext_info: Some(RetExtInfo {}),
+            ret_ext_info: Some(RetExtInfo::default()),
         };
 
         let message = deserialize_json(json).unwrap();
@@ -790,7 +790,7 @@ mod tests {
                 }],
             },
             time: Some(1751570498412),
-            ret_ext_info: Some(RetExtInfo {}),
+            ret_ext_info: Some(RetExtInfo::default()),
         };
 
         let message = deserialize_json(json).unwrap();

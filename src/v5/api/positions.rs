@@ -6,8 +6,9 @@ use serde_aux::prelude::{
 };
 
 use crate::v5::{
-    AdlRankIndicator, PositionIdx, PositionMsg, PositionStatus, Side,
-    enums::Category,
+    AdlRankIndicator, ExecType, OrderType, PositionIdx, PositionMode, PositionMsg, PositionStatus,
+    Side, TpslMode, TradeMode, TriggerBy,
+    enums::{Category, StopOrderType},
     serde::{empty_string_as_none, int_to_bool},
 };
 
@@ -266,4 +267,512 @@ impl Position {
         self.position_im = msg.total_position_mm;
         self.unrealised_pnl = Some(msg.unrealised_pnl);
     }
+}
+
+// ── Set Leverage ─────────────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetLeverageRequest {
+    /// linear, inverse
+    pub category: Category,
+    pub symbol: String,
+    /// Under cross margin mode: 0 < leverage ≤ maxLeverage (must equal sellLeverage).
+    /// Under isolated margin mode: 0 < leverage ≤ maxLeverage.
+    pub buy_leverage: Decimal,
+    pub sell_leverage: Decimal,
+}
+
+impl SetLeverageRequest {
+    pub fn new(category: Category, symbol: String, leverage: Decimal) -> Self {
+        Self {
+            category,
+            symbol,
+            buy_leverage: leverage,
+            sell_leverage: leverage,
+        }
+    }
+
+    pub fn with_asymmetric(mut self, buy_leverage: Decimal, sell_leverage: Decimal) -> Self {
+        self.buy_leverage = buy_leverage;
+        self.sell_leverage = sell_leverage;
+        self
+    }
+}
+
+// ── Set Trading Stop ─────────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetTradingStopRequest {
+    /// linear, inverse
+    pub category: Category,
+    pub symbol: String,
+    /// Required. 0: one-way, 1: hedge Buy side, 2: hedge Sell side
+    pub position_idx: PositionIdx,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub take_profit: Option<Decimal>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_loss: Option<Decimal>,
+    /// Trailing stop distance from market price
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub trailing_stop: Option<Decimal>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tp_trigger_by: Option<TriggerBy>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sl_trigger_by: Option<TriggerBy>,
+    /// Activation price for trailing stop
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub active_price: Option<Decimal>,
+    /// Partial TP quantity
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tp_size: Option<Decimal>,
+    /// Partial SL quantity
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sl_size: Option<Decimal>,
+    /// Limit price for TP limit order
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tp_limit_price: Option<Decimal>,
+    /// Limit price for SL limit order
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sl_limit_price: Option<Decimal>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tp_order_type: Option<OrderType>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sl_order_type: Option<OrderType>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tpsl_mode: Option<TpslMode>,
+}
+
+impl SetTradingStopRequest {
+    pub fn new(category: Category, symbol: String, position_idx: PositionIdx) -> Self {
+        Self {
+            category,
+            symbol,
+            position_idx,
+            take_profit: None,
+            stop_loss: None,
+            trailing_stop: None,
+            tp_trigger_by: None,
+            sl_trigger_by: None,
+            active_price: None,
+            tp_size: None,
+            sl_size: None,
+            tp_limit_price: None,
+            sl_limit_price: None,
+            tp_order_type: None,
+            sl_order_type: None,
+            tpsl_mode: None,
+        }
+    }
+
+    pub fn with_take_profit(mut self, v: Decimal) -> Self {
+        self.take_profit = Some(v);
+        self
+    }
+    pub fn with_stop_loss(mut self, v: Decimal) -> Self {
+        self.stop_loss = Some(v);
+        self
+    }
+    pub fn with_trailing_stop(mut self, v: Decimal) -> Self {
+        self.trailing_stop = Some(v);
+        self
+    }
+    pub fn with_tp_trigger_by(mut self, v: TriggerBy) -> Self {
+        self.tp_trigger_by = Some(v);
+        self
+    }
+    pub fn with_sl_trigger_by(mut self, v: TriggerBy) -> Self {
+        self.sl_trigger_by = Some(v);
+        self
+    }
+    pub fn with_active_price(mut self, v: Decimal) -> Self {
+        self.active_price = Some(v);
+        self
+    }
+    pub fn with_tp_size(mut self, v: Decimal) -> Self {
+        self.tp_size = Some(v);
+        self
+    }
+    pub fn with_sl_size(mut self, v: Decimal) -> Self {
+        self.sl_size = Some(v);
+        self
+    }
+    pub fn with_tp_limit_price(mut self, v: Decimal) -> Self {
+        self.tp_limit_price = Some(v);
+        self
+    }
+    pub fn with_sl_limit_price(mut self, v: Decimal) -> Self {
+        self.sl_limit_price = Some(v);
+        self
+    }
+    pub fn with_tp_order_type(mut self, v: OrderType) -> Self {
+        self.tp_order_type = Some(v);
+        self
+    }
+    pub fn with_sl_order_type(mut self, v: OrderType) -> Self {
+        self.sl_order_type = Some(v);
+        self
+    }
+    pub fn with_tpsl_mode(mut self, v: TpslMode) -> Self {
+        self.tpsl_mode = Some(v);
+        self
+    }
+}
+
+// ── Switch Cross / Isolated Margin ───────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SwitchCrossIsolatedMarginRequest {
+    /// linear, inverse
+    pub category: Category,
+    pub symbol: String,
+    /// 0: cross margin, 1: isolated margin
+    pub trade_mode: TradeMode,
+    pub buy_leverage: Decimal,
+    pub sell_leverage: Decimal,
+}
+
+impl SwitchCrossIsolatedMarginRequest {
+    pub fn cross(category: Category, symbol: String, leverage: Decimal) -> Self {
+        Self {
+            category,
+            symbol,
+            trade_mode: TradeMode::CrossMargin,
+            buy_leverage: leverage,
+            sell_leverage: leverage,
+        }
+    }
+
+    pub fn isolated(
+        category: Category,
+        symbol: String,
+        buy_leverage: Decimal,
+        sell_leverage: Decimal,
+    ) -> Self {
+        Self {
+            category,
+            symbol,
+            trade_mode: TradeMode::IsolatedMargin,
+            buy_leverage,
+            sell_leverage,
+        }
+    }
+}
+
+// ── Switch Position Mode ─────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SwitchPositionModeRequest {
+    /// linear, inverse
+    pub category: Category,
+    /// Symbol name. Either symbol or coin is required
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub symbol: Option<String>,
+    /// Coin. Either symbol or coin is required
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub coin: Option<String>,
+    /// 0: Merged Single (one-way), 3: Both Sides (hedge)
+    pub mode: PositionMode,
+}
+
+impl SwitchPositionModeRequest {
+    pub fn one_way(category: Category, symbol: String) -> Self {
+        Self {
+            category,
+            symbol: Some(symbol),
+            coin: None,
+            mode: PositionMode::OneWay,
+        }
+    }
+
+    pub fn hedge(category: Category, symbol: String) -> Self {
+        Self {
+            category,
+            symbol: Some(symbol),
+            coin: None,
+            mode: PositionMode::Hedge,
+        }
+    }
+
+    pub fn with_coin(mut self, v: String) -> Self {
+        self.symbol = None;
+        self.coin = Some(v);
+        self
+    }
+}
+
+// ── Set Auto Add Margin ──────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetAutoAddMarginRequest {
+    /// linear, inverse
+    pub category: Category,
+    pub symbol: String,
+    /// 0: false, 1: true
+    pub auto_add_margin: i32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub position_idx: Option<PositionIdx>,
+}
+
+impl SetAutoAddMarginRequest {
+    pub fn new(category: Category, symbol: String, enabled: bool) -> Self {
+        Self {
+            category,
+            symbol,
+            auto_add_margin: if enabled { 1 } else { 0 },
+            position_idx: None,
+        }
+    }
+
+    pub fn with_position_idx(mut self, v: PositionIdx) -> Self {
+        self.position_idx = Some(v);
+        self
+    }
+}
+
+// ── Set Risk Limit ───────────────────────────────────────────────────────────
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetRiskLimitRequest {
+    /// linear, inverse
+    pub category: Category,
+    pub symbol: String,
+    pub risk_id: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub position_idx: Option<PositionIdx>,
+}
+
+impl SetRiskLimitRequest {
+    pub fn new(category: Category, symbol: String, risk_id: i64) -> Self {
+        Self {
+            category,
+            symbol,
+            risk_id,
+            position_idx: None,
+        }
+    }
+
+    pub fn with_position_idx(mut self, v: PositionIdx) -> Self {
+        self.position_idx = Some(v);
+        self
+    }
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SetRiskLimitResponse {
+    pub risk_id: i64,
+    pub risk_limit_value: String,
+    pub category: String,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub message: Option<String>,
+}
+
+// ── Closed P&L ───────────────────────────────────────────────────────────────
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetClosedPnlParams {
+    /// linear, inverse
+    pub category: Category,
+    /// Required for inverse; optional for linear
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub symbol: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_time: Option<Timestamp>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_time: Option<Timestamp>,
+    /// [1, 100]. Default: 50
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+}
+
+impl GetClosedPnlParams {
+    pub fn new(category: Category) -> Self {
+        Self {
+            category,
+            symbol: None,
+            start_time: None,
+            end_time: None,
+            limit: None,
+            cursor: None,
+        }
+    }
+
+    pub fn with_symbol(mut self, v: String) -> Self {
+        self.symbol = Some(v);
+        self
+    }
+    pub fn with_start_time(mut self, v: Timestamp) -> Self {
+        self.start_time = Some(v);
+        self
+    }
+    pub fn with_end_time(mut self, v: Timestamp) -> Self {
+        self.end_time = Some(v);
+        self
+    }
+    pub fn with_limit(mut self, v: i32) -> Self {
+        self.limit = Some(v);
+        self
+    }
+    pub fn with_cursor(mut self, v: String) -> Self {
+        self.cursor = Some(v);
+        self
+    }
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ClosedPnl {
+    pub symbol: String,
+    pub order_id: String,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub order_link_id: Option<String>,
+    pub side: Side,
+    #[serde(deserialize_with = "number")]
+    pub qty: Decimal,
+    #[serde(deserialize_with = "number")]
+    pub order_price: Decimal,
+    pub order_type: OrderType,
+    pub exec_type: ExecType,
+    #[serde(deserialize_with = "number")]
+    pub closed_size: Decimal,
+    pub cum_entry_value: Decimal,
+    pub avg_entry_price: Decimal,
+    pub cum_exit_value: Decimal,
+    pub avg_exit_price: Decimal,
+    pub closed_pnl: Decimal,
+    #[serde(deserialize_with = "number")]
+    pub fill_count: i64,
+    pub leverage: Decimal,
+    #[serde(deserialize_with = "number")]
+    pub created_time: Timestamp,
+    #[serde(deserialize_with = "number")]
+    pub updated_time: Timestamp,
+}
+
+// ── Execution List ────────────────────────────────────────────────────────────
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetExecutionListParams {
+    pub category: Category,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub symbol: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_link_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub base_coin: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_time: Option<Timestamp>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_time: Option<Timestamp>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exec_type: Option<ExecType>,
+    /// [1, 100]. Default: 50
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+}
+
+impl GetExecutionListParams {
+    pub fn new(category: Category) -> Self {
+        Self {
+            category,
+            symbol: None,
+            order_id: None,
+            order_link_id: None,
+            base_coin: None,
+            start_time: None,
+            end_time: None,
+            exec_type: None,
+            limit: None,
+            cursor: None,
+        }
+    }
+
+    pub fn with_symbol(mut self, v: String) -> Self {
+        self.symbol = Some(v);
+        self
+    }
+    pub fn with_order_id(mut self, v: String) -> Self {
+        self.order_id = Some(v);
+        self
+    }
+    pub fn with_order_link_id(mut self, v: String) -> Self {
+        self.order_link_id = Some(v);
+        self
+    }
+    pub fn with_base_coin(mut self, v: String) -> Self {
+        self.base_coin = Some(v);
+        self
+    }
+    pub fn with_start_time(mut self, v: Timestamp) -> Self {
+        self.start_time = Some(v);
+        self
+    }
+    pub fn with_end_time(mut self, v: Timestamp) -> Self {
+        self.end_time = Some(v);
+        self
+    }
+    pub fn with_exec_type(mut self, v: ExecType) -> Self {
+        self.exec_type = Some(v);
+        self
+    }
+    pub fn with_limit(mut self, v: i32) -> Self {
+        self.limit = Some(v);
+        self
+    }
+    pub fn with_cursor(mut self, v: String) -> Self {
+        self.cursor = Some(v);
+        self
+    }
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ExecutionEntry {
+    pub symbol: String,
+    pub order_id: String,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub order_link_id: Option<String>,
+    pub side: Side,
+    pub order_price: Decimal,
+    pub order_qty: Decimal,
+    pub order_type: OrderType,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub stop_order_type: Option<StopOrderType>,
+    pub exec_fee: Decimal,
+    pub exec_id: String,
+    pub exec_price: Decimal,
+    pub exec_qty: Decimal,
+    pub exec_type: ExecType,
+    pub exec_value: Decimal,
+    #[serde(deserialize_with = "number")]
+    pub exec_time: Timestamp,
+    pub fee_rate: Decimal,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub trade_iv: Option<Decimal>,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub mark_iv: Option<Decimal>,
+    pub mark_price: Decimal,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub index_price: Option<Decimal>,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub underlying_price: Option<Decimal>,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub block_trade_id: Option<String>,
+    pub closed_size: Decimal,
+    pub seq: i64,
+    pub is_maker: bool,
 }
