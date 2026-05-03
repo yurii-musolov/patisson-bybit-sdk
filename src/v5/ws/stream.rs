@@ -24,6 +24,7 @@ pub struct Stream {
 }
 
 impl Stream {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(config: Config) -> (Handle, mpsc::Receiver<Event>) {
         let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(config.command_queue_size);
         let (evt_tx, evt_rx) = mpsc::channel::<Event>(config.event_queue_size);

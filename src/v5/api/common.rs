@@ -1,9 +1,6 @@
 use serde::Deserialize;
 
-use crate::v5::{
-    enums::Category,
-    serde::empty_string_as_none,
-};
+use crate::v5::{enums::Category, serde::empty_string_as_none};
 
 pub type Timestamp = u64;
 pub type Second = u64;

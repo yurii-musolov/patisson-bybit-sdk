@@ -1,11 +1,11 @@
 use crate::v5::{
-    APIErrorResponse, APIKeyInformation, AccountInfo, AmendOrderBatchRequest, AmendOrderBatchResult,
-    AmendOrderRequest, AmendOrderResponse, CancelAllOrdersRequest, CancelAllOrdersResponse,
-    CancelOrderBatchRequest, CancelOrderBatchResult, CancelOrderRequest, CancelOrderResponse,
-    ClosedPnl, EmptyResult, ExecutionEntry, GetClosedPnlParams, GetExecutionListParams,
-    GetOrderHistoryParams, GetPositionInfoParams, GetTransactionLogParams, GetWalletBalanceParams,
-    List, PlaceOrderBatchRequest, PlaceOrderBatchResult, PlaceOrderRequest, PlaceOrderResponse,
-    Position, SetAutoAddMarginRequest, SetLeverageRequest, SetRiskLimitRequest,
+    APIErrorResponse, APIKeyInformation, AccountInfo, AmendOrderBatchRequest,
+    AmendOrderBatchResult, AmendOrderRequest, AmendOrderResponse, CancelAllOrdersRequest,
+    CancelAllOrdersResponse, CancelOrderBatchRequest, CancelOrderBatchResult, CancelOrderRequest,
+    CancelOrderResponse, ClosedPnl, EmptyResult, ExecutionEntry, GetClosedPnlParams,
+    GetExecutionListParams, GetOrderHistoryParams, GetPositionInfoParams, GetTransactionLogParams,
+    GetWalletBalanceParams, List, PlaceOrderBatchRequest, PlaceOrderBatchResult, PlaceOrderRequest,
+    PlaceOrderResponse, Position, SetAutoAddMarginRequest, SetLeverageRequest, SetRiskLimitRequest,
     SetRiskLimitResponse, SetTradingStopRequest, SwitchCrossIsolatedMarginRequest,
     SwitchPositionModeRequest, Timestamp, TransactionLog, WalletBalance,
     crypto::Signer,
@@ -58,7 +58,9 @@ impl Client {
         let signer = cfg
             .api_secret
             .map(|api_secret| -> Result<Signer, Error> {
-                let api_key = cfg.api_key.ok_or_else(|| Error::from("api_key is required when api_secret is set"))?;
+                let api_key = cfg
+                    .api_key
+                    .ok_or_else(|| Error::from("api_key is required when api_secret is set"))?;
                 Ok(Signer::new(api_key, api_secret, cfg.recv_window, None))
             })
             .transpose()?;
