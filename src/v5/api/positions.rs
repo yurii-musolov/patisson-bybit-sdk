@@ -14,7 +14,7 @@ use crate::v5::{
 use super::account::WalletCoin;
 use super::common::Timestamp;
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetPositionInfoParams {
     /// Product type

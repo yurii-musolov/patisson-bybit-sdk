@@ -81,6 +81,7 @@ impl Client {
 
 // Market.
 impl Client {
+    #[tracing::instrument(skip(self), err)]
     pub async fn get_server_time(&self) -> Result<Response<ServerTime>, Error> {
         let url = format!("{}{}", self.base_url, Path::MarketServerTime);
 
@@ -90,6 +91,7 @@ impl Client {
         Ok(response)
     }
 
+    #[tracing::instrument(skip(self), err)]
     pub async fn get_kline(&self, params: GetKLinesParams) -> Result<Response<KLine>, Error> {
         let url = format!("{}{}", self.base_url, Path::MarketKline);
 
@@ -102,6 +104,7 @@ impl Client {
     /// Get Tickers
     /// Query for the latest price snapshot, best bid/ask price, and trading volume in the last 24 hours.
     /// If category=option, symbol or baseCoin must be passed.
+    #[tracing::instrument(skip(self), err)]
     pub async fn get_tickers(&self, params: GetTickersParams) -> Result<Response<Ticker>, Error> {
         let url = format!("{}{}", self.base_url, Path::MarketTickers);
 
@@ -111,6 +114,7 @@ impl Client {
         Ok(response)
     }
 
+    #[tracing::instrument(skip(self), err)]
     pub async fn get_instruments_info(
         &self,
         params: GetInstrumentsInfoParams,
@@ -123,6 +127,7 @@ impl Client {
         Ok(response)
     }
 
+    #[tracing::instrument(skip(self), err)]
     pub async fn get_public_recent_trading_history(
         &self,
         params: GetTradesParams,
@@ -184,6 +189,7 @@ impl Client {
     /// Spot supports TP/SL order, Conditional order, however, the system logic is different between classic account and Unified account
     /// classic account: When the stop order is created, you will get an order ID. After it is triggered, you will get a new order ID
     /// Unified account: When the stop order is created, you will get an order ID. After it is triggered, the order ID will not be changed
+    #[tracing::instrument(skip(self), err)]
     pub async fn place_order(
         &self,
         request: PlaceOrderRequest,
@@ -205,6 +211,7 @@ impl Client {
     /// Amend Order
     /// info
     /// You can only modify unfilled or partially filled orders.
+    #[tracing::instrument(skip(self), err)]
     pub async fn amend_order(
         &self,
         request: AmendOrderRequest,
@@ -228,6 +235,7 @@ impl Client {
     /// You must specify orderId or orderLinkId to cancel the order.
     /// If orderId and orderLinkId do not match, the system will process orderId first.
     /// You can only cancel unfilled or partially filled orders.
+    #[tracing::instrument(skip(self), err)]
     pub async fn cancel_order(
         &self,
         request: CancelOrderRequest,
@@ -259,6 +267,7 @@ impl Client {
     /// info
     /// classic account spot can return open orders only
     /// After a server release or restart, filled, canceled, and rejected orders of Unified account should only be queried through order history.
+    #[tracing::instrument(skip(self), err)]
     pub async fn get_open_closed_orders(
         &self,
         params: GetOpenClosedOrdersParams,
@@ -276,6 +285,7 @@ impl Client {
     /// Collect all pages of open/closed orders into a single `Vec`.
     /// Repeatedly calls [`get_open_closed_orders`] following `next_page_cursor`
     /// until the last page is reached.
+    #[tracing::instrument(skip(self), err)]
     pub async fn get_open_closed_orders_all(
         &self,
         params: GetOpenClosedOrdersParams,
@@ -306,6 +316,7 @@ impl Client {
     // UTA1.0(inverse) & Classic (inverse)
     // You can query all open positions with /v5/position/list?category=inverse;
     // symbol parameter can pass up to 10 symbols, e.g., symbol=BTCUSD,ETHUSD
+    #[tracing::instrument(skip(self), err)]
     pub async fn get_position_info(
         &self,
         params: GetPositionInfoParams,
@@ -323,6 +334,7 @@ impl Client {
     /// Collect all pages of position info into a single `Vec`.
     /// Repeatedly calls [`get_position_info`] following `next_page_cursor`
     /// until the last page is reached.
+    #[tracing::instrument(skip(self), err)]
     pub async fn get_position_info_all(
         &self,
         params: GetPositionInfoParams,
@@ -344,6 +356,7 @@ impl Client {
 // Account.
 impl Client {
     /// Obtain wallet balance, query asset information of each currency. By default, currency information with assets or liabilities of 0 is not returned.
+    #[tracing::instrument(skip(self), err)]
     pub async fn get_wallet_balance(
         &self,
         params: GetWalletBalanceParams,
@@ -360,6 +373,7 @@ impl Client {
 
     /// Get Transaction Log
     /// Query for transaction logs in your Unified account. It supports up to 2 years worth of data.
+    #[tracing::instrument(skip(self), err)]
     pub async fn get_transaction_log(
         &self,
         params: GetTransactionLogParams,
@@ -377,6 +391,7 @@ impl Client {
     /// Collect all pages of transaction log entries into a single `Vec`.
     /// Repeatedly calls [`get_transaction_log`] following `next_page_cursor`
     /// until the last page is reached.
+    #[tracing::instrument(skip(self), err)]
     pub async fn get_transaction_log_all(
         &self,
         params: GetTransactionLogParams,
@@ -395,6 +410,7 @@ impl Client {
     }
 
     /// Query the account information, like margin mode, account mode, etc.
+    #[tracing::instrument(skip(self), err)]
     pub async fn get_account_info(&self) -> Result<Response<AccountInfo>, Error> {
         let url = format!("{}{}", self.base_url, Path::AccountInfo);
         let query = "";
@@ -411,6 +427,7 @@ impl Client {
 impl Client {
     /// Get API Key Information.
     /// Get the information of the api key. Use the api key pending to be checked to call the endpoint. Both master and sub user's api key are applicable.
+    #[tracing::instrument(skip(self), err)]
     pub async fn get_api_key_information(&self) -> Result<Response<APIKeyInformation>, Error> {
         let url = format!("{}{}", self.base_url, Path::UserQueryApi);
         let query = "";
@@ -427,14 +444,23 @@ async fn send<T>(request: RequestBuilder) -> Result<Response<T>, Error>
 where
     T: serde::de::DeserializeOwned,
 {
+    let start = std::time::Instant::now();
     let response = request.send().await?;
+    let elapsed_ms = start.elapsed().as_millis();
     let headers = parse_headers(response.headers());
     let json = response.text().await?;
     if !headers.is_ret_code_ok() {
         let msg: APIErrorResponse = deserialize_json(&json)?;
+        tracing::debug!(elapsed_ms, ret_code = msg.ret_code, "api error response");
         return Err(msg.into());
     }
 
+    tracing::debug!(
+        elapsed_ms,
+        api_limit = headers.api_limit,
+        api_limit_status = headers.api_limit_status,
+        "api call completed"
+    );
     let response: Resp<_> = deserialize_json(&json)?;
     let response = Response {
         result: response.result,
