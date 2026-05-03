@@ -22,6 +22,10 @@ use serde_aux::prelude::{
 #[serde(untagged)]
 pub enum IncomingMessage {
     Command(CommandMsg),
+    // TickerMsg is 584 bytes (TickerDeltaMsg alone is 528 bytes — 24 optional Decimals × 16 bytes
+    // each, plus TickerSnapshotMsg at 448 bytes). Without Box the entire IncomingMessage enum
+    // would be 584 bytes on every allocation, including the tiny Command/Trade/Topic variants that
+    // flow through the mpsc channel far more frequently. Box keeps IncomingMessage at 104 bytes.
     Ticker(Box<TickerMsg>),
     Trade(TradeMsg),
     KLine(KLineMsg),
