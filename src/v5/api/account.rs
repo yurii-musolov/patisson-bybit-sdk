@@ -12,7 +12,7 @@ use crate::v5::{
 
 use super::common::{Second, Timestamp};
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetWalletBalanceParams {
     /// Account type
@@ -183,7 +183,7 @@ pub struct DCPInfo {
     pub time_window: Second,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetTransactionLogParams {
     /// Account Type. UNIFIED

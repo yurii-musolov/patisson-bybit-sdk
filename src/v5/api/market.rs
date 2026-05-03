@@ -13,7 +13,7 @@ use crate::v5::{
 
 use super::common::Timestamp;
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct GetKLinesParams {
     pub category: Category,
     pub symbol: String,
@@ -61,7 +61,7 @@ pub struct KLineRow {
     pub turnover: Decimal,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct GetTickersParams {
     pub category: Category,
     pub symbol: Option<String>,
@@ -241,7 +241,7 @@ pub struct SpotTicker {
     pub usd_index_price: Option<Decimal>,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetTradesParams {
     pub category: Category,
@@ -340,7 +340,7 @@ pub struct ServerTime {
     pub time_nano: u64,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct GetInstrumentsInfoParams {
     pub category: Category,
     pub symbol: Option<String>,
