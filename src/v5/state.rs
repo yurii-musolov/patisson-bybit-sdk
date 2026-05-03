@@ -1,8 +1,8 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::v5::{
-    Category, Error, Order, OrderMsg, Position, PositionIdx, PositionMsg, WalletBalance, WalletCoin,
-    WalletMsg,
+    Category, Error, Order, OrderMsg, Position, PositionIdx, PositionMsg, WalletBalance,
+    WalletCoin, WalletMsg,
 };
 
 /// Aggregated trading state for a single user account.

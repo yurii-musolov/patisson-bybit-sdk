@@ -479,12 +479,13 @@ pub struct PlaceOrderRequest {
     /// Spot(UTA):
     /// Market: when you set "stopLoss",
     /// Limit: when you set "stopLoss" and "slLimitPrice"
-    /// bboSideType	false	string
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sl_order_type: Option<OrderType>,
     /// Queue: use the order price on the orderbook in the same direction as the side
     /// Counterparty: use the order price on the orderbook in the opposite direction as the side
     /// Valid for linear & inverse
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sl_order_type: Option<OrderType>,
+    pub bbo_side_type: Option<String>,
     /// 1,2,3,4,5 Valid for linear & inverse
     #[serde(skip_serializing_if = "Option::is_none")]
     pub bbo_level: Option<String>,
@@ -530,6 +531,7 @@ impl PlaceOrderRequest {
             sl_limit_price: None,
             tp_order_type: None,
             sl_order_type: None,
+            bbo_side_type: None,
             bbo_level: None,
         }
     }
@@ -636,6 +638,10 @@ impl PlaceOrderRequest {
     }
     pub fn with_sl_order_type(mut self, v: OrderType) -> Self {
         self.sl_order_type = Some(v);
+        self
+    }
+    pub fn with_bbo_side_type(mut self, v: String) -> Self {
+        self.bbo_side_type = Some(v);
         self
     }
     pub fn with_bbo_level(mut self, v: String) -> Self {
