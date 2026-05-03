@@ -11,6 +11,9 @@ pub enum Command {
 pub enum Event {
     Connected,
     Message(IncomingMessage),
+    /// A WebSocket text frame arrived but could not be deserialized.
+    /// The connection stays open — the raw error description is included.
+    ParseError(String),
     Reconnecting { attempt: u32, delay_ms: u64 },
     Disconnected { reason: DisconnectReason },
 }

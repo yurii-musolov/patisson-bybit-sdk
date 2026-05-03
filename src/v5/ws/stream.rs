@@ -172,7 +172,10 @@ impl Stream {
 
                                         self.emit(Event::Message(msg));
                                     }
-                                    Err(e) => warn!(error = %e, "parsing IncomingMessage failed")
+                                    Err(e) => {
+                                        warn!(error = %e, "parsing IncomingMessage failed");
+                                        self.emit(Event::ParseError(e.to_string()));
+                                    }
                                 }
                             }
                             Message::Binary(bytes) => debug!("binary message received ({}B)", bytes.len()),
