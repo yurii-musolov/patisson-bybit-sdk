@@ -8,7 +8,7 @@ use serde_aux::prelude::{
 use crate::v5::{
     ContractType, CopyTrading, CurAuctionPhase, Side, Status,
     enums::{Category, Interval},
-    serde::{empty_string_as_none, invalid_as_none, string_to_bool},
+    serde::{empty_string_as_none, string_to_bool},
 };
 
 use super::common::Timestamp;
@@ -147,7 +147,7 @@ pub struct LinearInverseTicker {
     #[serde(default, deserialize_with = "option_decimal")]
     pub pre_qty: Option<Decimal>,
     /// Enum: NotStarted, Finished, CallAuction, CallAuctionNoCancel, CrossMatching, ContinuousTrading.
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub cur_pre_listing_phase: Option<CurAuctionPhase>,
 }
 

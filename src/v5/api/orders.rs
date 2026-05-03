@@ -3,11 +3,10 @@ use serde::{Deserialize, Serialize};
 use serde_aux::prelude::deserialize_number_from_string as number;
 
 use crate::v5::{
-    CancelType, CreateType, OcoTriggerBy, OrderMsg, OrderStatus, OrderType,
-    PlaceType, PositionIdx, RejectReason, Side, SmpType, TimeInForce, TpslMode, TriggerBy,
-    TriggerDirection,
+    CancelType, CreateType, OcoTriggerBy, OrderMsg, OrderStatus, OrderType, PlaceType, PositionIdx,
+    RejectReason, Side, SmpType, TimeInForce, TpslMode, TriggerBy, TriggerDirection,
     enums::{Category, StopOrderType},
-    serde::{empty_string_as_none, invalid_as_none, string_to_option_bool},
+    serde::{empty_string_as_none, string_to_option_bool},
 };
 
 use super::common::Timestamp;
@@ -165,7 +164,7 @@ pub struct Order {
     /// Order create type
     /// Only for category=linear or inverse
     /// Spot, Option do not have this key
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub create_type: Option<CreateType>,
     /// Cancel type
     pub cancel_type: CancelType,
@@ -191,7 +190,7 @@ pub struct Order {
     /// Order type. Market,Limit. For TP/SL order, it means the order type after triggered
     pub order_type: OrderType,
     /// Stop order type
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub stop_order_type: Option<StopOrderType>,
     /// Implied volatility
     #[serde(default, deserialize_with = "option_decimal")]
@@ -209,10 +208,10 @@ pub struct Order {
     #[serde(default, deserialize_with = "option_decimal")]
     pub stop_loss: Option<Decimal>,
     /// TP/SL mode, Full: entire position for TP/SL. Partial: partial position tp/sl. Spot does not have this field, and Option returns always ""
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub tpsl_mode: Option<TpslMode>,
     /// The trigger type of Spot OCO order.OcoTriggerByUnknown, OcoTriggerByTp, OcoTriggerByBySl. Classic spot is not supported
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub oco_trigger_by: Option<OcoTriggerBy>,
     /// The limit order price when take profit price is triggered
     #[serde(default, deserialize_with = "option_decimal")]
@@ -221,15 +220,15 @@ pub struct Order {
     #[serde(default, deserialize_with = "option_decimal")]
     pub sl_limit_price: Option<Decimal>,
     /// The price type to trigger take profit
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub tp_trigger_by: Option<TriggerBy>,
     /// The price type to trigger stop loss
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub sl_trigger_by: Option<TriggerBy>,
     /// Trigger direction. 1: rise, 2: fall
     pub trigger_direction: TriggerDirection,
     /// The price type of trigger price
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub trigger_by: Option<TriggerBy>,
     /// Last price when place the order, Spot is not applicable
     #[serde(default, deserialize_with = "option_decimal")]
@@ -242,7 +241,7 @@ pub struct Order {
     /// Close on trigger. What is a close on trigger order?
     pub close_on_trigger: bool,
     /// Place type, option used. iv, price
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub place_type: Option<PlaceType>,
     /// SMP execution type
     pub smp_type: SmpType,
@@ -653,8 +652,6 @@ pub struct PlaceOrderResponse {
     pub order_link_id: String,
 }
 
-// TODO: Implement.
-// https://bybit-exchange.github.io/docs/v5/order/amend-order
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AmendOrderRequest {

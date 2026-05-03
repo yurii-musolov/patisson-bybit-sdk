@@ -8,11 +8,11 @@ use serde_aux::prelude::{
 use crate::v5::{
     AdlRankIndicator, PositionIdx, PositionMsg, PositionStatus, Side,
     enums::Category,
-    serde::{empty_string_as_none, int_to_bool, invalid_as_none},
+    serde::{empty_string_as_none, int_to_bool},
 };
 
-use super::common::Timestamp;
 use super::account::WalletCoin;
+use super::common::Timestamp;
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -96,7 +96,7 @@ pub struct Position {
     /// Position side. Buy: long, Sell: short
     /// one-way mode: classic & UTA1.0(inverse), an empty position returns None.
     /// UTA2.0(linear, inverse) & UTA1.0(linear): either one-way or hedge mode returns an empty string "" for an empty position.
-    #[serde(default, deserialize_with = "invalid_as_none")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub side: Option<Side>,
     /// Position size, always positive
     pub size: Decimal,
