@@ -7,9 +7,9 @@ use tokio::{
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{debug, error, info, warn};
 
-use crate::v5::{
-    IncomingMessage, OutgoingMessage,
+use crate::{
     serde::{deserialize_json, serialize_json},
+    ws::{IncomingMessage, OutgoingMessage},
 };
 
 use super::{

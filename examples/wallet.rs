@@ -8,7 +8,10 @@ use tokio;
 use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
-use bybit::v5::{AccountType, BASE_URL_API_DEMO, Client, ClientConfig, GetWalletBalanceParams};
+use bybit::{
+    AccountType, BASE_URL_API_DEMO,
+    http::{Client, Config, GetWalletBalanceParams},
+};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -26,7 +29,7 @@ async fn main() -> anyhow::Result<()> {
 
     let base_url = BASE_URL_API_DEMO;
 
-    let cfg = ClientConfig {
+    let cfg = Config {
         base_url: base_url.to_owned(),
         api_key: Some(api_key),
         api_secret: Some(api_secret),

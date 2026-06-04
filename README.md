@@ -40,10 +40,10 @@ The scope of the package is intentionally limited to the most commonly used func
 ### Get tickers
 
 ```rust
-use bybit::v5::{BASE_URL_API_MAINNET_1, Category, Client, GetTickersParams};
+use bybit::v5::{ BASE_URL_API_MAINNET_1, Category, http::{ Client, Config, GetTickersParams } };
 
-let cfg = ClientConfig {
-    base_url: BASE_URL_API_MAINNET_1.to_string(),
+let cfg = Config {
+    base_url: BASE_URL_API_MAINNET_1.to_owned(),
     api_key: None,
     api_secret: None,
     recv_window: 5000, // Milliseconds.
@@ -63,9 +63,8 @@ println!("{response:#?}");
 ### Subscribe to public channel 'ticker'
 
 ```rust
-use bybit::v5::{
-    BASE_URL_STREAM_MAINNET_1, Interval, OutgoingMessage, Path, Topic,
-    ws::{self, DEFAULT_PING_INTERVAL, DEFAULT_PONG_TIMEOUT},
+use bybit::{
+    BASE_URL_STREAM_MAINNET_1, Interval, OutgoingMessage, Path, Topic, ws,
 };
 
 let url = format!("{}{}", BASE_URL_STREAM_MAINNET_1, Path::PublicLinear);
@@ -80,10 +79,8 @@ let unsub = OutgoingMessage::Unsubscribe {
     args,
 };
 
-let cfg = ws::Config::new(url)
-    .ping_interval(Some(DEFAULT_PING_INTERVAL))
-    .pong_timeout(DEFAULT_PONG_TIMEOUT);
-let (handle, mut events) = ws::spawn(cfg);
+let cfg = ws::Config::new(url);
+let (handle, mut events) = ws::Stream::new(cfg);
 
 tokio::spawn(async move {
     let _ = handle.connect().await?;
@@ -105,9 +102,8 @@ while let Some(event) = events.recv().await {
 ### Subscribe to private channels
 
 ```rust
-use bybit::v5::{
-    BASE_URL_STREAM_DEMO, OutgoingMessage, Path, Topic, create_outgoing_message_auth,
-    ws::{self, DEFAULT_PING_INTERVAL, DEFAULT_PONG_TIMEOUT},
+use bybit::{
+    BASE_URL_STREAM_DEMO, Path, Topic, ws::{ create_outgoing_message_auth, OutgoingMessage },
 };
 
 use Topic::{ExecutionAllCategory, OrderAllCategory, PositionAllCategory, Wallet};
@@ -133,9 +129,7 @@ let unsub = OutgoingMessage::Unsubscribe {
     args,
 };
 
-let cfg = ws::Config::new(url)
-    .ping_interval(Some(DEFAULT_PING_INTERVAL))
-    .pong_timeout(DEFAULT_PONG_TIMEOUT);
+let cfg = ws::Config::new(url);
 let (handle, mut events) = ws::spawn(cfg);
 
 tokio::spawn(async move {

@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::v5::VipLevel;
+use crate::VipLevel;
 
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]

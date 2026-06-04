@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
-use crate::v5::{
+use crate::{
     Category, Error, Order, OrderMsg, Position, PositionIdx, PositionMsg, WalletBalance,
     WalletCoin, WalletMsg,
 };

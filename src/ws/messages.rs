@@ -1,4 +1,4 @@
-use crate::v5::{IncomingMessage, OutgoingMessage};
+use crate::ws::{IncomingMessage, OutgoingMessage};
 
 #[derive(Debug)]
 pub enum Command {

@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use crate::v5::{SensitiveString, Timestamp, Topic, create_stream_signature, timestamp};
+use crate::{SensitiveString, Timestamp, Topic, create_stream_signature, timestamp};
 
 #[derive(Serialize, Debug)]
 #[serde(tag = "op")]
@@ -54,7 +54,7 @@ pub fn create_outgoing_message_auth(
 
 #[cfg(test)]
 mod tests {
-    use crate::v5::*;
+    use crate::*;
 
     use super::*;
 

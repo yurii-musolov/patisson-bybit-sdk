@@ -1,9 +1,6 @@
 use tokio::sync::mpsc;
 
-use crate::v5::{
-    OutgoingMessage,
-    ws::{self, Command},
-};
+use crate::ws::{self, Command, OutgoingMessage};
 
 #[derive(Clone)]
 pub struct Handle {

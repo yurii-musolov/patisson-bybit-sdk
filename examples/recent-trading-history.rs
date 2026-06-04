@@ -8,7 +8,10 @@ use tokio;
 use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
-use bybit::v5::{BASE_URL_API_MAINNET_1, Category, Client, ClientConfig, GetTradesParams};
+use bybit::{
+    BASE_URL_API_MAINNET_1, Category,
+    http::{Client, Config, GetTradesParams},
+};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -17,8 +20,10 @@ async fn main() -> anyhow::Result<()> {
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
-    let cfg = ClientConfig {
-        base_url: BASE_URL_API_MAINNET_1.to_string(),
+    let base_url = BASE_URL_API_MAINNET_1;
+
+    let cfg = Config {
+        base_url: base_url.to_owned(),
         api_key: None,
         api_secret: None,
         recv_window: 5000, // Milliseconds.

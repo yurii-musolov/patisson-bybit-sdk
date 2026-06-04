@@ -9,8 +9,9 @@ use tokio;
 use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
-use bybit::v5::{
-    BASE_URL_API_DEMO, Category, Client, ClientConfig, GetTransactionLogParams, Timestamp,
+use bybit::{
+    BASE_URL_API_DEMO, Category, Timestamp,
+    http::{Client, Config, GetTransactionLogParams},
     timestamp,
 };
 
@@ -30,7 +31,7 @@ async fn main() -> anyhow::Result<()> {
 
     let base_url = BASE_URL_API_DEMO;
 
-    let cfg = ClientConfig {
+    let cfg = Config {
         base_url: base_url.to_owned(),
         api_key: Some(api_key),
         api_secret: Some(api_secret),

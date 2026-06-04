@@ -5,15 +5,15 @@ use serde_aux::prelude::{
     deserialize_option_number_from_string as option_number,
 };
 
-use crate::v5::{
-    AdlRankIndicator, ExecType, OrderType, PositionIdx, PositionMode, PositionMsg, PositionStatus,
-    Side, TpslMode, TradeMode, TriggerBy,
+use crate::{
+    AdlRankIndicator, ExecType, OrderType, PositionIdx, PositionMode, PositionStatus, Side,
+    Timestamp, TpslMode, TradeMode, TriggerBy,
     enums::{Category, StopOrderType},
     serde::{empty_string_as_none, int_to_bool},
+    ws::PositionMsg,
 };
 
 use super::account::WalletCoin;
-use super::common::Timestamp;
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

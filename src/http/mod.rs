@@ -1,11 +1,13 @@
-pub mod account;
-pub mod common;
-pub mod market;
-pub mod orders;
-pub mod positions;
-pub mod user;
+mod account;
+mod client;
+mod common;
+mod market;
+mod orders;
+mod positions;
+mod user;
 
 pub use account::*;
+pub use client::*;
 pub use common::*;
 pub use market::*;
 pub use orders::*;
@@ -18,7 +20,7 @@ mod tests {
 
     use rust_decimal::dec;
 
-    use crate::v5::{
+    use crate::{
         AccountType, AdlRankIndicator, CancelType, CreateType, MarginMode, OrderStatus, OrderType,
         PositionIdx, PositionStatus, RejectReason, Side, SmpType, SpotHedgingStatus, TimeInForce,
         TpslMode, TriggerBy, TriggerDirection, UnifiedMarginStatus,

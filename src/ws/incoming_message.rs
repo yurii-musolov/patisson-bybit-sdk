@@ -1,16 +1,15 @@
 use std::collections::HashMap;
 
-use crate::v5::{
-    AccountType, AdlRankIndicator, ExecType, ExtraFeeType, ExtraSubFeeType, Topic, WalletCoin,
+use crate::{
+    AccountType, AdlRankIndicator, CancelType, Category, CreateType, ExecType, ExtraFeeType,
+    ExtraSubFeeType, Interval, OcoTriggerBy, OrderStatus, OrderType, PlaceType, PositionIdx,
+    PositionStatus, RejectReason, Side, SlippageToleranceType, SmpType, StopOrderType,
+    TickDirection, TimeInForce, Timestamp, Topic, TpslMode, TriggerBy, TriggerDirection,
+    http::WalletCoin,
     serde::hash_map,
-};
-
-use super::{
-    CancelType, Category, CreateType, Interval, OcoTriggerBy, OrderStatus, OrderType, PlaceType,
-    PositionIdx, PositionStatus, RejectReason, Side, SlippageToleranceType, SmpType, StopOrderType,
-    TickDirection, TimeInForce, Timestamp, TpslMode, TriggerBy, TriggerDirection,
     serde::{empty_string_as_none, int_to_bool, string_to_bool, string_to_option_bool},
 };
+
 use rust_decimal::{Decimal, serde::str_option::deserialize as option_decimal};
 use serde::Deserialize;
 use serde_aux::prelude::{
@@ -791,7 +790,7 @@ pub struct ExtraFee {
 mod tests {
     use rust_decimal::dec;
 
-    use crate::v5::serde::{Unique, deserialize_json};
+    use crate::serde::{Unique, deserialize_json};
 
     use super::*;
 

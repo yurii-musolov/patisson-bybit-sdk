@@ -10,9 +10,9 @@ use tokio::{self, time::sleep};
 use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
-use bybit::v5::{
-    BASE_URL_STREAM_DEMO, OutgoingMessage, Path, Topic, create_outgoing_message_auth,
-    ws::{self, DEFAULT_PING_INTERVAL, DEFAULT_PONG_TIMEOUT},
+use bybit::{
+    BASE_URL_STREAM_DEMO, Path, Topic,
+    ws::{self, OutgoingMessage, create_outgoing_message_auth},
 };
 
 use Topic::{ExecutionAllCategory, OrderAllCategory, PositionAllCategory, Wallet};
@@ -49,9 +49,7 @@ async fn main() -> anyhow::Result<()> {
         args,
     };
 
-    let cfg = ws::Config::new(url)
-        .ping_interval(Some(DEFAULT_PING_INTERVAL))
-        .pong_timeout(DEFAULT_PONG_TIMEOUT);
+    let cfg = ws::Config::new(url);
     let (handle, mut events) = ws::Stream::new(cfg);
 
     tokio::spawn(async move {

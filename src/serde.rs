@@ -54,7 +54,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use crate::v5::serde::deserialize_json;
+    use crate::serde::deserialize_json;
 
     use super::*;
 

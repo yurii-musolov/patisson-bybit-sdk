@@ -1,25 +1,26 @@
-use crate::v5::{
-    APIErrorResponse, APIKeyInformation, AccountInfo, AmendOrderBatchRequest,
-    AmendOrderBatchResult, AmendOrderRequest, AmendOrderResponse, CancelAllOrdersRequest,
-    CancelAllOrdersResponse, CancelOrderBatchRequest, CancelOrderBatchResult, CancelOrderRequest,
-    CancelOrderResponse, ClosedPnl, EmptyResult, ExecutionEntry, GetClosedPnlParams,
-    GetExecutionListParams, GetOrderHistoryParams, GetPositionInfoParams, GetTransactionLogParams,
-    GetWalletBalanceParams, List, PlaceOrderBatchRequest, PlaceOrderBatchResult, PlaceOrderRequest,
-    PlaceOrderResponse, Position, SetAutoAddMarginRequest, SetLeverageRequest, SetRiskLimitRequest,
-    SetRiskLimitResponse, SetTradingStopRequest, SwitchCrossIsolatedMarginRequest,
-    SwitchPositionModeRequest, Timestamp, TransactionLog, WalletBalance,
-    crypto::Signer,
+use crate::{
+    Error, Timestamp,
+    crypto::{SensitiveString, Signer},
+    http::{
+        APIErrorResponse, APIKeyInformation, AccountInfo, AmendOrderBatchRequest,
+        AmendOrderBatchResult, AmendOrderRequest, AmendOrderResponse, CancelAllOrdersRequest,
+        CancelAllOrdersResponse, CancelOrderBatchRequest, CancelOrderBatchResult,
+        CancelOrderRequest, CancelOrderResponse, ClosedPnl, CursorPagination, EmptyResult,
+        ExecutionEntry, GetClosedPnlParams, GetExecutionListParams, GetInstrumentsInfoParams,
+        GetKLinesParams, GetOpenClosedOrdersParams, GetOrderHistoryParams, GetPositionInfoParams,
+        GetTickersParams, GetTradesParams, GetTransactionLogParams, GetWalletBalanceParams,
+        Headers, InstrumentsInfo, KLine, List, Order, PlaceOrderBatchRequest,
+        PlaceOrderBatchResult, PlaceOrderRequest, PlaceOrderResponse, Position, Resp, Response,
+        ServerTime, SetAutoAddMarginRequest, SetLeverageRequest, SetRiskLimitRequest,
+        SetRiskLimitResponse, SetTradingStopRequest, SwitchCrossIsolatedMarginRequest,
+        SwitchPositionModeRequest, Ticker, Trade, TransactionLog, WalletBalance,
+    },
     serde::{deserialize_json, serialize_json, serialize_query},
+    url::*,
 };
 use reqwest::{self, Method, RequestBuilder, header::HeaderMap};
 
-use super::{
-    CursorPagination, Error, GetInstrumentsInfoParams, GetKLinesParams, GetOpenClosedOrdersParams,
-    GetTickersParams, GetTradesParams, Headers, InstrumentsInfo, KLine, Order, Resp, Response,
-    ServerTime, Ticker, Trade, crypto::SensitiveString, url::*,
-};
-
-pub struct ClientConfig {
+pub struct Config {
     pub base_url: String,
     pub api_key: Option<SensitiveString>,
     pub api_secret: Option<SensitiveString>,
@@ -39,7 +40,7 @@ pub struct Client {
 }
 
 impl Client {
-    pub fn new(cfg: ClientConfig) -> Result<Self, Error> {
+    pub fn new(cfg: Config) -> Result<Self, Error> {
         let mut headers = HeaderMap::new();
 
         if let Some(api_key) = cfg.api_key.as_ref() {

@@ -1368,7 +1368,7 @@ pub fn spot_fee_currency(side: Side, is_maker_order: bool, maker_fee_rate: f64) 
 
 #[cfg(test)]
 mod tests {
-    use crate::v5::serde::deserialize_json;
+    use crate::serde::deserialize_json;
 
     use super::*;
 

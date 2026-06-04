@@ -5,13 +5,11 @@ use serde_aux::prelude::{
     deserialize_option_number_from_string as option_number,
 };
 
-use crate::v5::{
-    ContractType, CopyTrading, CurAuctionPhase, Side, Status,
+use crate::{
+    ContractType, CopyTrading, CurAuctionPhase, Side, Status, Timestamp,
     enums::{Category, Interval},
     serde::{empty_string_as_none, string_to_bool},
 };
-
-use super::common::Timestamp;
 
 #[derive(Debug, Serialize)]
 pub struct GetKLinesParams {

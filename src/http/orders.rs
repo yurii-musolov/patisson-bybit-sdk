@@ -3,14 +3,13 @@ use serde::{Deserialize, Serialize};
 use serde_aux::prelude::deserialize_number_from_string as number;
 
 use super::common::List;
-use crate::v5::{
-    CancelType, CreateType, OcoTriggerBy, OrderMsg, OrderStatus, OrderType, PlaceType, PositionIdx,
-    RejectReason, Side, SmpType, TimeInForce, TpslMode, TriggerBy, TriggerDirection,
+use crate::{
+    CancelType, CreateType, OcoTriggerBy, OrderStatus, OrderType, PlaceType, PositionIdx,
+    RejectReason, Side, SmpType, TimeInForce, Timestamp, TpslMode, TriggerBy, TriggerDirection,
     enums::{Category, StopOrderType},
     serde::{empty_string_as_none, string_to_option_bool},
+    ws::OrderMsg,
 };
-
-use super::common::Timestamp;
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

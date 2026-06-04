@@ -50,8 +50,8 @@ impl From<&str> for Error {
     }
 }
 
-impl From<super::APIErrorResponse> for Error {
-    fn from(resp: super::APIErrorResponse) -> Self {
+impl From<super::http::APIErrorResponse> for Error {
+    fn from(resp: super::http::APIErrorResponse) -> Self {
         Self::Api {
             code: resp.ret_code,
             msg: resp.ret_msg,

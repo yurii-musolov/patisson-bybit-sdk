@@ -4,13 +4,12 @@ use rust_decimal::{Decimal, serde::str_option::deserialize as option_decimal};
 use serde::{Deserialize, Serialize};
 use serde_aux::prelude::deserialize_number_from_string as number;
 
-use crate::v5::{
-    AccountType, DCPProduct, MarginMode, SpotHedgingStatus, UnifiedMarginStatus, WalletMsg,
+use crate::{
+    AccountType, DCPProduct, MarginMode, Second, SpotHedgingStatus, Timestamp, UnifiedMarginStatus,
     enums::Category,
     serde::{Unique, hash_map},
+    ws::WalletMsg,
 };
-
-use super::common::{Second, Timestamp};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -306,7 +305,7 @@ pub struct TransactionLog {
     /// Product type
     pub category: Category,
     /// Side. Buy,Sell,None
-    pub side: crate::v5::Side,
+    pub side: crate::Side,
     /// Transaction timestamp (ms)
     #[serde(deserialize_with = "number")]
     pub transaction_time: Timestamp,
@@ -350,7 +349,7 @@ pub struct TransactionLog {
     /// Order ID
     pub order_id: String,
     /// User customised order ID
-    #[serde(default, deserialize_with = "crate::v5::serde::empty_string_as_none")]
+    #[serde(default, deserialize_with = "crate::serde::empty_string_as_none")]
     pub order_link_id: Option<String>,
     /// Trading fee rate information. Currently, this data is returned only for spot orders placed on the Indonesian site or spot fiat currency orders placed on the EU site. In other cases, an empty string is returned. Enum: feeType, subFeeType
     #[serde(default)]

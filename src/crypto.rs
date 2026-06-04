@@ -1,9 +1,8 @@
-use hex;
 use hmac::{Hmac, KeyInit, Mac};
 use sha2::Sha256;
 use std::fmt;
 
-use crate::v5::Timestamp;
+use crate::Timestamp;
 
 #[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SensitiveString(String);
@@ -62,7 +61,7 @@ impl SensitiveString {
 ///
 /// # Example
 /// ```
-/// use bybit::v5::hmac_sha256;
+/// use bybit::hmac_sha256;
 /// let signature = hmac_sha256(b"my-secret-key", b"important message");
 /// println!("HMAC: {signature}");
 /// ```
