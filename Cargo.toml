@@ -1,6 +1,6 @@
 [package]
 name = "patisson-bybit-sdk"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 authors = ["Yurii Musolov <yurii.musolov@gmail.com>"]
 description = "Unofficial Rust SDK for the Bybit exchange API"
@@ -11,6 +11,13 @@ repository = "https://github.com/yurii-musolov/patisson-bybit-sdk"
 license = "MIT"
 license-file = "LICENSE"
 readme = "README.md"
+include = [
+  "/src/**/*",
+  "/examples/**/*",
+  "/Cargo.toml",
+  "/README.md",
+  "/LICENSE",
+]
 
 [lib]
 name = "bybit"
@@ -26,7 +33,7 @@ futures-util = { version = "0.3.32", default-features = false, features = [
 hex = "0.4.3"
 hmac = "0.13.0"
 reqwest = { version = "0.13.4", features = ["json", "query"] }
-rust_decimal = { version = "1.42.0", features = [
+rust_decimal = { version = "1.42.1", features = [
   "std",
   "macros",
   "serde-str",
