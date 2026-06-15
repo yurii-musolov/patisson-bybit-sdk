@@ -11,7 +11,7 @@ use crate::{
     serde::{empty_string_as_none, string_to_bool},
 };
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct GetKLinesParams {
     pub category: Category,
     pub symbol: String,
@@ -59,7 +59,7 @@ pub struct KLineRow {
     pub turnover: Decimal,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct GetTickersParams {
     pub category: Category,
     pub symbol: Option<String>,
@@ -239,7 +239,51 @@ pub struct SpotTicker {
     pub usd_index_price: Option<Decimal>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
+pub struct GetOrderbookParams {
+    pub category: Category,
+    pub symbol: String,
+    /// Limit size for each bid and ask
+    /// - spot: [1, 1000]. Default: 1.
+    /// - linear&inverse: [1, 1000]. Default: 25.
+    /// - option: [1, 25]. Default: 1.
+    pub limit: Option<u64>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct Orderbook {
+    /// Symbol name
+    #[serde(rename = "s")]
+    pub symbol: String,
+    /// Bid, buy side. Sorted by price in descending order
+    #[serde(rename = "b")]
+    pub bids: Vec<OrderbookLevel>,
+    /// Ask, sell side. Sorted by price in ascending order
+    #[serde(rename = "a")]
+    pub asks: Vec<OrderbookLevel>,
+    /// The timestamp (ms) that the system generates the data
+    pub ts: Timestamp,
+    /// Update ID, is a sequence. Occasionally, you'll receive "u"=1, which is a snapshot
+    /// data due to the restart of the service. So please overwrite your local orderbook
+    #[serde(rename = "u")]
+    pub update_id: i64,
+    /// Cross sequence. You can use this field to compare different levels orderbook data,
+    /// and for the smaller seq, then it means the data is generated earlier
+    pub seq: i64,
+    /// Cross timestamp (ms). Spot only
+    #[serde(default)]
+    pub cts: Option<Timestamp>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct OrderbookLevel {
+    /// Price
+    pub price: Decimal,
+    /// Size
+    pub size: Decimal,
+}
+
+#[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct GetTradesParams {
     pub category: Category,
@@ -338,7 +382,7 @@ pub struct ServerTime {
     pub time_nano: u64,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 pub struct GetInstrumentsInfoParams {
     pub category: Category,
     pub symbol: Option<String>,

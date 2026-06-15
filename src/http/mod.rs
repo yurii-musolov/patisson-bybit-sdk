@@ -245,6 +245,67 @@ mod tests {
     }
 
     #[test]
+    fn deserialize_response_orderbook_linear() {
+        let json = r#"{
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+                "s": "BTCUSDT",
+                "b": [
+                    ["30190.65", "0.165956"],
+                    ["30190.10", "0.020000"]
+                ],
+                "a": [
+                    ["30201.42", "1.038467"],
+                    ["30201.50", "0.500000"]
+                ],
+                "ts": 1675418560614,
+                "u": 177400507,
+                "seq": 66544703342
+            },
+            "retExtInfo": {},
+            "time": 1675418560633
+        }"#;
+        let expected = Resp {
+            ret_code: 0,
+            ret_msg: String::from("OK"),
+            result: Orderbook {
+                symbol: String::from("BTCUSDT"),
+                bids: vec![
+                    OrderbookLevel {
+                        price: dec!(30190.65),
+                        size: dec!(0.165956),
+                    },
+                    OrderbookLevel {
+                        price: dec!(30190.10),
+                        size: dec!(0.020000),
+                    },
+                ],
+                asks: vec![
+                    OrderbookLevel {
+                        price: dec!(30201.42),
+                        size: dec!(1.038467),
+                    },
+                    OrderbookLevel {
+                        price: dec!(30201.50),
+                        size: dec!(0.500000),
+                    },
+                ],
+                ts: 1675418560614,
+                update_id: 177400507,
+                seq: 66544703342,
+                cts: None,
+            },
+            time: Some(1675418560633),
+            ret_ext_info: Some(RetExtInfo::default()),
+        };
+
+        let message = deserialize_json(json).unwrap();
+
+        assert_eq!(expected, message);
+    }
+
+    #[test]
     fn deserialize_response_get_open_closed_orders_linear() {
         let json = r#"{
             "retCode": 0,

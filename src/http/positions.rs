@@ -271,7 +271,7 @@ impl Position {
 
 // ── Set Leverage ─────────────────────────────────────────────────────────────
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SetLeverageRequest {
     /// linear, inverse
@@ -302,7 +302,7 @@ impl SetLeverageRequest {
 
 // ── Set Trading Stop ─────────────────────────────────────────────────────────
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SetTradingStopRequest {
     /// linear, inverse
@@ -422,7 +422,7 @@ impl SetTradingStopRequest {
 
 // ── Switch Cross / Isolated Margin ───────────────────────────────────────────
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SwitchCrossIsolatedMarginRequest {
     /// linear, inverse
@@ -463,7 +463,7 @@ impl SwitchCrossIsolatedMarginRequest {
 
 // ── Switch Position Mode ─────────────────────────────────────────────────────
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SwitchPositionModeRequest {
     /// linear, inverse
@@ -506,7 +506,7 @@ impl SwitchPositionModeRequest {
 
 // ── Set Auto Add Margin ──────────────────────────────────────────────────────
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SetAutoAddMarginRequest {
     /// linear, inverse
@@ -536,7 +536,7 @@ impl SetAutoAddMarginRequest {
 
 // ── Set Risk Limit ───────────────────────────────────────────────────────────
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SetRiskLimitRequest {
     /// linear, inverse

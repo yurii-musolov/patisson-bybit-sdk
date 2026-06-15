@@ -38,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
         limit: None,
         cursor: None,
     };
-    let response = client.get_instruments_info(params).await?;
+    let response = client.get_instruments_info(&params).await?;
     info!(?response);
 
     Ok(())

@@ -43,7 +43,7 @@ async fn main() -> anyhow::Result<()> {
         coin: None,
     };
 
-    let response = client.get_wallet_balance(params).await?;
+    let response = client.get_wallet_balance(&params).await?;
     info!(?response);
 
     Ok(())

@@ -318,7 +318,7 @@ impl Order {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaceOrderRequest {
     /// Product type
@@ -658,7 +658,7 @@ pub struct PlaceOrderResponse {
     pub order_link_id: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AmendOrderRequest {
     pub category: Category,
@@ -713,7 +713,7 @@ pub struct AmendOrderResponse {
     pub order_link_id: Option<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CancelOrderRequest {
     /// Product type. linear, inverse, spot, option
@@ -770,7 +770,7 @@ pub struct CancelOrderResponse {
 
 // ── Cancel All Orders ────────────────────────────────────────────────────────
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CancelAllOrdersRequest {
     pub category: Category,
@@ -923,21 +923,21 @@ impl GetOrderHistoryParams {
 
 // ── Batch Orders ─────────────────────────────────────────────────────────────
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaceOrderBatchRequest {
     pub category: Category,
     pub request: Vec<PlaceOrderRequest>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AmendOrderBatchRequest {
     pub category: Category,
     pub request: Vec<AmendOrderRequest>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CancelOrderBatchRequest {
     pub category: Category,

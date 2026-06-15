@@ -7,13 +7,14 @@ use crate::{
         CancelAllOrdersResponse, CancelOrderBatchRequest, CancelOrderBatchResult,
         CancelOrderRequest, CancelOrderResponse, ClosedPnl, CursorPagination, EmptyResult,
         ExecutionEntry, GetClosedPnlParams, GetExecutionListParams, GetInstrumentsInfoParams,
-        GetKLinesParams, GetOpenClosedOrdersParams, GetOrderHistoryParams, GetPositionInfoParams,
-        GetTickersParams, GetTradesParams, GetTransactionLogParams, GetWalletBalanceParams,
-        Headers, InstrumentsInfo, KLine, List, Order, PlaceOrderBatchRequest,
-        PlaceOrderBatchResult, PlaceOrderRequest, PlaceOrderResponse, Position, Resp, Response,
-        ServerTime, SetAutoAddMarginRequest, SetLeverageRequest, SetRiskLimitRequest,
-        SetRiskLimitResponse, SetTradingStopRequest, SwitchCrossIsolatedMarginRequest,
-        SwitchPositionModeRequest, Ticker, Trade, TransactionLog, WalletBalance,
+        GetKLinesParams, GetOpenClosedOrdersParams, GetOrderHistoryParams, GetOrderbookParams,
+        GetPositionInfoParams, GetTickersParams, GetTradesParams, GetTransactionLogParams,
+        GetWalletBalanceParams, Headers, InstrumentsInfo, KLine, List, Order, Orderbook,
+        PlaceOrderBatchRequest, PlaceOrderBatchResult, PlaceOrderRequest, PlaceOrderResponse,
+        Position, Resp, Response, ServerTime, SetAutoAddMarginRequest, SetLeverageRequest,
+        SetRiskLimitRequest, SetRiskLimitResponse, SetTradingStopRequest,
+        SwitchCrossIsolatedMarginRequest, SwitchPositionModeRequest, Ticker, Trade, TransactionLog,
+        WalletBalance,
     },
     serde::{deserialize_json, serialize_json, serialize_query},
     url::*,
@@ -100,10 +101,10 @@ impl Client {
     }
 
     #[tracing::instrument(skip(self), err)]
-    pub async fn get_kline(&self, params: GetKLinesParams) -> Result<Response<KLine>, Error> {
+    pub async fn get_kline(&self, params: &GetKLinesParams) -> Result<Response<KLine>, Error> {
         let url = format!("{}{}", self.base_url, Path::MarketKline);
 
-        let request = self.client.request(Method::GET, url).query(&params);
+        let request = self.client.request(Method::GET, url).query(params);
 
         let response = send(request).await?;
         Ok(response)
@@ -113,10 +114,27 @@ impl Client {
     /// Query for the latest price snapshot, best bid/ask price, and trading volume in the last 24 hours.
     /// If category=option, symbol or baseCoin must be passed.
     #[tracing::instrument(skip(self), err)]
-    pub async fn get_tickers(&self, params: GetTickersParams) -> Result<Response<Ticker>, Error> {
+    pub async fn get_tickers(&self, params: &GetTickersParams) -> Result<Response<Ticker>, Error> {
         let url = format!("{}{}", self.base_url, Path::MarketTickers);
 
-        let request = self.client.request(Method::GET, url).query(&params);
+        let request = self.client.request(Method::GET, url).query(params);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Orderbook.
+    /// Query for orderbook depth data.
+    ///
+    /// Covers: Spot / USDT contract / USDC contract / Inverse contract / Option
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_orderbook(
+        &self,
+        params: &GetOrderbookParams,
+    ) -> Result<Response<Orderbook>, Error> {
+        let url = format!("{}{}", self.base_url, Path::MarketOrderbook);
+
+        let request = self.client.request(Method::GET, url).query(params);
 
         let response = send(request).await?;
         Ok(response)
@@ -125,11 +143,11 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn get_instruments_info(
         &self,
-        params: GetInstrumentsInfoParams,
+        params: &GetInstrumentsInfoParams,
     ) -> Result<Response<InstrumentsInfo>, Error> {
         let url = format!("{}{}", self.base_url, Path::MarketInstrumentsInfo);
 
-        let request = self.client.request(Method::GET, url).query(&params);
+        let request = self.client.request(Method::GET, url).query(params);
 
         let response = send(request).await?;
         Ok(response)
@@ -138,11 +156,11 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn get_public_recent_trading_history(
         &self,
-        params: GetTradesParams,
+        params: &GetTradesParams,
     ) -> Result<Response<Trade>, Error> {
         let url = format!("{}{}", self.base_url, Path::MarketRecentTrade);
 
-        let request = self.client.request(Method::GET, url).query(&params);
+        let request = self.client.request(Method::GET, url).query(params);
 
         let response = send(request).await?;
         Ok(response)
@@ -200,10 +218,10 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn place_order(
         &self,
-        request: PlaceOrderRequest,
+        request: &PlaceOrderRequest,
     ) -> Result<Response<PlaceOrderResponse>, Error> {
         let url = format!("{}{}", self.base_url, Path::TradeOrderCreate);
-        let json = serialize_json(&request)?;
+        let json = serialize_json(request)?;
         let headers = self.get_signed_headers(&json);
 
         let request = self
@@ -222,10 +240,10 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn amend_order(
         &self,
-        request: AmendOrderRequest,
+        request: &AmendOrderRequest,
     ) -> Result<Response<AmendOrderResponse>, Error> {
         let url = format!("{}{}", self.base_url, Path::TradeOrderAmend);
-        let json = serialize_json(&request)?;
+        let json = serialize_json(request)?;
         let headers = self.get_signed_headers(&json);
 
         let request = self
@@ -246,10 +264,10 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn cancel_order(
         &self,
-        request: CancelOrderRequest,
+        request: &CancelOrderRequest,
     ) -> Result<Response<CancelOrderResponse>, Error> {
         let url = format!("{}{}", self.base_url, Path::TradeOrderCancel);
-        let json = serialize_json(&request)?;
+        let json = serialize_json(request)?;
         let headers = self.get_signed_headers(&json);
 
         let request = self
@@ -278,9 +296,9 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn get_open_closed_orders(
         &self,
-        params: GetOpenClosedOrdersParams,
+        params: &GetOpenClosedOrdersParams,
     ) -> Result<Response<CursorPagination<Order>>, Error> {
-        let query = serialize_query(&params)?;
+        let query = serialize_query(params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::TradeOrderRealtime);
         let headers = self.get_signed_headers(&query);
 
@@ -296,12 +314,12 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn get_open_closed_orders_all(
         &self,
-        params: GetOpenClosedOrdersParams,
+        params: &GetOpenClosedOrdersParams,
     ) -> Result<Vec<Order>, Error> {
         let mut all = Vec::new();
-        let mut p = params;
+        let mut p = params.clone();
         loop {
-            let page = self.get_open_closed_orders(p.clone()).await?;
+            let page = self.get_open_closed_orders(&p).await?;
             all.extend(page.result.list);
             match page.result.next_page_cursor {
                 Some(cursor) => p = p.with_cursor(cursor),
@@ -316,10 +334,10 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn cancel_all_orders(
         &self,
-        request: CancelAllOrdersRequest,
+        request: &CancelAllOrdersRequest,
     ) -> Result<Response<CancelAllOrdersResponse>, Error> {
         let url = format!("{}{}", self.base_url, Path::TradeOrderCancelAll);
-        let json = serialize_json(&request)?;
+        let json = serialize_json(request)?;
         let headers = self.get_signed_headers(&json);
 
         let request = self
@@ -338,9 +356,9 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn get_order_history(
         &self,
-        params: GetOrderHistoryParams,
+        params: &GetOrderHistoryParams,
     ) -> Result<Response<CursorPagination<Order>>, Error> {
-        let query = serialize_query(&params)?;
+        let query = serialize_query(params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::TradeOrderHistory);
         let headers = self.get_signed_headers(&query);
 
@@ -354,12 +372,12 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn get_order_history_all(
         &self,
-        params: GetOrderHistoryParams,
+        params: &GetOrderHistoryParams,
     ) -> Result<Vec<Order>, Error> {
         let mut all = Vec::new();
-        let mut p = params;
+        let mut p = params.clone();
         loop {
-            let page = self.get_order_history(p.clone()).await?;
+            let page = self.get_order_history(&p).await?;
             all.extend(page.result.list);
             match page.result.next_page_cursor {
                 Some(cursor) => p = p.with_cursor(cursor),
@@ -375,10 +393,10 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn place_orders_batch(
         &self,
-        request: PlaceOrderBatchRequest,
+        request: &PlaceOrderBatchRequest,
     ) -> Result<Response<List<PlaceOrderBatchResult>>, Error> {
         let url = format!("{}{}", self.base_url, Path::TradeOrderCreateBatch);
-        let json = serialize_json(&request)?;
+        let json = serialize_json(request)?;
         let headers = self.get_signed_headers(&json);
 
         let request = self
@@ -397,10 +415,10 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn amend_orders_batch(
         &self,
-        request: AmendOrderBatchRequest,
+        request: &AmendOrderBatchRequest,
     ) -> Result<Response<List<AmendOrderBatchResult>>, Error> {
         let url = format!("{}{}", self.base_url, Path::TradeOrderAmendBatch);
-        let json = serialize_json(&request)?;
+        let json = serialize_json(request)?;
         let headers = self.get_signed_headers(&json);
 
         let request = self
@@ -419,10 +437,10 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn cancel_orders_batch(
         &self,
-        request: CancelOrderBatchRequest,
+        request: &CancelOrderBatchRequest,
     ) -> Result<Response<List<CancelOrderBatchResult>>, Error> {
         let url = format!("{}{}", self.base_url, Path::TradeOrderCancelBatch);
-        let json = serialize_json(&request)?;
+        let json = serialize_json(request)?;
         let headers = self.get_signed_headers(&json);
 
         let request = self
@@ -451,9 +469,9 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn get_position_info(
         &self,
-        params: GetPositionInfoParams,
+        params: &GetPositionInfoParams,
     ) -> Result<Response<CursorPagination<Position>>, Error> {
-        let query = serialize_query(&params)?;
+        let query = serialize_query(params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::PositionList);
         let headers = self.get_signed_headers(&query);
 
@@ -469,12 +487,12 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn get_position_info_all(
         &self,
-        params: GetPositionInfoParams,
+        params: &GetPositionInfoParams,
     ) -> Result<Vec<Position>, Error> {
         let mut all = Vec::new();
-        let mut p = params;
+        let mut p = params.clone();
         loop {
-            let page = self.get_position_info(p.clone()).await?;
+            let page = self.get_position_info(&p).await?;
             all.extend(page.result.list);
             match page.result.next_page_cursor {
                 Some(cursor) => p = p.with_cursor(cursor),
@@ -489,10 +507,10 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn set_leverage(
         &self,
-        request: SetLeverageRequest,
+        request: &SetLeverageRequest,
     ) -> Result<Response<EmptyResult>, Error> {
         let url = format!("{}{}", self.base_url, Path::PositionSetLeverage);
-        let json = serialize_json(&request)?;
+        let json = serialize_json(request)?;
         let headers = self.get_signed_headers(&json);
 
         let request = self
@@ -510,10 +528,10 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn set_trading_stop(
         &self,
-        request: SetTradingStopRequest,
+        request: &SetTradingStopRequest,
     ) -> Result<Response<EmptyResult>, Error> {
         let url = format!("{}{}", self.base_url, Path::PositionTradingStop);
-        let json = serialize_json(&request)?;
+        let json = serialize_json(request)?;
         let headers = self.get_signed_headers(&json);
 
         let request = self
@@ -531,10 +549,10 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn switch_cross_isolated_margin(
         &self,
-        request: SwitchCrossIsolatedMarginRequest,
+        request: &SwitchCrossIsolatedMarginRequest,
     ) -> Result<Response<EmptyResult>, Error> {
         let url = format!("{}{}", self.base_url, Path::PositionSwitchIsolated);
-        let json = serialize_json(&request)?;
+        let json = serialize_json(request)?;
         let headers = self.get_signed_headers(&json);
 
         let request = self
@@ -552,10 +570,10 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn switch_position_mode(
         &self,
-        request: SwitchPositionModeRequest,
+        request: &SwitchPositionModeRequest,
     ) -> Result<Response<EmptyResult>, Error> {
         let url = format!("{}{}", self.base_url, Path::PositionSwitchMode);
-        let json = serialize_json(&request)?;
+        let json = serialize_json(request)?;
         let headers = self.get_signed_headers(&json);
 
         let request = self
@@ -573,10 +591,10 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn set_auto_add_margin(
         &self,
-        request: SetAutoAddMarginRequest,
+        request: &SetAutoAddMarginRequest,
     ) -> Result<Response<EmptyResult>, Error> {
         let url = format!("{}{}", self.base_url, Path::PositionSetAutoAddMargin);
-        let json = serialize_json(&request)?;
+        let json = serialize_json(request)?;
         let headers = self.get_signed_headers(&json);
 
         let request = self
@@ -594,10 +612,10 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn set_risk_limit(
         &self,
-        request: SetRiskLimitRequest,
+        request: &SetRiskLimitRequest,
     ) -> Result<Response<SetRiskLimitResponse>, Error> {
         let url = format!("{}{}", self.base_url, Path::PositionSetRiskLimit);
-        let json = serialize_json(&request)?;
+        let json = serialize_json(request)?;
         let headers = self.get_signed_headers(&json);
 
         let request = self
@@ -615,9 +633,9 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn get_closed_pnl(
         &self,
-        params: GetClosedPnlParams,
+        params: &GetClosedPnlParams,
     ) -> Result<Response<CursorPagination<ClosedPnl>>, Error> {
-        let query = serialize_query(&params)?;
+        let query = serialize_query(params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::PositionClosedPnl);
         let headers = self.get_signed_headers(&query);
 
@@ -631,12 +649,12 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn get_closed_pnl_all(
         &self,
-        params: GetClosedPnlParams,
+        params: &GetClosedPnlParams,
     ) -> Result<Vec<ClosedPnl>, Error> {
         let mut all = Vec::new();
-        let mut p = params;
+        let mut p = params.clone();
         loop {
-            let page = self.get_closed_pnl(p.clone()).await?;
+            let page = self.get_closed_pnl(&p).await?;
             all.extend(page.result.list);
             match page.result.next_page_cursor {
                 Some(cursor) => p = p.with_cursor(cursor),
@@ -651,9 +669,9 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn get_execution_list(
         &self,
-        params: GetExecutionListParams,
+        params: &GetExecutionListParams,
     ) -> Result<Response<CursorPagination<ExecutionEntry>>, Error> {
-        let query = serialize_query(&params)?;
+        let query = serialize_query(params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::ExecutionList);
         let headers = self.get_signed_headers(&query);
 
@@ -667,12 +685,12 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn get_execution_list_all(
         &self,
-        params: GetExecutionListParams,
+        params: &GetExecutionListParams,
     ) -> Result<Vec<ExecutionEntry>, Error> {
         let mut all = Vec::new();
-        let mut p = params;
+        let mut p = params.clone();
         loop {
-            let page = self.get_execution_list(p.clone()).await?;
+            let page = self.get_execution_list(&p).await?;
             all.extend(page.result.list);
             match page.result.next_page_cursor {
                 Some(cursor) => p = p.with_cursor(cursor),
@@ -689,9 +707,9 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn get_wallet_balance(
         &self,
-        params: GetWalletBalanceParams,
+        params: &GetWalletBalanceParams,
     ) -> Result<Response<List<WalletBalance>>, Error> {
-        let query = serialize_query(&params)?;
+        let query = serialize_query(params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::AccountWalletBalance);
         let headers = self.get_signed_headers(&query);
 
@@ -706,9 +724,9 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn get_transaction_log(
         &self,
-        params: GetTransactionLogParams,
+        params: &GetTransactionLogParams,
     ) -> Result<Response<CursorPagination<TransactionLog>>, Error> {
-        let query = serialize_query(&params)?;
+        let query = serialize_query(params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::AccountTransactionLog);
         let headers = self.get_signed_headers(&query);
 
@@ -724,12 +742,12 @@ impl Client {
     #[tracing::instrument(skip(self), err)]
     pub async fn get_transaction_log_all(
         &self,
-        params: GetTransactionLogParams,
+        params: &GetTransactionLogParams,
     ) -> Result<Vec<TransactionLog>, Error> {
         let mut all = Vec::new();
-        let mut p = params;
+        let mut p = params.clone();
         loop {
-            let page = self.get_transaction_log(p.clone()).await?;
+            let page = self.get_transaction_log(&p).await?;
             all.extend(page.result.list);
             match page.result.next_page_cursor {
                 Some(cursor) => p = p.with_cursor(cursor),

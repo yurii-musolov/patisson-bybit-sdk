@@ -1,7 +1,7 @@
 //! Run with
 //!
 //! ```not_rust
-//! cargo run --example kline
+//! cargo run --example orderbook
 //! ```
 
 use tokio;
@@ -9,14 +9,14 @@ use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::{
-    BASE_URL_API_MAINNET_1, Category, Interval,
-    http::{Client, Config, GetKLinesParams},
+    BASE_URL_API_MAINNET_1, Category,
+    http::{Client, Config, GetOrderbookParams},
 };
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::TRACE)
+        .with_max_level(Level::DEBUG)
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
@@ -30,15 +30,12 @@ async fn main() -> anyhow::Result<()> {
         referer: None,
     };
     let client = Client::new(cfg)?;
-    let params = GetKLinesParams {
+    let params = GetOrderbookParams {
         category: Category::Linear,
         symbol: String::from("BTCUSDT"),
-        interval: Interval::Minute1,
-        start: None,
-        end: None,
-        limit: Some(2),
+        limit: Some(25),
     };
-    let response = client.get_kline(&params).await?;
+    let response = client.get_orderbook(&params).await?;
     info!(?response);
 
     Ok(())

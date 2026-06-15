@@ -50,7 +50,7 @@ async fn main() -> anyhow::Result<()> {
         limit: Some(10),
         cursor: None,
     };
-    let response = client.get_open_closed_orders(params).await?;
+    let response = client.get_open_closed_orders(&params).await?;
     info!(?response);
 
     Ok(())

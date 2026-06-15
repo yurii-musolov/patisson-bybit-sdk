@@ -80,7 +80,7 @@ async fn fetch_changes(
             limit: Some(50),
             cursor: cursor.take(),
         };
-        let response = client.get_transaction_log(params).await?;
+        let response = client.get_transaction_log(&params).await?;
 
         let changes: Vec<_> = response.result.list.iter().map(|t| t.change).collect();
         result.push(changes);

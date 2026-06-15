@@ -1,6 +1,6 @@
 [package]
 name = "patisson-bybit-sdk"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2024"
 authors = ["Yurii Musolov <yurii.musolov@gmail.com>"]
 description = "Unofficial Rust SDK for the Bybit exchange API"

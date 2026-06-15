@@ -5,7 +5,7 @@ use crate::{
     ExtraSubFeeType, Interval, OcoTriggerBy, OrderStatus, OrderType, PlaceType, PositionIdx,
     PositionStatus, RejectReason, Side, SlippageToleranceType, SmpType, StopOrderType,
     TickDirection, TimeInForce, Timestamp, Topic, TpslMode, TriggerBy, TriggerDirection,
-    http::WalletCoin,
+    http::{OrderbookLevel, WalletCoin},
     serde::hash_map,
     serde::{empty_string_as_none, int_to_bool, string_to_bool, string_to_option_bool},
 };
@@ -28,6 +28,7 @@ pub enum IncomingMessage {
     Ticker(Box<TickerMsg>),
     Trade(TradeMsg),
     KLine(KLineMsg),
+    Orderbook(OrderbookMsg),
     AllLiquidation(AllLiquidationMsg),
     Topic(TopicMessage),
 }
@@ -300,6 +301,48 @@ pub struct KLineSnapshotMsg {
     pub turnover: Decimal,
     pub confirm: bool,
     pub timestamp: Timestamp,
+}
+
+// TODO: Use PublicMsg<T>
+#[derive(PartialEq, Deserialize, Debug)]
+#[serde(tag = "type")]
+pub enum OrderbookMsg {
+    #[serde(rename = "snapshot")]
+    Snapshot {
+        topic: Topic,
+        ts: Timestamp,
+        data: OrderbookDataMsg,
+        cts: Timestamp,
+    },
+    #[serde(rename = "delta")]
+    Delta {
+        topic: Topic,
+        ts: Timestamp,
+        data: OrderbookDataMsg,
+        cts: Timestamp,
+    },
+}
+
+#[derive(PartialEq, Deserialize, Debug)]
+pub struct OrderbookDataMsg {
+    /// Symbol name
+    #[serde(rename = "s")]
+    pub symbol: String,
+    /// Bid, buy side. For snapshot, sorted by price in descending order.
+    /// For delta, size 0 means delete the price level
+    #[serde(rename = "b")]
+    pub bids: Vec<OrderbookLevel>,
+    /// Ask, sell side. For snapshot, sorted by price in ascending order.
+    /// For delta, size 0 means delete the price level
+    #[serde(rename = "a")]
+    pub asks: Vec<OrderbookLevel>,
+    /// Update ID, is a sequence. Occasionally, you'll receive "u"=1, which is a snapshot
+    /// data due to the restart of the websocket service. So please overwrite your local orderbook
+    #[serde(rename = "u")]
+    pub update_id: i64,
+    /// Cross sequence. You can use this field to compare different levels orderbook data,
+    /// and for the smaller seq, then it means the data is generated earlier
+    pub seq: i64,
 }
 
 // TODO: Use PublicMsg<T>
@@ -790,6 +833,7 @@ pub struct ExtraFee {
 mod tests {
     use rust_decimal::dec;
 
+    use crate::DepthLevel;
     use crate::serde::{Unique, deserialize_json};
 
     use super::*;
@@ -999,6 +1043,133 @@ mod tests {
                 mark_iv: None,
                 iv: None,
             }],
+        });
+
+        let message = deserialize_json(json).unwrap();
+
+        assert_eq!(expected, message);
+    }
+
+    #[test]
+    fn deserialize_incoming_message_orderbook_snapshot() {
+        // Category: linear.
+        let json = r#"{
+            "topic":"orderbook.50.BTCUSDT",
+            "type":"snapshot",
+            "ts":1672304484978,
+            "data":{
+                "s":"BTCUSDT",
+                "b":[
+                    ["16493.50","0.006"],
+                    ["16493.00","0.100"]
+                ],
+                "a":[
+                    ["16611.00","0.029"],
+                    ["16612.00","0.213"]
+                ],
+                "u":18521288,
+                "seq":7961638724
+            },
+            "cts":1672304484976
+        }"#;
+        let expected = IncomingMessage::Orderbook(OrderbookMsg::Snapshot {
+            topic: Topic::Orderbook {
+                symbol: String::from("BTCUSDT"),
+                depth: DepthLevel::Level50,
+            },
+            ts: 1672304484978,
+            data: OrderbookDataMsg {
+                symbol: String::from("BTCUSDT"),
+                bids: vec![
+                    OrderbookLevel {
+                        price: dec!(16493.50),
+                        size: dec!(0.006),
+                    },
+                    OrderbookLevel {
+                        price: dec!(16493.00),
+                        size: dec!(0.100),
+                    },
+                ],
+                asks: vec![
+                    OrderbookLevel {
+                        price: dec!(16611.00),
+                        size: dec!(0.029),
+                    },
+                    OrderbookLevel {
+                        price: dec!(16612.00),
+                        size: dec!(0.213),
+                    },
+                ],
+                update_id: 18521288,
+                seq: 7961638724,
+            },
+            cts: 1672304484976,
+        });
+
+        let message = deserialize_json(json).unwrap();
+
+        assert_eq!(expected, message);
+    }
+
+    #[test]
+    fn deserialize_incoming_message_orderbook_delta() {
+        // Category: linear.
+        let json = r#"{
+            "topic":"orderbook.50.BTCUSDT",
+            "type":"delta",
+            "ts":1687940967466,
+            "data":{
+                "s":"BTCUSDT",
+                "b":[
+                    ["30247.20","30.028"],
+                    ["30245.40","0.224"],
+                    ["30242.10","0.000"]
+                ],
+                "a":[
+                    ["30248.67","0.033"],
+                    ["30249.20","0.000"]
+                ],
+                "u":177400507,
+                "seq":66544703342
+            },
+            "cts":1687940967464
+        }"#;
+        let expected = IncomingMessage::Orderbook(OrderbookMsg::Delta {
+            topic: Topic::Orderbook {
+                symbol: String::from("BTCUSDT"),
+                depth: DepthLevel::Level50,
+            },
+            ts: 1687940967466,
+            data: OrderbookDataMsg {
+                symbol: String::from("BTCUSDT"),
+                bids: vec![
+                    OrderbookLevel {
+                        price: dec!(30247.20),
+                        size: dec!(30.028),
+                    },
+                    OrderbookLevel {
+                        price: dec!(30245.40),
+                        size: dec!(0.224),
+                    },
+                    OrderbookLevel {
+                        price: dec!(30242.10),
+                        size: dec!(0.000),
+                    },
+                ],
+                asks: vec![
+                    OrderbookLevel {
+                        price: dec!(30248.67),
+                        size: dec!(0.033),
+                    },
+                    OrderbookLevel {
+                        price: dec!(30249.20),
+                        size: dec!(0.000),
+                    },
+                ],
+                update_id: 177400507,
+                seq: 66544703342,
+            },
+            cts: 1687940967464,
         });
 
         let message = deserialize_json(json).unwrap();

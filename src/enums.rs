@@ -1329,8 +1329,8 @@ pub enum DepthLevel {
     Level100,
     #[serde(rename = "200")]
     Level200,
-    #[serde(rename = "500")]
-    Level500,
+    #[serde(rename = "1000")]
+    Level1000,
 }
 
 impl fmt::Display for DepthLevel {
@@ -1341,7 +1341,7 @@ impl fmt::Display for DepthLevel {
             Self::Level50 => "50",
             Self::Level100 => "100",
             Self::Level200 => "200",
-            Self::Level500 => "500",
+            Self::Level1000 => "1000",
         };
         write!(f, "{value}")
     }

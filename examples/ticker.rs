@@ -36,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
         base_coin: None, // If category=option, symbol or baseCoin must be passed.
         exp_date: None,
     };
-    let response = client.get_tickers(params).await?;
+    let response = client.get_tickers(&params).await?;
     info!(?response);
 
     Ok(())

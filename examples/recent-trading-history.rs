@@ -37,7 +37,7 @@ async fn main() -> anyhow::Result<()> {
         option_type: None,
         limit: Some(2),
     };
-    let response = client.get_public_recent_trading_history(params).await?;
+    let response = client.get_public_recent_trading_history(&params).await?;
     info!(?response);
 
     Ok(())

@@ -11,14 +11,14 @@ use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::{
-    BASE_URL_STREAM_MAINNET_1, Interval, Path, Topic,
+    BASE_URL_STREAM_MAINNET_1, DepthLevel, Interval, Path, Topic,
     ws::{self, OutgoingMessage},
 };
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::TRACE)
+        .with_max_level(Level::DEBUG)
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
@@ -27,10 +27,14 @@ async fn main() -> anyhow::Result<()> {
     let ticker = Topic::Ticker(symbol.clone());
     let trade = Topic::Trade(symbol.clone());
     let kline = Topic::Kline {
-        symbol,
+        symbol: symbol.clone(),
         interval: Interval::Minute1,
     };
-    let args = vec![ticker, trade, kline];
+    let orderbook = Topic::Orderbook {
+        symbol,
+        depth: DepthLevel::Level1000,
+    };
+    let args = vec![ticker, trade, kline, orderbook];
     let sub = OutgoingMessage::Subscribe {
         req_id: Some(String::from("req-0001")),
         args: args.clone(),

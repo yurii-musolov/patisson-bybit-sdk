@@ -61,7 +61,7 @@ async fn main() -> anyhow::Result<()> {
         limit: Some(10),
         cursor: None,
     };
-    let response = client.get_position_info(params).await?;
+    let response = client.get_position_info(&params).await?;
     let position_idx = match response.result.list.len() {
         1 => PositionIdx::OneWay,
         2 => match side {
@@ -79,7 +79,7 @@ async fn main() -> anyhow::Result<()> {
         base_coin: None,
         exp_date: None,
     };
-    let price = match client.get_tickers(params).await?.result {
+    let price = match client.get_tickers(&params).await?.result {
         Ticker::Linear { list } => list[0].last_price - dec!(5),
         _ => panic!(),
     };
@@ -101,7 +101,7 @@ async fn main() -> anyhow::Result<()> {
     request.take_profit = Some(price.clone() + dec!(100));
     request.stop_loss = Some(price.clone() - dec!(100));
     request.sl_limit_price = Some(price.clone() - dec!(110));
-    let response = client.place_order(request).await?;
+    let response = client.place_order(&request).await?;
     info!(?response);
 
     // -------------------------------------------------------------------------
@@ -118,7 +118,7 @@ async fn main() -> anyhow::Result<()> {
         limit: None,
         cursor: None,
     };
-    let response = client.get_open_closed_orders(params).await?;
+    let response = client.get_open_closed_orders(&params).await?;
     info!(?response);
 
     Ok(())

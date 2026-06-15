@@ -11,7 +11,7 @@ use crate::{
     ws::WalletMsg,
 };
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct GetWalletBalanceParams {
     /// Account type
