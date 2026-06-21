@@ -7,7 +7,7 @@ use serde_aux::prelude::deserialize_number_from_string as number;
 use crate::{
     AccountType, DCPProduct, MarginMode, Second, SpotHedgingStatus, Timestamp, UnifiedMarginStatus,
     enums::Category,
-    serde::{Unique, hash_map},
+    serde::{Unique, empty_string_as_none, hash_map},
     ws::WalletMsg,
 };
 
@@ -354,4 +354,54 @@ pub struct TransactionLog {
     /// Trading fee rate information. Currently, this data is returned only for spot orders placed on the Indonesian site or spot fiat currency orders placed on the EU site. In other cases, an empty string is returned. Enum: feeType, subFeeType
     #[serde(default)]
     pub extra_fees: Option<serde_json::Value>,
+}
+
+// --- Fee Rate ---
+
+/// Query params for [`Client::get_fee_rate`](crate::http::Client::get_fee_rate).
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GetFeeRateParams {
+    pub category: Category,
+    pub symbol: Option<String>,
+    /// Only for `category = option`. Base coin, e.g. `"BTC"`.
+    pub base_coin: Option<String>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct FeeRateEntry {
+    /// Symbol name. Spot/linear/inverse only.
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub symbol: Option<String>,
+    /// Base coin. Option only.
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub base_coin: Option<String>,
+    pub taker_fee_rate: Decimal,
+    pub maker_fee_rate: Decimal,
+}
+
+// --- Set Margin Mode ---
+
+/// Request body for [`Client::set_margin_mode`](crate::http::Client::set_margin_mode).
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SetMarginModeRequest {
+    pub set_margin_mode: MarginMode,
+}
+
+/// Response for [`Client::set_margin_mode`](crate::http::Client::set_margin_mode).
+///
+/// On success `reasons` is empty. On failure it contains error details
+/// explaining why the switch was rejected.
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct SetMarginModeResponse {
+    pub reasons: Vec<MarginModeFailureReason>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct MarginModeFailureReason {
+    pub reason_code: String,
+    pub reason_msg: String,
 }

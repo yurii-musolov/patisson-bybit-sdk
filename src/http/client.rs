@@ -5,14 +5,18 @@ use crate::{
         APIErrorResponse, APIKeyInformation, AccountInfo, AmendOrderBatchRequest,
         AmendOrderBatchResult, AmendOrderRequest, AmendOrderResponse, CancelAllOrdersRequest,
         CancelAllOrdersResponse, CancelOrderBatchRequest, CancelOrderBatchResult,
-        CancelOrderRequest, CancelOrderResponse, ClosedPnl, CursorPagination, EmptyResult,
-        ExecutionEntry, GetClosedPnlParams, GetExecutionListParams, GetInstrumentsInfoParams,
-        GetKLinesParams, GetOpenClosedOrdersParams, GetOrderHistoryParams, GetOrderbookParams,
-        GetPositionInfoParams, GetTickersParams, GetTradesParams, GetTransactionLogParams,
-        GetWalletBalanceParams, Headers, InstrumentsInfo, KLine, List, Order, Orderbook,
-        PlaceOrderBatchRequest, PlaceOrderBatchResult, PlaceOrderRequest, PlaceOrderResponse,
-        Position, Resp, Response, ServerTime, SetAutoAddMarginRequest, SetLeverageRequest,
-        SetRiskLimitRequest, SetRiskLimitResponse, SetTradingStopRequest,
+        CancelOrderRequest, CancelOrderResponse, ClosedPnl, CursorPagination, DeliveryPrice,
+        EmptyResult, ExecutionEntry, FeeRateEntry, FundingRateHistory, GetClosedPnlParams,
+        GetDeliveryPriceParams, GetExecutionListParams, GetFeeRateParams,
+        GetFundingRateHistoryParams, GetHistoricalVolatilityParams, GetInstrumentsInfoParams,
+        GetInsuranceParams, GetKLinesParams, GetOpenClosedOrdersParams, GetOpenInterestParams,
+        GetOrderHistoryParams, GetOrderbookParams, GetPositionInfoParams, GetRiskLimitParams,
+        GetSpotBorrowCheckParams, GetTickersParams, GetTradesParams, GetTransactionLogParams,
+        GetWalletBalanceParams, Headers, HistoricalVolatilityEntry, InstrumentsInfo, Insurance,
+        KLine, List, OpenInterest, Order, Orderbook, PlaceOrderBatchRequest, PlaceOrderBatchResult,
+        PlaceOrderRequest, PlaceOrderResponse, Position, Resp, Response, RiskLimit, ServerTime,
+        SetAutoAddMarginRequest, SetLeverageRequest, SetMarginModeRequest, SetMarginModeResponse,
+        SetRiskLimitRequest, SetRiskLimitResponse, SetTradingStopRequest, SpotBorrowCheck,
         SwitchCrossIsolatedMarginRequest, SwitchPositionModeRequest, Ticker, Trade, TransactionLog,
         WalletBalance,
     },
@@ -110,6 +114,57 @@ impl Client {
         Ok(response)
     }
 
+    /// Get Mark Price Kline.
+    /// Query the mark price kline data. Charts are returned in groups based on the requested interval.
+    ///
+    /// Covers: linear / inverse
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_mark_price_kline(
+        &self,
+        params: &GetKLinesParams,
+    ) -> Result<Response<KLine>, Error> {
+        let url = format!("{}{}", self.base_url, Path::MarketMarkPriceKline);
+
+        let request = self.client.request(Method::GET, url).query(params);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Index Price Kline.
+    /// Query the index price kline data. Charts are returned in groups based on the requested interval.
+    ///
+    /// Covers: linear / inverse
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_index_price_kline(
+        &self,
+        params: &GetKLinesParams,
+    ) -> Result<Response<KLine>, Error> {
+        let url = format!("{}{}", self.base_url, Path::MarketIndexPriceKline);
+
+        let request = self.client.request(Method::GET, url).query(params);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Premium Index Price Kline.
+    /// Retrieve the premium index price kline data. Charts are returned in groups based on the requested interval.
+    ///
+    /// Covers: linear
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_premium_index_price_kline(
+        &self,
+        params: &GetKLinesParams,
+    ) -> Result<Response<KLine>, Error> {
+        let url = format!("{}{}", self.base_url, Path::MarketPremiumIndexPriceKline);
+
+        let request = self.client.request(Method::GET, url).query(params);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
     /// Get Tickers
     /// Query for the latest price snapshot, best bid/ask price, and trading volume in the last 24 hours.
     /// If category=option, symbol or baseCoin must be passed.
@@ -159,6 +214,109 @@ impl Client {
         params: &GetTradesParams,
     ) -> Result<Response<Trade>, Error> {
         let url = format!("{}{}", self.base_url, Path::MarketRecentTrade);
+
+        let request = self.client.request(Method::GET, url).query(params);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Funding Rate History.
+    /// Query for historical funding rates. Each request returns up to 200 rows of data.
+    ///
+    /// Covers: linear / inverse
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_funding_rate_history(
+        &self,
+        params: &GetFundingRateHistoryParams,
+    ) -> Result<Response<FundingRateHistory>, Error> {
+        let url = format!("{}{}", self.base_url, Path::MarketFundingHistory);
+
+        let request = self.client.request(Method::GET, url).query(params);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Open Interest.
+    /// Get the open interest of each symbol.
+    ///
+    /// Covers: linear / inverse
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_open_interest(
+        &self,
+        params: &GetOpenInterestParams,
+    ) -> Result<Response<OpenInterest>, Error> {
+        let url = format!("{}{}", self.base_url, Path::MarketOpenInterest);
+
+        let request = self.client.request(Method::GET, url).query(params);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Historical Volatility.
+    /// Query option historical volatility.
+    ///
+    /// Covers: option only
+    ///
+    /// Note: the result is returned as a top-level JSON array, so the response
+    /// wraps `Vec<HistoricalVolatilityEntry>` directly.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_historical_volatility(
+        &self,
+        params: &GetHistoricalVolatilityParams,
+    ) -> Result<Response<Vec<HistoricalVolatilityEntry>>, Error> {
+        let url = format!("{}{}", self.base_url, Path::MarketHistoricalVolatility);
+
+        let request = self.client.request(Method::GET, url).query(params);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Insurance.
+    /// Query for Bybit insurance pool data (1 day delay).
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_insurance(
+        &self,
+        params: &GetInsuranceParams,
+    ) -> Result<Response<Insurance>, Error> {
+        let url = format!("{}{}", self.base_url, Path::MarketInsurance);
+
+        let request = self.client.request(Method::GET, url).query(params);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Risk Limit.
+    /// Query for the risk limit.
+    ///
+    /// Covers: linear / inverse
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_risk_limit(
+        &self,
+        params: &GetRiskLimitParams,
+    ) -> Result<Response<RiskLimit>, Error> {
+        let url = format!("{}{}", self.base_url, Path::MarketRiskLimit);
+
+        let request = self.client.request(Method::GET, url).query(params);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Delivery Price.
+    /// Get the delivery price for option and USDC futures contracts.
+    ///
+    /// Covers: linear / inverse / option
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_delivery_price(
+        &self,
+        params: &GetDeliveryPriceParams,
+    ) -> Result<Response<DeliveryPrice>, Error> {
+        let url = format!("{}{}", self.base_url, Path::MarketDeliveryPrice);
 
         let request = self.client.request(Method::GET, url).query(params);
 
@@ -448,6 +606,29 @@ impl Client {
             .request(Method::POST, url)
             .headers(headers)
             .body(json);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Spot Borrow Check.
+    /// Query the maximum quantity for purchase or sale, and check the borrowable quantity based on the fee types.
+    ///
+    /// Covers: spot only. Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_spot_borrow_check(
+        &self,
+        params: &GetSpotBorrowCheckParams,
+    ) -> Result<Response<SpotBorrowCheck>, Error> {
+        let url = format!("{}{}", self.base_url, Path::TradeOrderSpotBorrowCheck);
+        let query = serialize_query(params)?;
+        let headers = self.get_signed_headers(&query);
+
+        let request = self
+            .client
+            .request(Method::GET, url)
+            .headers(headers)
+            .query(params);
 
         let response = send(request).await?;
         Ok(response)
@@ -765,6 +946,52 @@ impl Client {
         let headers = self.get_signed_headers(query);
 
         let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Fee Rate.
+    /// Get the trading fee rate.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_fee_rate(
+        &self,
+        params: &GetFeeRateParams,
+    ) -> Result<Response<List<FeeRateEntry>>, Error> {
+        let url = format!("{}{}", self.base_url, Path::AccountFeeRate);
+        let query = serialize_query(params)?;
+        let headers = self.get_signed_headers(&query);
+
+        let request = self
+            .client
+            .request(Method::GET, url)
+            .headers(headers)
+            .query(params);
+
+        let response = send(request).await?;
+        Ok(response)
+    }
+
+    /// Set Margin Mode.
+    /// Switch between regular margin, isolated margin, and portfolio margin.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn set_margin_mode(
+        &self,
+        request_body: &SetMarginModeRequest,
+    ) -> Result<Response<SetMarginModeResponse>, Error> {
+        let url = format!("{}{}", self.base_url, Path::AccountSetMarginMode);
+        let body = serialize_json(request_body)?;
+        let headers = self.get_signed_headers(&body);
+
+        let request = self
+            .client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(body);
 
         let response = send(request).await?;
         Ok(response)

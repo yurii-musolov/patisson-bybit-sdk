@@ -976,3 +976,33 @@ pub struct CancelOrderBatchResult {
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub order_link_id: Option<String>,
 }
+
+// --- Spot Borrow Check ---
+
+/// Query params for [`Client::get_spot_borrow_check`](crate::http::Client::get_spot_borrow_check).
+///
+/// Covers: spot only
+#[derive(Debug, Serialize, Clone)]
+pub struct GetSpotBorrowCheckParams {
+    pub category: Category,
+    pub symbol: String,
+    pub side: Side,
+}
+
+/// Response for [`Client::get_spot_borrow_check`](crate::http::Client::get_spot_borrow_check).
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct SpotBorrowCheck {
+    pub symbol: String,
+    pub side: Side,
+    /// Maximum tradeable quantity with leverage (in base coin).
+    pub max_trade_qty: Decimal,
+    /// Maximum tradeable amount with leverage (in quote coin).
+    pub max_trade_amount: Decimal,
+    /// Maximum tradeable quantity without leverage (in base coin).
+    pub spot_max_trade_qty: Decimal,
+    /// Maximum tradeable amount without leverage (in quote coin).
+    pub spot_max_trade_amount: Decimal,
+    /// The coin to borrow.
+    pub borrow_coin: String,
+}
