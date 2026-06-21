@@ -383,6 +383,15 @@ pub enum TopicMessage {
     Wallet(PrivateMsg<Vec<WalletMsg>>),
     #[serde(rename = "execution")]
     Execution(PrivateMsg<Vec<ExecutionMsg>>),
+    /// Fast execution: fills arrive immediately, before settlement completes.
+    #[serde(rename = "fastExecution")]
+    FastExecution(PrivateMsg<Vec<FastExecutionMsg>>),
+    /// Option greek updates.
+    #[serde(rename = "greeks")]
+    Greeks(PrivateMsg<Vec<GreekMsg>>),
+    /// Disconnection and Cancellation Protection status update.
+    #[serde(rename = "dcp")]
+    Dcp(PrivateMsg<DcpMsg>),
 }
 
 #[derive(PartialEq, Deserialize, Debug)]
@@ -827,6 +836,73 @@ pub struct ExtraFee {
     pub sub_fee_type: ExtraSubFeeType,
     pub fee_rate: Decimal,
     pub fee: Decimal,
+}
+
+/// A fill from the `fastExecution` private WS topic.
+///
+/// This is a condensed view of an execution that arrives immediately when an
+/// order is matched, before the normal settlement cycle that drives
+/// [`ExecutionMsg`]. The field set is smaller than [`ExecutionMsg`].
+#[derive(PartialEq, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct FastExecutionMsg {
+    pub category: Category,
+    pub symbol: String,
+    pub exec_id: String,
+    pub exec_price: Decimal,
+    pub exec_qty: Decimal,
+    pub side: Side,
+    pub order_qty: Decimal,
+    pub order_id: String,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub order_link_id: Option<String>,
+    pub is_maker: bool,
+    pub fee_currency: String,
+    pub fee_rate: Decimal,
+    pub exec_fee: Decimal,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub trade_iv: Option<Decimal>,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub mark_iv: Option<Decimal>,
+    pub mark_price: Decimal,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub index_price: Option<Decimal>,
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub underlying_price: Option<Decimal>,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub block_trade_id: Option<String>,
+    #[serde(deserialize_with = "number")]
+    pub exec_time: Timestamp,
+}
+
+/// A data point from the `greeks` private WS topic.
+///
+/// Sent once per second when there is an option position. Contains the
+/// aggregate net greeks across all option positions for the base coin.
+#[derive(PartialEq, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GreekMsg {
+    pub base_coin: String,
+    pub total_delta: Decimal,
+    pub total_gamma: Decimal,
+    pub total_vega: Decimal,
+    pub total_theta: Decimal,
+}
+
+/// Data from the `dcp` private WS topic (Disconnection and Cancellation
+/// Protection status update).
+#[derive(PartialEq, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct DcpMsg {
+    /// Product class affected: e.g. `"OPTIONS"`, `"DERIVATIVES"`.
+    pub product: String,
+    /// Current DCP status. `"ON"` or `"OFF"`.
+    pub dcp_status: String,
+    /// The time window (seconds) configured for DCP.
+    pub time_window: u64,
+    /// Timestamp of the last status change (ms).
+    #[serde(deserialize_with = "number")]
+    pub updated_at: Timestamp,
 }
 
 #[cfg(test)]

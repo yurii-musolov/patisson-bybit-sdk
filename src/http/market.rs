@@ -7,8 +7,8 @@ use serde_aux::prelude::{
 
 use crate::{
     ContractType, CopyTrading, CurAuctionPhase, Side, Status, Timestamp,
-    enums::{Category, Interval},
-    serde::{empty_string_as_none, string_to_bool},
+    enums::{Category, Interval, IntervalTime},
+    serde::{empty_string_as_none, int_to_bool, string_to_bool},
 };
 
 #[derive(Debug, Serialize, Clone)]
@@ -589,4 +589,199 @@ pub struct AuctionFeeInfo {
     pub auction_fee_rate: Decimal,
     pub taker_fee_rate: Decimal,
     pub maker_fee_rate: Decimal,
+}
+
+// --- Funding Rate History ---
+
+/// Query params for [`Client::get_funding_rate_history`](crate::http::Client::get_funding_rate_history).
+///
+/// Covers: linear / inverse
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GetFundingRateHistoryParams {
+    pub category: Category,
+    pub symbol: String,
+    pub start_time: Option<Timestamp>,
+    pub end_time: Option<Timestamp>,
+    /// Max 200. Default 200.
+    pub limit: Option<u64>,
+}
+
+/// Response for [`Client::get_funding_rate_history`](crate::http::Client::get_funding_rate_history).
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(tag = "category")]
+pub enum FundingRateHistory {
+    #[serde(rename = "linear")]
+    Linear { list: Vec<FundingRateEntry> },
+    #[serde(rename = "inverse")]
+    Inverse { list: Vec<FundingRateEntry> },
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct FundingRateEntry {
+    pub symbol: String,
+    pub funding_rate: Decimal,
+    #[serde(deserialize_with = "number")]
+    pub funding_rate_timestamp: Timestamp,
+}
+
+// --- Open Interest ---
+
+/// Query params for [`Client::get_open_interest`](crate::http::Client::get_open_interest).
+///
+/// Covers: linear / inverse
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GetOpenInterestParams {
+    pub category: Category,
+    pub symbol: String,
+    pub interval_time: IntervalTime,
+    pub start_time: Option<Timestamp>,
+    pub end_time: Option<Timestamp>,
+    /// Max 200. Default 50.
+    pub limit: Option<u64>,
+    pub cursor: Option<String>,
+}
+
+/// Response for [`Client::get_open_interest`](crate::http::Client::get_open_interest).
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenInterest {
+    pub symbol: String,
+    pub category: String,
+    pub list: Vec<OpenInterestEntry>,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub next_page_cursor: Option<String>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenInterestEntry {
+    pub open_interest: Decimal,
+    #[serde(deserialize_with = "number")]
+    pub timestamp: Timestamp,
+}
+
+// --- Historical Volatility ---
+
+/// Query params for [`Client::get_historical_volatility`](crate::http::Client::get_historical_volatility).
+///
+/// Covers: option only
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GetHistoricalVolatilityParams {
+    pub category: Category,
+    /// Default: BTC.
+    pub base_coin: Option<String>,
+    /// Accepted values: 7, 14, 21, 30, 60, 90, 180, 270.
+    pub period: Option<u16>,
+    pub start_time: Option<Timestamp>,
+    pub end_time: Option<Timestamp>,
+}
+
+/// One data point from
+/// [`Client::get_historical_volatility`](crate::http::Client::get_historical_volatility).
+///
+/// The endpoint returns `result` as a top-level JSON array, so the full
+/// response type is `Response<Vec<HistoricalVolatilityEntry>>`.
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct HistoricalVolatilityEntry {
+    pub period: u16,
+    pub value: Decimal,
+    #[serde(deserialize_with = "number")]
+    pub time: Timestamp,
+}
+
+// --- Insurance ---
+
+/// Query params for [`Client::get_insurance`](crate::http::Client::get_insurance).
+#[derive(Debug, Serialize, Clone, Default)]
+pub struct GetInsuranceParams {
+    pub coin: Option<String>,
+}
+
+/// Response for [`Client::get_insurance`](crate::http::Client::get_insurance).
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Insurance {
+    #[serde(deserialize_with = "number")]
+    pub updated_time: Timestamp,
+    pub list: Vec<InsuranceEntry>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct InsuranceEntry {
+    pub coin: String,
+    pub balance: Decimal,
+    pub value: Decimal,
+}
+
+// --- Risk Limit ---
+
+/// Query params for [`Client::get_risk_limit`](crate::http::Client::get_risk_limit).
+///
+/// Covers: linear / inverse
+#[derive(Debug, Serialize, Clone)]
+pub struct GetRiskLimitParams {
+    pub category: Category,
+    pub symbol: Option<String>,
+    pub cursor: Option<String>,
+}
+
+/// Response for [`Client::get_risk_limit`](crate::http::Client::get_risk_limit).
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RiskLimit {
+    pub category: String,
+    pub list: Vec<RiskLimitEntry>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct RiskLimitEntry {
+    pub id: u32,
+    pub symbol: String,
+    pub risk_limit_value: Decimal,
+    pub maintenance_margin: Decimal,
+    pub initial_margin: Decimal,
+    #[serde(deserialize_with = "int_to_bool")]
+    pub is_lowest_risk: bool,
+    pub max_leverage: Decimal,
+}
+
+// --- Delivery Price ---
+
+/// Query params for [`Client::get_delivery_price`](crate::http::Client::get_delivery_price).
+///
+/// Covers: linear / inverse / option
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GetDeliveryPriceParams {
+    pub category: Category,
+    pub symbol: Option<String>,
+    pub base_coin: Option<String>,
+    /// Max 200. Default 50.
+    pub limit: Option<u64>,
+    pub cursor: Option<String>,
+}
+
+/// Response for [`Client::get_delivery_price`](crate::http::Client::get_delivery_price).
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DeliveryPrice {
+    pub category: String,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub next_page_cursor: Option<String>,
+    pub list: Vec<DeliveryPriceEntry>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct DeliveryPriceEntry {
+    pub symbol: String,
+    pub delivery_price: Decimal,
+    #[serde(deserialize_with = "number")]
+    pub delivery_time: Timestamp,
 }

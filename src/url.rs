@@ -8,9 +8,9 @@ pub const BASE_URL_API_MAINNET_3: &str = "https://api.bybit.nl";
 /// For Hong Kong users.
 pub const BASE_URL_API_MAINNET_4: &str = "https://api.byhkbit.com";
 /// For Turkey users.
-pub const BASE_URL_API_MAINNET_5: &str = "wss://api.bybit-tr.com";
+pub const BASE_URL_API_MAINNET_5: &str = "https://api.bybit-tr.com";
 /// For Kazakhstan users.
-pub const BASE_URL_API_MAINNET_6: &str = "wss://api.bybit.kz";
+pub const BASE_URL_API_MAINNET_6: &str = "https://api.bybit.kz";
 
 pub const BASE_URL_STREAM_MAINNET_1: &str = "wss://stream.bybit.com";
 /// For Turkey users.
