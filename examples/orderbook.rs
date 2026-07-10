@@ -16,7 +16,7 @@ use bybit::{
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::DEBUG)
+        .with_max_level(Level::INFO)
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
@@ -28,12 +28,13 @@ async fn main() -> anyhow::Result<()> {
         api_secret: None,
         recv_window: 5000, // Milliseconds.
         referer: None,
+        rate_limiter: None,
     };
     let client = Client::new(cfg)?;
     let params = GetOrderbookParams {
         category: Category::Linear,
         symbol: String::from("BTCUSDT"),
-        limit: Some(25),
+        limit: Some(1),
     };
     let response = client.get_orderbook(&params).await?;
     info!(?response);

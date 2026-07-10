@@ -1,6 +1,6 @@
 [package]
 name = "patisson-bybit-sdk"
-version = "0.2.3"
+version = "0.2.4"
 edition = "2024"
 authors = ["Yurii Musolov <yurii.musolov@gmail.com>"]
 description = "Unofficial Rust SDK for the Bybit exchange API"
@@ -24,7 +24,7 @@ name = "bybit"
 path = "src/lib.rs"
 
 [dependencies]
-anyhow = "1.0.102"
+anyhow = "1.0.103"
 futures = "0.3.32"
 futures-util = { version = "0.3.32", default-features = false, features = [
   "sink",

@@ -4,6 +4,7 @@ mod common;
 mod market;
 mod orders;
 mod positions;
+mod rate_limiter;
 mod user;
 
 pub use account::*;
@@ -12,6 +13,7 @@ pub use common::*;
 pub use market::*;
 pub use orders::*;
 pub use positions::*;
+pub use rate_limiter::RateLimiterConfig;
 pub use user::*;
 
 #[cfg(test)]

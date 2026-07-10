@@ -25,6 +25,8 @@ use crate::{
 };
 use reqwest::{self, Method, RequestBuilder, header::HeaderMap};
 
+use super::rate_limiter::{RateLimiter, RateLimiterConfig};
+
 pub struct Config {
     pub base_url: String,
     pub api_key: Option<SensitiveString>,
@@ -33,6 +35,10 @@ pub struct Config {
     pub recv_window: Timestamp,
     /// HTTP the header for broker users only.
     pub referer: Option<String>,
+    /// Optional rate limiter. When `Some`, every request is pre-flight-checked
+    /// against a local token bucket and the last server-reported limit status.
+    /// Set to `None` to disable rate limiting entirely.
+    pub rate_limiter: Option<RateLimiterConfig>,
 }
 
 // TODO: use proxy
@@ -42,6 +48,7 @@ pub struct Client {
     headers: HeaderMap,
     client: reqwest::Client,
     signer: Option<Signer>,
+    rate_limiter: Option<RateLimiter>,
 }
 
 impl Client {
@@ -71,11 +78,14 @@ impl Client {
             })
             .transpose()?;
 
+        let rate_limiter = cfg.rate_limiter.map(RateLimiter::new);
+
         Ok(Self {
             base_url: cfg.base_url,
             headers,
             client: reqwest::Client::builder().build()?,
             signer,
+            rate_limiter,
         })
     }
 
@@ -100,7 +110,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -110,7 +120,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -127,7 +137,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -144,7 +154,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -161,7 +171,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -174,7 +184,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -191,7 +201,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -204,7 +214,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -217,7 +227,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -234,7 +244,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -251,7 +261,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -271,7 +281,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -286,7 +296,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -303,7 +313,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -320,7 +330,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 }
@@ -388,7 +398,7 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -410,7 +420,7 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -434,7 +444,7 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -462,7 +472,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -504,7 +514,7 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -522,7 +532,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -563,7 +573,7 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -585,7 +595,7 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -607,7 +617,7 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -630,7 +640,7 @@ impl Client {
             .headers(headers)
             .query(params);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 }
@@ -658,7 +668,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -700,7 +710,7 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -721,7 +731,7 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -742,7 +752,7 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -763,7 +773,7 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -784,7 +794,7 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -805,7 +815,7 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -822,7 +832,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -858,7 +868,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -896,7 +906,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -913,7 +923,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -947,7 +957,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -970,7 +980,7 @@ impl Client {
             .headers(headers)
             .query(params);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 
@@ -993,7 +1003,7 @@ impl Client {
             .headers(headers)
             .body(body);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 }
@@ -1010,40 +1020,52 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = send(request).await?;
+        let response = self.send(request).await?;
         Ok(response)
     }
 }
 
-async fn send<T>(request: RequestBuilder) -> Result<Response<T>, Error>
-where
-    T: serde::de::DeserializeOwned,
-{
-    let start = std::time::Instant::now();
-    let response = request.send().await?;
-    let elapsed_ms = start.elapsed().as_millis();
-    let headers = parse_headers(response.headers());
-    let json = response.text().await?;
-    if !headers.is_ret_code_ok() {
-        let msg: APIErrorResponse = deserialize_json(&json)?;
-        tracing::debug!(elapsed_ms, ret_code = msg.ret_code, "api error response");
-        return Err(msg.into());
-    }
+impl Client {
+    async fn send<T>(&self, request: RequestBuilder) -> Result<Response<T>, Error>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        if let Some(rl) = &self.rate_limiter {
+            rl.check()
+                .map_err(|retry_after_ms| Error::RateLimited { retry_after_ms })?;
+        }
 
-    tracing::debug!(
-        elapsed_ms,
-        api_limit = headers.api_limit,
-        api_limit_status = headers.api_limit_status,
-        "api call completed"
-    );
-    let response: Resp<_> = deserialize_json(&json)?;
-    let response = Response {
-        result: response.result,
-        time: response.time,
-        headers,
-        ret_ext_info: response.ret_ext_info,
-    };
-    Ok(response)
+        let start = std::time::Instant::now();
+        let response = request.send().await?;
+        let elapsed_ms = start.elapsed().as_millis();
+        let headers = parse_headers(response.headers());
+
+        if let Some(rl) = &self.rate_limiter {
+            rl.update(headers.api_limit_status, headers.api_limit_reset_timestamp);
+        }
+
+        let json = response.text().await?;
+        if !headers.is_ret_code_ok() {
+            let msg: APIErrorResponse = deserialize_json(&json)?;
+            tracing::debug!(elapsed_ms, ret_code = msg.ret_code, "api error response");
+            return Err(msg.into());
+        }
+
+        tracing::debug!(
+            elapsed_ms,
+            api_limit = headers.api_limit,
+            api_limit_status = headers.api_limit_status,
+            "api call completed"
+        );
+        let response: Resp<_> = deserialize_json(&json)?;
+        let response = Response {
+            result: response.result,
+            time: response.time,
+            headers,
+            ret_ext_info: response.ret_ext_info,
+        };
+        Ok(response)
+    }
 }
 
 /// Parse response headers: ret_code, traceid, timenow, X-Bapi-Limit, X-Bapi-Limit-Status, X-Bapi-Limit-Reset-Timestamp

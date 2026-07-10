@@ -16,7 +16,7 @@ use bybit::{
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let subscriber = FmtSubscriber::builder()
-        .with_max_level(Level::TRACE)
+        .with_max_level(Level::INFO)
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
@@ -28,6 +28,7 @@ async fn main() -> anyhow::Result<()> {
         api_secret: None,
         recv_window: 5000, // Milliseconds.
         referer: None,
+        rate_limiter: None,
     };
     let client = Client::new(cfg)?;
     let params = GetTickersParams {

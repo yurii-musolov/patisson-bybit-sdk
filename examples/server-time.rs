@@ -28,6 +28,7 @@ async fn main() -> anyhow::Result<()> {
         api_secret: None,
         recv_window: 5000, // Milliseconds.
         referer: None,
+        rate_limiter: None,
     };
     let client = Client::new(cfg)?;
     let response = client.get_server_time().await?;

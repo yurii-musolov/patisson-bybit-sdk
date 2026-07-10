@@ -41,6 +41,7 @@ async fn main() -> anyhow::Result<()> {
         api_secret: Some(api_secret),
         recv_window: 15000, // Milliseconds.
         referer: None,
+        rate_limiter: None,
     };
     let client = Client::new(cfg)?;
 
