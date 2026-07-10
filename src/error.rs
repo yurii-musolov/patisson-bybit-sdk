@@ -1,9 +1,17 @@
 #[derive(Debug)]
 pub enum Error {
-    Api { code: i64, msg: String },
+    Api {
+        code: i64,
+        msg: String,
+    },
     InvalidHeaderValue(reqwest::header::InvalidHeaderValue),
     Io(std::io::Error),
     Msg(String),
+    /// The local rate limiter rejected the request before it was sent.
+    /// `retry_after_ms` is the estimated wait until capacity is available.
+    RateLimited {
+        retry_after_ms: u64,
+    },
     Reqwest(reqwest::Error),
     SerdeJson(serde_json::Error),
     SerdeUrlEncoded(serde_urlencoded::ser::Error),
@@ -17,6 +25,9 @@ impl std::fmt::Display for Error {
             Error::InvalidHeaderValue(error) => write!(f, "invalid header value: {error}"),
             Error::Io(error) => write!(f, "I/O error: {error}"),
             Error::Msg(msg) => write!(f, "{msg}"),
+            Error::RateLimited { retry_after_ms } => {
+                write!(f, "rate limited: retry after {retry_after_ms} ms")
+            }
             Error::Reqwest(error) => write!(f, "reqwest error: {error}"),
             Error::SerdeJson(error) => write!(f, "serde_json error: {error}"),
             Error::SerdeUrlEncoded(error) => write!(f, "serde_urlencoded error: {error}"),
