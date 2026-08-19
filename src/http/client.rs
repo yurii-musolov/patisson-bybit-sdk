@@ -30,8 +30,9 @@ use crate::{
         RedeemLeverageTokenRequest, RedeemLeverageTokenResult, Resp, Response, RiskLimit,
         SaveTransferSubMemberRequest, ServerTime, SetAutoAddMarginRequest, SetLeverageRequest,
         SetMarginModeRequest, SetMarginModeResponse, SetRiskLimitRequest, SetRiskLimitResponse,
-        SetTradingStopRequest, SettlementRecord, SpotBorrowCheck, SwitchCrossIsolatedMarginRequest,
-        SwitchPositionModeRequest, Ticker, Trade, TransactionLog, TransferResult,
+        SetSpotMarginLeverageRequest, SetTradingStopRequest, SettlementRecord, SpotBorrowCheck,
+        SwitchCrossIsolatedMarginRequest, SwitchPositionModeRequest, SwitchSpotMarginModeRequest,
+        SwitchSpotMarginModeResult, Ticker, Trade, TransactionLog, TransferResult,
         TransferableSubMembers, UniversalTransferEntry, UniversalTransferRequest,
         UpgradeToUtaResult, WalletBalance, WithdrawRecords, WithdrawRequest, WithdrawResult,
     },
@@ -1713,6 +1714,57 @@ impl Client {
         let headers = self.get_signed_headers(&query);
 
         let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+}
+
+// Spot Margin Trade (UTA).
+impl Client {
+    /// Toggle Margin Trade.
+    /// Turn spot margin trade on or off for the Unified account.
+    ///
+    /// Requires authentication. The account must have completed spot margin activation
+    /// (including the required quiz) beforehand.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn switch_spot_margin_mode(
+        &self,
+        request: &SwitchSpotMarginModeRequest,
+    ) -> Result<Response<SwitchSpotMarginModeResult>, Error> {
+        let url = format!("{}{}", self.base_url, Path::SpotMarginTradeSwitchMode);
+        let body = serialize_json(request)?;
+        let headers = self.get_signed_headers(&body);
+
+        let request = self
+            .client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(body);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Set Leverage.
+    /// Set the maximum leverage for spot margin trade.
+    ///
+    /// Requires authentication. The account must have completed spot margin activation
+    /// (including the required quiz) beforehand.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn set_spot_margin_leverage(
+        &self,
+        request: &SetSpotMarginLeverageRequest,
+    ) -> Result<Response<EmptyResult>, Error> {
+        let url = format!("{}{}", self.base_url, Path::SpotMarginTradeSetLeverage);
+        let body = serialize_json(request)?;
+        let headers = self.get_signed_headers(&body);
+
+        let request = self
+            .client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(body);
 
         let response = self.send(request).await?;
         Ok(response)

@@ -140,7 +140,6 @@ pub enum Path {
     // Manage Margin Trading on Spot
     SpotMarginTradeSwitchMode,
     SpotMarginTradeSetLeverage,
-    SpotMarginTradeSetPledgeToken,
 
     // Stream paths.
     PublicSpot,
@@ -244,7 +243,6 @@ impl fmt::Display for Path {
             Self::SpotLeverTokenOrderRecord => "/v5/spot-lever-token/order-record",
             Self::SpotMarginTradeSwitchMode => "/v5/spot-margin-trade/switch-mode",
             Self::SpotMarginTradeSetLeverage => "/v5/spot-margin-trade/set-leverage",
-            Self::SpotMarginTradeSetPledgeToken => "/v5/spot-margin-trade/set-pledge-token",
 
             Self::PublicSpot => "/v5/public/spot",
             Self::PublicLinear => "/v5/public/linear",

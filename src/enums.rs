@@ -846,6 +846,15 @@ pub enum MarginMode {
     PortfolioMargin,
 }
 
+/// Whether Spot Margin Trade (UTA) is turned on for the account.
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
+pub enum SpotMarginMode {
+    #[serde(rename = "0")]
+    Disabled,
+    #[serde(rename = "1")]
+    Enabled,
+}
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum SpotHedgingStatus {
