@@ -872,6 +872,25 @@ pub enum LtStatus {
     AdjustingPosition,
 }
 
+/// Status of a leveraged token purchase or redemption order.
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
+pub enum LtOrderStatus {
+    #[serde(rename = "1")]
+    Completed,
+    #[serde(rename = "2")]
+    InProgress,
+    #[serde(rename = "3")]
+    Failed,
+}
+
+/// Whether a leveraged token order record is a purchase or a redemption.
+#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
+#[repr(u8)]
+pub enum LtOrderType {
+    Purchase = 1,
+    Redemption = 2,
+}
+
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum ConvertAccountType {
     /// Unified Trading Account
