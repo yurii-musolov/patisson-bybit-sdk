@@ -74,7 +74,7 @@ async fn fetch_changes(
             currency: None,
             base_coin: None,
             settle_coin: Some(settle_coin.clone()),
-            log_type: Some(String::from("TRADE")),
+            r#type: Some(String::from("TRADE")),
             trans_sub_type: None,
             start_time: Some(start_time),
             end_time: None,
