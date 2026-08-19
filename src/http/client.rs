@@ -2,24 +2,35 @@ use crate::{
     Error, Timestamp,
     crypto::{SensitiveString, Signer},
     http::{
-        APIErrorResponse, APIKeyInformation, AccountInfo, AmendOrderBatchRequest,
-        AmendOrderBatchResult, AmendOrderRequest, AmendOrderResponse, BorrowHistoryEntry,
-        CancelAllOrdersRequest, CancelAllOrdersResponse, CancelOrderBatchRequest,
-        CancelOrderBatchResult, CancelOrderRequest, CancelOrderResponse, ClosedPnl,
-        CollateralInfoEntry, CursorPagination, DeliveryPrice, EmptyResult, ExecutionEntry,
-        FeeRateEntry, FundingRateHistory, GetBorrowHistoryParams, GetClosedPnlParams,
-        GetCollateralInfoParams, GetDeliveryPriceParams, GetExecutionListParams, GetFeeRateParams,
-        GetFundingRateHistoryParams, GetHistoricalVolatilityParams, GetInstrumentsInfoParams,
-        GetInsuranceParams, GetKLinesParams, GetOpenClosedOrdersParams, GetOpenInterestParams,
-        GetOrderHistoryParams, GetOrderbookParams, GetPositionInfoParams, GetRiskLimitParams,
-        GetSpotBorrowCheckParams, GetTickersParams, GetTradesParams, GetTransactionLogParams,
-        GetWalletBalanceParams, Headers, HistoricalVolatilityEntry, InstrumentsInfo, Insurance,
-        KLine, List, OpenInterest, Order, Orderbook, PlaceOrderBatchRequest, PlaceOrderBatchResult,
-        PlaceOrderRequest, PlaceOrderResponse, Position, Resp, Response, RiskLimit, ServerTime,
+        APIErrorResponse, APIKeyInformation, AccountCoinBalance, AccountInfo,
+        AmendOrderBatchRequest, AmendOrderBatchResult, AmendOrderRequest, AmendOrderResponse,
+        AssetInfoResult, BorrowHistoryEntry, CancelAllOrdersRequest, CancelAllOrdersResponse,
+        CancelOrderBatchRequest, CancelOrderBatchResult, CancelOrderRequest, CancelOrderResponse,
+        CancelWithdrawalRequest, CancelWithdrawalResult, ClosedPnl, CoinGreeks, CoinInfoResult,
+        CollateralInfoEntry, CursorPagination, DeliveryPrice, DeliveryRecord, DepositAddress,
+        DepositAllowedCoinInfoResult, DepositRecords, EmptyResult, ExchangeOrderRecords,
+        ExecutionEntry, FeeRateEntry, FundingRateHistory, GetAccountCoinBalanceParams,
+        GetAssetInfoParams, GetBorrowHistoryParams, GetClosedPnlParams, GetCoinGreeksParams,
+        GetCoinInfoParams, GetCollateralInfoParams, GetDeliveryPriceParams,
+        GetDeliveryRecordParams, GetDepositAddressParams, GetDepositAllowedCoinInfoParams,
+        GetDepositRecordsParams, GetExchangeOrderRecordParams, GetExecutionListParams,
+        GetFeeRateParams, GetFundingRateHistoryParams, GetHistoricalVolatilityParams,
+        GetInstrumentsInfoParams, GetInsuranceParams, GetInternalTransferRecordsParams,
+        GetKLinesParams, GetOpenClosedOrdersParams, GetOpenInterestParams, GetOrderHistoryParams,
+        GetOrderbookParams, GetPositionInfoParams, GetRiskLimitParams, GetSettlementRecordParams,
+        GetSpotBorrowCheckParams, GetSubDepositAddressParams, GetSubDepositRecordsParams,
+        GetTickersParams, GetTradesParams, GetTransactionLogParams, GetTransferableCoinsParams,
+        GetUniversalTransferRecordsParams, GetWalletBalanceParams, GetWithdrawalRecordsParams,
+        Headers, HistoricalVolatilityEntry, InstrumentsInfo, Insurance, InternalTransferEntry,
+        InternalTransferRequest, KLine, List, OpenInterest, Order, Orderbook,
+        PlaceOrderBatchRequest, PlaceOrderBatchResult, PlaceOrderRequest, PlaceOrderResponse,
+        Position, Resp, Response, RiskLimit, SaveTransferSubMemberRequest, ServerTime,
         SetAutoAddMarginRequest, SetLeverageRequest, SetMarginModeRequest, SetMarginModeResponse,
-        SetRiskLimitRequest, SetRiskLimitResponse, SetTradingStopRequest, SpotBorrowCheck,
-        SwitchCrossIsolatedMarginRequest, SwitchPositionModeRequest, Ticker, Trade, TransactionLog,
-        UpgradeToUtaResult, WalletBalance,
+        SetRiskLimitRequest, SetRiskLimitResponse, SetTradingStopRequest, SettlementRecord,
+        SpotBorrowCheck, SwitchCrossIsolatedMarginRequest, SwitchPositionModeRequest, Ticker,
+        Trade, TransactionLog, TransferResult, TransferableSubMembers, UniversalTransferEntry,
+        UniversalTransferRequest, UpgradeToUtaResult, WalletBalance, WithdrawRecords,
+        WithdrawRequest, WithdrawResult,
     },
     serde::{deserialize_json, serialize_json, serialize_query},
     url::*,
@@ -1103,6 +1114,495 @@ impl Client {
         let url = format!("{}{}", self.base_url, Path::UserQueryApi);
         let query = "";
         let headers = self.get_signed_headers(query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+}
+
+// Asset.
+impl Client {
+    /// Create Internal Transfer.
+    /// Transfer between different account types under the same UID.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn internal_transfer(
+        &self,
+        request: &InternalTransferRequest,
+    ) -> Result<Response<TransferResult>, Error> {
+        let url = format!("{}{}", self.base_url, Path::AssetTransferInterTransfer);
+        let body = serialize_json(request)?;
+        let headers = self.get_signed_headers(&body);
+
+        let request = self
+            .client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(body);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Internal Transfer Records.
+    /// Query the internal transfer records between different account types under the same UID.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_internal_transfer_records(
+        &self,
+        params: &GetInternalTransferRecordsParams,
+    ) -> Result<Response<CursorPagination<InternalTransferEntry>>, Error> {
+        let query = serialize_query(params)?;
+        let url = format!(
+            "{}{}?{query}",
+            self.base_url,
+            Path::AssetTransferQueryInterTransferList
+        );
+        let headers = self.get_signed_headers(&query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Create Universal Transfer.
+    /// Transfer between a master account and its sub-accounts, or between two sub-accounts.
+    ///
+    /// Requires authentication. Requires the master UID's API key, or a sub-account key with
+    /// the `SubMemberTransferList` permission (may only transfer to the master account).
+    #[tracing::instrument(skip(self), err)]
+    pub async fn universal_transfer(
+        &self,
+        request: &UniversalTransferRequest,
+    ) -> Result<Response<TransferResult>, Error> {
+        let url = format!("{}{}", self.base_url, Path::AssetTransferUniversalTransfer);
+        let body = serialize_json(request)?;
+        let headers = self.get_signed_headers(&body);
+
+        let request = self
+            .client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(body);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Universal Transfer Records.
+    ///
+    /// Requires authentication. Requires the master UID's API key, or a sub-account key with
+    /// the `SubMemberTransferList` permission.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_universal_transfer_records(
+        &self,
+        params: &GetUniversalTransferRecordsParams,
+    ) -> Result<Response<CursorPagination<UniversalTransferEntry>>, Error> {
+        let query = serialize_query(params)?;
+        let url = format!(
+            "{}{}?{query}",
+            self.base_url,
+            Path::AssetTransferQueryUniversalTransferList
+        );
+        let headers = self.get_signed_headers(&query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Transferable Coin.
+    /// Query the transferable coins between two account types.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_transferable_coins(
+        &self,
+        params: &GetTransferableCoinsParams,
+    ) -> Result<Response<List<String>>, Error> {
+        let query = serialize_query(params)?;
+        let url = format!(
+            "{}{}?{query}",
+            self.base_url,
+            Path::AssetTransferQueryTransferCoinList
+        );
+        let headers = self.get_signed_headers(&query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Enable Universal Transfer For Sub UID.
+    ///
+    /// Deprecated by Bybit: all sub UIDs are now automatically enabled for universal transfer,
+    /// so this call is no longer necessary. Kept for completeness. Requires the master UID's
+    /// API key.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn save_transfer_sub_member(
+        &self,
+        request: &SaveTransferSubMemberRequest,
+    ) -> Result<Response<EmptyResult>, Error> {
+        let url = format!(
+            "{}{}",
+            self.base_url,
+            Path::AssetTransferSaveTransferSubMember
+        );
+        let body = serialize_json(request)?;
+        let headers = self.get_signed_headers(&body);
+
+        let request = self
+            .client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(body);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Sub UID (for universal transfer).
+    /// Query the sub UIDs under a master account, and which of them are enabled for universal
+    /// transfer.
+    ///
+    /// Requires authentication. Requires the master UID's API key.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_transferable_sub_members(
+        &self,
+    ) -> Result<Response<TransferableSubMembers>, Error> {
+        let url = format!("{}{}", self.base_url, Path::AssetTransferQuerySubMemberList);
+        let query = "";
+        let headers = self.get_signed_headers(query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Single Coin Balance.
+    /// Query the balance of a specific coin in a specific account type, or the balance that is
+    /// safe to transfer between two accounts.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_account_coin_balance(
+        &self,
+        params: &GetAccountCoinBalanceParams,
+    ) -> Result<Response<AccountCoinBalance>, Error> {
+        let query = serialize_query(params)?;
+        let url = format!(
+            "{}{}?{query}",
+            self.base_url,
+            Path::AssetTransferQueryAccountCoinBalance
+        );
+        let headers = self.get_signed_headers(&query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Asset Info (Spot).
+    /// Query for the balance of the Spot account.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_asset_info(
+        &self,
+        params: &GetAssetInfoParams,
+    ) -> Result<Response<AssetInfoResult>, Error> {
+        let query = serialize_query(params)?;
+        let url = format!(
+            "{}{}?{query}",
+            self.base_url,
+            Path::AssetTransferQueryAssetInfo
+        );
+        let headers = self.get_signed_headers(&query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Allowed Deposit Coin Info.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_deposit_allowed_coin_info(
+        &self,
+        params: &GetDepositAllowedCoinInfoParams,
+    ) -> Result<Response<DepositAllowedCoinInfoResult>, Error> {
+        let query = serialize_query(params)?;
+        let url = format!(
+            "{}{}?{query}",
+            self.base_url,
+            Path::AssetDepositQueryAllowedList
+        );
+        let headers = self.get_signed_headers(&query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Deposit Records (on-chain).
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_deposit_records(
+        &self,
+        params: &GetDepositRecordsParams,
+    ) -> Result<Response<DepositRecords>, Error> {
+        let query = serialize_query(params)?;
+        let url = format!("{}{}?{query}", self.base_url, Path::AssetDepositQueryRecord);
+        let headers = self.get_signed_headers(&query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Sub Account Deposit Records (on-chain).
+    ///
+    /// Requires authentication. Requires the master UID's API key.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_sub_deposit_records(
+        &self,
+        params: &GetSubDepositRecordsParams,
+    ) -> Result<Response<DepositRecords>, Error> {
+        let query = serialize_query(params)?;
+        let url = format!(
+            "{}{}?{query}",
+            self.base_url,
+            Path::AssetDepositQuerySubMemberRecord
+        );
+        let headers = self.get_signed_headers(&query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Master Deposit Address.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_deposit_address(
+        &self,
+        params: &GetDepositAddressParams,
+    ) -> Result<Response<DepositAddress>, Error> {
+        let query = serialize_query(params)?;
+        let url = format!(
+            "{}{}?{query}",
+            self.base_url,
+            Path::AssetDepositQueryAddress
+        );
+        let headers = self.get_signed_headers(&query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Sub Account Deposit Address.
+    ///
+    /// Requires authentication. Requires the master account's API key.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_sub_deposit_address(
+        &self,
+        params: &GetSubDepositAddressParams,
+    ) -> Result<Response<DepositAddress>, Error> {
+        let query = serialize_query(params)?;
+        let url = format!(
+            "{}{}?{query}",
+            self.base_url,
+            Path::AssetDepositQuerySubMemberAddress
+        );
+        let headers = self.get_signed_headers(&query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Withdrawal Records.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_withdrawal_records(
+        &self,
+        params: &GetWithdrawalRecordsParams,
+    ) -> Result<Response<WithdrawRecords>, Error> {
+        let query = serialize_query(params)?;
+        let url = format!(
+            "{}{}?{query}",
+            self.base_url,
+            Path::AssetWithdrawQueryRecord
+        );
+        let headers = self.get_signed_headers(&query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Withdraw.
+    /// Create a withdrawal request.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn withdraw(
+        &self,
+        request: &WithdrawRequest,
+    ) -> Result<Response<WithdrawResult>, Error> {
+        let url = format!("{}{}", self.base_url, Path::AssetWithdrawCreate);
+        let body = serialize_json(request)?;
+        let headers = self.get_signed_headers(&body);
+
+        let request = self
+            .client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(body);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Cancel Withdrawal.
+    /// Cancel a pending withdrawal request.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn cancel_withdrawal(
+        &self,
+        request: &CancelWithdrawalRequest,
+    ) -> Result<Response<CancelWithdrawalResult>, Error> {
+        let url = format!("{}{}", self.base_url, Path::AssetWithdrawCancel);
+        let body = serialize_json(request)?;
+        let headers = self.get_signed_headers(&body);
+
+        let request = self
+            .client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(body);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Coin Info.
+    /// Query coin information, including chains, deposit/withdrawal limits, and fees.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_coin_info(
+        &self,
+        params: &GetCoinInfoParams,
+    ) -> Result<Response<CoinInfoResult>, Error> {
+        let url = format!("{}{}", self.base_url, Path::AssetCoinQueryInfo);
+        let query = serialize_query(params)?;
+        let headers = self.get_signed_headers(&query);
+
+        let request = self
+            .client
+            .request(Method::GET, url)
+            .headers(headers)
+            .query(params);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Coin Exchange Records.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_exchange_order_record(
+        &self,
+        params: &GetExchangeOrderRecordParams,
+    ) -> Result<Response<ExchangeOrderRecords>, Error> {
+        let query = serialize_query(params)?;
+        let url = format!(
+            "{}{}?{query}",
+            self.base_url,
+            Path::AssetExchangeOrderRecord
+        );
+        let headers = self.get_signed_headers(&query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Delivery Record.
+    /// Query delivery records of USDC futures and Options, sorted by descending delivery time.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_delivery_record(
+        &self,
+        params: &GetDeliveryRecordParams,
+    ) -> Result<Response<CursorPagination<DeliveryRecord>>, Error> {
+        let query = serialize_query(params)?;
+        let url = format!("{}{}?{query}", self.base_url, Path::AssetDeliveryRecord);
+        let headers = self.get_signed_headers(&query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Get USDC Session Settlement.
+    /// Query session settlement records of USDC perpetual contracts.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_settlement_record(
+        &self,
+        params: &GetSettlementRecordParams,
+    ) -> Result<Response<CursorPagination<SettlementRecord>>, Error> {
+        let query = serialize_query(params)?;
+        let url = format!("{}{}?{query}", self.base_url, Path::AssetSettlementRecord);
+        let headers = self.get_signed_headers(&query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Coin Greeks.
+    /// Query the current account's Greeks information. Option only.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_coin_greeks(
+        &self,
+        params: &GetCoinGreeksParams,
+    ) -> Result<Response<List<CoinGreeks>>, Error> {
+        let query = serialize_query(params)?;
+        let url = format!("{}{}?{query}", self.base_url, Path::AssetCoinGreeks);
+        let headers = self.get_signed_headers(&query);
 
         let request = self.client.request(Method::GET, url).headers(headers);
 

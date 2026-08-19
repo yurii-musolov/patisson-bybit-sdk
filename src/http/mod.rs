@@ -1,4 +1,5 @@
 mod account;
+mod asset;
 mod client;
 mod common;
 mod market;
@@ -8,6 +9,7 @@ mod rate_limiter;
 mod user;
 
 pub use account::*;
+pub use asset::*;
 pub use client::*;
 pub use common::*;
 pub use market::*;
