@@ -1015,6 +1015,15 @@ pub enum DCPProduct {
     Option,
 }
 
+/// Outcome of an Upgrade to Unified Account (Pro) request.
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum UnifiedUpdateStatus {
+    Fail,
+    Process,
+    Success,
+}
+
 #[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum MaintainType {

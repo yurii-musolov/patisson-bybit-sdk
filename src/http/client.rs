@@ -3,11 +3,12 @@ use crate::{
     crypto::{SensitiveString, Signer},
     http::{
         APIErrorResponse, APIKeyInformation, AccountInfo, AmendOrderBatchRequest,
-        AmendOrderBatchResult, AmendOrderRequest, AmendOrderResponse, CancelAllOrdersRequest,
-        CancelAllOrdersResponse, CancelOrderBatchRequest, CancelOrderBatchResult,
-        CancelOrderRequest, CancelOrderResponse, ClosedPnl, CursorPagination, DeliveryPrice,
-        EmptyResult, ExecutionEntry, FeeRateEntry, FundingRateHistory, GetClosedPnlParams,
-        GetDeliveryPriceParams, GetExecutionListParams, GetFeeRateParams,
+        AmendOrderBatchResult, AmendOrderRequest, AmendOrderResponse, BorrowHistoryEntry,
+        CancelAllOrdersRequest, CancelAllOrdersResponse, CancelOrderBatchRequest,
+        CancelOrderBatchResult, CancelOrderRequest, CancelOrderResponse, ClosedPnl,
+        CollateralInfoEntry, CursorPagination, DeliveryPrice, EmptyResult, ExecutionEntry,
+        FeeRateEntry, FundingRateHistory, GetBorrowHistoryParams, GetClosedPnlParams,
+        GetCollateralInfoParams, GetDeliveryPriceParams, GetExecutionListParams, GetFeeRateParams,
         GetFundingRateHistoryParams, GetHistoricalVolatilityParams, GetInstrumentsInfoParams,
         GetInsuranceParams, GetKLinesParams, GetOpenClosedOrdersParams, GetOpenInterestParams,
         GetOrderHistoryParams, GetOrderbookParams, GetPositionInfoParams, GetRiskLimitParams,
@@ -18,7 +19,7 @@ use crate::{
         SetAutoAddMarginRequest, SetLeverageRequest, SetMarginModeRequest, SetMarginModeResponse,
         SetRiskLimitRequest, SetRiskLimitResponse, SetTradingStopRequest, SpotBorrowCheck,
         SwitchCrossIsolatedMarginRequest, SwitchPositionModeRequest, Ticker, Trade, TransactionLog,
-        WalletBalance,
+        UpgradeToUtaResult, WalletBalance,
     },
     serde::{deserialize_json, serialize_json, serialize_query},
     url::*,
@@ -1002,6 +1003,91 @@ impl Client {
             .request(Method::POST, url)
             .headers(headers)
             .body(body);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Upgrade to Unified Account (Pro).
+    /// Upgrades an account to Unified Account Pro (UTA2.0 Pro). No open orders may exist
+    /// during the upgrade.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn upgrade_to_uta(&self) -> Result<Response<UpgradeToUtaResult>, Error> {
+        let url = format!("{}{}", self.base_url, Path::AccountUpgradeToUta);
+        let body = "{}".to_owned();
+        let headers = self.get_signed_headers(&body);
+
+        let request = self
+            .client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(body);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Borrow History.
+    /// Get interest records, sorted in reverse order of creation time.
+    ///
+    /// Requires authentication. Unified account only.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_borrow_history(
+        &self,
+        params: &GetBorrowHistoryParams,
+    ) -> Result<Response<CursorPagination<BorrowHistoryEntry>>, Error> {
+        let query = serialize_query(params)?;
+        let url = format!("{}{}?{query}", self.base_url, Path::AccountBorrowHistory);
+        let headers = self.get_signed_headers(&query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Collect all pages of borrow history entries into a single `Vec`.
+    /// Repeatedly calls [`get_borrow_history`](Client::get_borrow_history) following
+    /// `next_page_cursor` until the last page is reached.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_borrow_history_all(
+        &self,
+        params: &GetBorrowHistoryParams,
+    ) -> Result<Vec<BorrowHistoryEntry>, Error> {
+        let mut all = Vec::new();
+        let mut p = params.clone();
+        loop {
+            let page = self.get_borrow_history(&p).await?;
+            all.extend(page.result.list);
+            match page.result.next_page_cursor {
+                Some(cursor) => p = p.with_cursor(cursor),
+                None => break,
+            }
+        }
+        Ok(all)
+    }
+
+    /// Get Collateral Info.
+    /// Query the collateral ratio, and information of the collateral ratio tier, for each
+    /// currency.
+    ///
+    /// Requires authentication. Unified account only.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_collateral_info(
+        &self,
+        params: &GetCollateralInfoParams,
+    ) -> Result<Response<List<CollateralInfoEntry>>, Error> {
+        let url = format!("{}{}", self.base_url, Path::AccountCollateralInfo);
+        let query = serialize_query(params)?;
+        let headers = self.get_signed_headers(&query);
+
+        let request = self
+            .client
+            .request(Method::GET, url)
+            .headers(headers)
+            .query(params);
 
         let response = self.send(request).await?;
         Ok(response)

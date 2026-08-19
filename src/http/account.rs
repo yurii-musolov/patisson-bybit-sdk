@@ -6,6 +6,7 @@ use serde_aux::prelude::deserialize_number_from_string as number;
 
 use crate::{
     AccountType, DCPProduct, MarginMode, Second, SpotHedgingStatus, Timestamp, UnifiedMarginStatus,
+    UnifiedUpdateStatus,
     enums::Category,
     serde::{Unique, empty_string_as_none, hash_map},
     ws::WalletMsg,
@@ -404,4 +405,172 @@ pub struct SetMarginModeResponse {
 pub struct MarginModeFailureReason {
     pub reason_code: String,
     pub reason_msg: String,
+}
+
+// --- Upgrade to Unified Account (Pro) ---
+
+/// Response for [`Client::upgrade_to_uta`](crate::http::Client::upgrade_to_uta).
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct UpgradeToUtaResult {
+    pub unified_update_status: UnifiedUpdateStatus,
+    /// `None` unless `unified_update_status` is `Fail`.
+    pub unified_update_msg: Option<UnifiedUpdateMsg>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct UnifiedUpdateMsg {
+    pub msg: Vec<String>,
+}
+
+// --- Get Borrow History ---
+
+/// Query params for [`Client::get_borrow_history`](crate::http::Client::get_borrow_history).
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetBorrowHistoryParams {
+    /// Currency, uppercase only
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+    /// The start timestamp (ms). Combined with end_time, cannot exceed 30 days
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_time: Option<Timestamp>,
+    /// The end timestamp (ms). Combined with start_time, cannot exceed 30 days
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_time: Option<Timestamp>,
+    /// Limit for data size per page. [1, 50]. Default: 20
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u64>,
+    /// Cursor. Use the nextPageCursor token from the response to retrieve the next page of the result set
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+}
+
+impl GetBorrowHistoryParams {
+    pub fn new() -> Self {
+        Self {
+            currency: None,
+            start_time: None,
+            end_time: None,
+            limit: None,
+            cursor: None,
+        }
+    }
+
+    pub fn with_currency(mut self, v: String) -> Self {
+        self.currency = Some(v);
+        self
+    }
+    pub fn with_start_time(mut self, v: Timestamp) -> Self {
+        self.start_time = Some(v);
+        self
+    }
+    pub fn with_end_time(mut self, v: Timestamp) -> Self {
+        self.end_time = Some(v);
+        self
+    }
+    pub fn with_limit(mut self, v: u64) -> Self {
+        self.limit = Some(v);
+        self
+    }
+    pub fn with_cursor(mut self, v: String) -> Self {
+        self.cursor = Some(v);
+        self
+    }
+}
+
+impl Default for GetBorrowHistoryParams {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct BorrowHistoryEntry {
+    /// Currency
+    pub currency: String,
+    /// Interest record timestamp (ms)
+    #[serde(deserialize_with = "number")]
+    pub created_time: Timestamp,
+    /// Borrow cost, i.e., accrued interest
+    pub borrow_cost: Decimal,
+    /// Hourly borrow rate
+    pub hourly_borrow_rate: Decimal,
+    /// Borrowed amount that accrues interest
+    #[serde(rename = "InterestBearingBorrowSize")]
+    pub interest_bearing_borrow_size: Decimal,
+    /// Amount exempted from interest
+    pub cost_exemption: Decimal,
+    /// Borrowed amount
+    pub borrow_amount: Decimal,
+    /// Unrealised loss
+    pub unrealised_loss: Decimal,
+    /// Amount borrowed within the interest-free threshold
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub free_borrowed_amount: Option<Decimal>,
+}
+
+// --- Get Collateral Info ---
+
+/// Query params for [`Client::get_collateral_info`](crate::http::Client::get_collateral_info).
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GetCollateralInfoParams {
+    /// Asset currency of all current collateral, uppercase only
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+}
+
+impl GetCollateralInfoParams {
+    pub fn new() -> Self {
+        Self { currency: None }
+    }
+
+    pub fn with_currency(mut self, v: String) -> Self {
+        self.currency = Some(v);
+        self
+    }
+}
+
+impl Default for GetCollateralInfoParams {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct CollateralInfoEntry {
+    /// Currency of the collateral
+    pub currency: String,
+    /// Hourly interest rate for borrowing
+    pub hourly_borrow_rate: Decimal,
+    /// Maximum borrowable amount, shared across main and sub accounts
+    pub max_borrowing_amount: Decimal,
+    /// Maximum limit for interest-free borrowing
+    pub free_borrowing_limit: Decimal,
+    /// Amount borrowed within the interest-free threshold
+    pub free_borrow_amount: Decimal,
+    /// Current borrow amount
+    pub borrow_amount: Decimal,
+    /// Borrowing amount from other accounts under the same main account
+    pub other_borrow_amount: Decimal,
+    /// Remaining amount available to borrow
+    pub available_to_borrow: Decimal,
+    /// Whether currency can be borrowed
+    pub borrowable: bool,
+    /// Borrow usage ratio, e.g. 0.5 = 50%
+    pub borrow_usage_rate: Decimal,
+    /// Whether usable as margin collateral
+    pub margin_collateral: bool,
+    /// Whether collateral is enabled by user
+    pub collateral_switch: bool,
+    /// Deprecated. Refer to the tiered collateral ratio endpoint instead
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub collateral_ratio: Option<Decimal>,
+    /// Deprecated. Always empty
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub free_borrowing_amount: Option<String>,
 }
