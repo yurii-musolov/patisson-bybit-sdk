@@ -16,21 +16,24 @@ use crate::{
         GetDepositRecordsParams, GetExchangeOrderRecordParams, GetExecutionListParams,
         GetFeeRateParams, GetFundingRateHistoryParams, GetHistoricalVolatilityParams,
         GetInstrumentsInfoParams, GetInsuranceParams, GetInternalTransferRecordsParams,
-        GetKLinesParams, GetOpenClosedOrdersParams, GetOpenInterestParams, GetOrderHistoryParams,
-        GetOrderbookParams, GetPositionInfoParams, GetRiskLimitParams, GetSettlementRecordParams,
-        GetSpotBorrowCheckParams, GetSubDepositAddressParams, GetSubDepositRecordsParams,
-        GetTickersParams, GetTradesParams, GetTransactionLogParams, GetTransferableCoinsParams,
-        GetUniversalTransferRecordsParams, GetWalletBalanceParams, GetWithdrawalRecordsParams,
-        Headers, HistoricalVolatilityEntry, InstrumentsInfo, Insurance, InternalTransferEntry,
-        InternalTransferRequest, KLine, List, OpenInterest, Order, Orderbook,
+        GetKLinesParams, GetLeverageTokenInfoParams, GetLeverageTokenMarketParams,
+        GetLeverageTokenOrderRecordsParams, GetOpenClosedOrdersParams, GetOpenInterestParams,
+        GetOrderHistoryParams, GetOrderbookParams, GetPositionInfoParams, GetRiskLimitParams,
+        GetSettlementRecordParams, GetSpotBorrowCheckParams, GetSubDepositAddressParams,
+        GetSubDepositRecordsParams, GetTickersParams, GetTradesParams, GetTransactionLogParams,
+        GetTransferableCoinsParams, GetUniversalTransferRecordsParams, GetWalletBalanceParams,
+        GetWithdrawalRecordsParams, Headers, HistoricalVolatilityEntry, InstrumentsInfo, Insurance,
+        InternalTransferEntry, InternalTransferRequest, KLine, LeverageTokenInfo,
+        LeverageTokenMarket, LeverageTokenOrderRecord, List, OpenInterest, Order, Orderbook,
         PlaceOrderBatchRequest, PlaceOrderBatchResult, PlaceOrderRequest, PlaceOrderResponse,
-        Position, Resp, Response, RiskLimit, SaveTransferSubMemberRequest, ServerTime,
-        SetAutoAddMarginRequest, SetLeverageRequest, SetMarginModeRequest, SetMarginModeResponse,
-        SetRiskLimitRequest, SetRiskLimitResponse, SetTradingStopRequest, SettlementRecord,
-        SpotBorrowCheck, SwitchCrossIsolatedMarginRequest, SwitchPositionModeRequest, Ticker,
-        Trade, TransactionLog, TransferResult, TransferableSubMembers, UniversalTransferEntry,
-        UniversalTransferRequest, UpgradeToUtaResult, WalletBalance, WithdrawRecords,
-        WithdrawRequest, WithdrawResult,
+        Position, PurchaseLeverageTokenRequest, PurchaseLeverageTokenResult,
+        RedeemLeverageTokenRequest, RedeemLeverageTokenResult, Resp, Response, RiskLimit,
+        SaveTransferSubMemberRequest, ServerTime, SetAutoAddMarginRequest, SetLeverageRequest,
+        SetMarginModeRequest, SetMarginModeResponse, SetRiskLimitRequest, SetRiskLimitResponse,
+        SetTradingStopRequest, SettlementRecord, SpotBorrowCheck, SwitchCrossIsolatedMarginRequest,
+        SwitchPositionModeRequest, Ticker, Trade, TransactionLog, TransferResult,
+        TransferableSubMembers, UniversalTransferEntry, UniversalTransferRequest,
+        UpgradeToUtaResult, WalletBalance, WithdrawRecords, WithdrawRequest, WithdrawResult,
     },
     serde::{deserialize_json, serialize_json, serialize_query},
     url::*,
@@ -1602,6 +1605,111 @@ impl Client {
     ) -> Result<Response<List<CoinGreeks>>, Error> {
         let query = serialize_query(params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::AssetCoinGreeks);
+        let headers = self.get_signed_headers(&query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+}
+
+// Spot Leveraged Token.
+impl Client {
+    /// Get Leverage Token Info.
+    /// Query leveraged token information, such as purchase/redeem limits and fees.
+    ///
+    /// No authentication required.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_leverage_token_info(
+        &self,
+        params: &GetLeverageTokenInfoParams,
+    ) -> Result<Response<List<LeverageTokenInfo>>, Error> {
+        let url = format!("{}{}", self.base_url, Path::SpotLeverTokenInfo);
+
+        let request = self.client.request(Method::GET, url).query(params);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Leverage Token Market.
+    /// Query the leveraged token market data, such as net asset value and real leverage.
+    ///
+    /// No authentication required.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_leverage_token_market(
+        &self,
+        params: &GetLeverageTokenMarketParams,
+    ) -> Result<Response<LeverageTokenMarket>, Error> {
+        let url = format!("{}{}", self.base_url, Path::SpotLeverTokenReference);
+
+        let request = self.client.request(Method::GET, url).query(params);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Purchase.
+    /// Purchase a leveraged token.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn purchase_leverage_token(
+        &self,
+        request: &PurchaseLeverageTokenRequest,
+    ) -> Result<Response<PurchaseLeverageTokenResult>, Error> {
+        let url = format!("{}{}", self.base_url, Path::SpotLeverTokenPurchase);
+        let body = serialize_json(request)?;
+        let headers = self.get_signed_headers(&body);
+
+        let request = self
+            .client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(body);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Redeem.
+    /// Redeem a leveraged token.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn redeem_leverage_token(
+        &self,
+        request: &RedeemLeverageTokenRequest,
+    ) -> Result<Response<RedeemLeverageTokenResult>, Error> {
+        let url = format!("{}{}", self.base_url, Path::SpotLeverTokenRedeem);
+        let body = serialize_json(request)?;
+        let headers = self.get_signed_headers(&body);
+
+        let request = self
+            .client
+            .request(Method::POST, url)
+            .headers(headers)
+            .body(body);
+
+        let response = self.send(request).await?;
+        Ok(response)
+    }
+
+    /// Get Purchase/Redemption Records.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_leverage_token_order_records(
+        &self,
+        params: &GetLeverageTokenOrderRecordsParams,
+    ) -> Result<Response<List<LeverageTokenOrderRecord>>, Error> {
+        let query = serialize_query(params)?;
+        let url = format!(
+            "{}{}?{query}",
+            self.base_url,
+            Path::SpotLeverTokenOrderRecord
+        );
         let headers = self.get_signed_headers(&query);
 
         let request = self.client.request(Method::GET, url).headers(headers);
