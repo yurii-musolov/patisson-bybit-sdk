@@ -104,7 +104,7 @@ impl Signer {
         let timestamp = (self.timer)().to_string();
         let api_key = self.api_key.expose();
         let api_secret = self.api_secret.expose();
-        let message = format!("{timestamp}{}{}{s}", api_key, &self.recv_window);
+        let message = format!("{timestamp}{}{}{s}", api_key, self.recv_window);
 
         let signature = hmac_sha256(api_secret, message);
 
