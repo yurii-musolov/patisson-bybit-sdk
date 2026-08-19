@@ -7,6 +7,7 @@ mod orders;
 mod positions;
 mod rate_limiter;
 mod spot_lever_token;
+mod spot_margin_trade;
 mod user;
 
 pub use account::*;
@@ -18,6 +19,7 @@ pub use orders::*;
 pub use positions::*;
 pub use rate_limiter::RateLimiterConfig;
 pub use spot_lever_token::*;
+pub use spot_margin_trade::*;
 pub use user::*;
 
 #[cfg(test)]
