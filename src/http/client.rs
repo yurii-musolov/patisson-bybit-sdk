@@ -1,6 +1,7 @@
 use crate::{
     Error, Timestamp,
     crypto::{SensitiveString, Signer},
+    enums::Category,
     http::{
         APIErrorResponse, APIKeyInformation, AccountCoinBalance, AccountInfo,
         AmendOrderBatchRequest, AmendOrderBatchResult, AmendOrderRequest, AmendOrderResponse,
@@ -41,7 +42,7 @@ use crate::{
 };
 use reqwest::{self, Method, RequestBuilder, header::HeaderMap};
 
-use super::rate_limiter::{RateLimiter, RateLimiterConfig};
+use super::rate_limiter::{RateLimitKey, RateLimiter, RateLimiterConfig};
 
 pub struct Config {
     pub base_url: String,
@@ -126,7 +127,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::MarketServerTime, request).await?;
         Ok(response)
     }
 
@@ -136,7 +137,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::MarketKline, request).await?;
         Ok(response)
     }
 
@@ -153,7 +154,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::MarketMarkPriceKline, request).await?;
         Ok(response)
     }
 
@@ -170,7 +171,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::MarketIndexPriceKline, request).await?;
         Ok(response)
     }
 
@@ -187,7 +188,9 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = self.send(request).await?;
+        let response = self
+            .send(Path::MarketPremiumIndexPriceKline, request)
+            .await?;
         Ok(response)
     }
 
@@ -200,7 +203,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::MarketTickers, request).await?;
         Ok(response)
     }
 
@@ -217,7 +220,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::MarketOrderbook, request).await?;
         Ok(response)
     }
 
@@ -230,7 +233,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::MarketInstrumentsInfo, request).await?;
         Ok(response)
     }
 
@@ -243,7 +246,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::MarketRecentTrade, request).await?;
         Ok(response)
     }
 
@@ -260,7 +263,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::MarketFundingHistory, request).await?;
         Ok(response)
     }
 
@@ -277,7 +280,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::MarketOpenInterest, request).await?;
         Ok(response)
     }
 
@@ -297,7 +300,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::MarketHistoricalVolatility, request).await?;
         Ok(response)
     }
 
@@ -312,7 +315,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::MarketInsurance, request).await?;
         Ok(response)
     }
 
@@ -329,7 +332,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::MarketRiskLimit, request).await?;
         Ok(response)
     }
 
@@ -346,7 +349,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::MarketDeliveryPrice, request).await?;
         Ok(response)
     }
 }
@@ -404,6 +407,7 @@ impl Client {
         &self,
         request: &PlaceOrderRequest,
     ) -> Result<Response<PlaceOrderResponse>, Error> {
+        let category = request.category;
         let url = format!("{}{}", self.base_url, Path::TradeOrderCreate);
         let json = serialize_json(request)?;
         let headers = self.get_signed_headers(&json);
@@ -414,7 +418,9 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = self.send(request).await?;
+        let response = self
+            .send_weighted(Path::TradeOrderCreate, Some(category), 1, request)
+            .await?;
         Ok(response)
     }
 
@@ -426,6 +432,7 @@ impl Client {
         &self,
         request: &AmendOrderRequest,
     ) -> Result<Response<AmendOrderResponse>, Error> {
+        let category = request.category;
         let url = format!("{}{}", self.base_url, Path::TradeOrderAmend);
         let json = serialize_json(request)?;
         let headers = self.get_signed_headers(&json);
@@ -436,7 +443,9 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = self.send(request).await?;
+        let response = self
+            .send_weighted(Path::TradeOrderAmend, Some(category), 1, request)
+            .await?;
         Ok(response)
     }
 
@@ -450,6 +459,7 @@ impl Client {
         &self,
         request: &CancelOrderRequest,
     ) -> Result<Response<CancelOrderResponse>, Error> {
+        let category = request.category;
         let url = format!("{}{}", self.base_url, Path::TradeOrderCancel);
         let json = serialize_json(request)?;
         let headers = self.get_signed_headers(&json);
@@ -460,7 +470,9 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = self.send(request).await?;
+        let response = self
+            .send_weighted(Path::TradeOrderCancel, Some(category), 1, request)
+            .await?;
         Ok(response)
     }
 
@@ -488,7 +500,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::TradeOrderRealtime, request).await?;
         Ok(response)
     }
 
@@ -520,6 +532,7 @@ impl Client {
         &self,
         request: &CancelAllOrdersRequest,
     ) -> Result<Response<CancelAllOrdersResponse>, Error> {
+        let category = request.category;
         let url = format!("{}{}", self.base_url, Path::TradeOrderCancelAll);
         let json = serialize_json(request)?;
         let headers = self.get_signed_headers(&json);
@@ -530,7 +543,9 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = self.send(request).await?;
+        let response = self
+            .send_weighted(Path::TradeOrderCancelAll, Some(category), 1, request)
+            .await?;
         Ok(response)
     }
 
@@ -548,7 +563,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::TradeOrderHistory, request).await?;
         Ok(response)
     }
 
@@ -579,6 +594,8 @@ impl Client {
         &self,
         request: &PlaceOrderBatchRequest,
     ) -> Result<Response<List<PlaceOrderBatchResult>>, Error> {
+        let category = request.category;
+        let cost = request.request.len() as u32;
         let url = format!("{}{}", self.base_url, Path::TradeOrderCreateBatch);
         let json = serialize_json(request)?;
         let headers = self.get_signed_headers(&json);
@@ -589,7 +606,9 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = self.send(request).await?;
+        let response = self
+            .send_weighted(Path::TradeOrderCreateBatch, Some(category), cost, request)
+            .await?;
         Ok(response)
     }
 
@@ -601,6 +620,8 @@ impl Client {
         &self,
         request: &AmendOrderBatchRequest,
     ) -> Result<Response<List<AmendOrderBatchResult>>, Error> {
+        let category = request.category;
+        let cost = request.request.len() as u32;
         let url = format!("{}{}", self.base_url, Path::TradeOrderAmendBatch);
         let json = serialize_json(request)?;
         let headers = self.get_signed_headers(&json);
@@ -611,7 +632,9 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = self.send(request).await?;
+        let response = self
+            .send_weighted(Path::TradeOrderAmendBatch, Some(category), cost, request)
+            .await?;
         Ok(response)
     }
 
@@ -623,6 +646,8 @@ impl Client {
         &self,
         request: &CancelOrderBatchRequest,
     ) -> Result<Response<List<CancelOrderBatchResult>>, Error> {
+        let category = request.category;
+        let cost = request.request.len() as u32;
         let url = format!("{}{}", self.base_url, Path::TradeOrderCancelBatch);
         let json = serialize_json(request)?;
         let headers = self.get_signed_headers(&json);
@@ -633,7 +658,9 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = self.send(request).await?;
+        let response = self
+            .send_weighted(Path::TradeOrderCancelBatch, Some(category), cost, request)
+            .await?;
         Ok(response)
     }
 
@@ -656,7 +683,7 @@ impl Client {
             .headers(headers)
             .query(params);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::TradeOrderSpotBorrowCheck, request).await?;
         Ok(response)
     }
 }
@@ -684,7 +711,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::PositionList, request).await?;
         Ok(response)
     }
 
@@ -726,7 +753,7 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::PositionSetLeverage, request).await?;
         Ok(response)
     }
 
@@ -747,7 +774,7 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::PositionTradingStop, request).await?;
         Ok(response)
     }
 
@@ -768,7 +795,7 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::PositionSwitchIsolated, request).await?;
         Ok(response)
     }
 
@@ -789,7 +816,7 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::PositionSwitchMode, request).await?;
         Ok(response)
     }
 
@@ -810,7 +837,7 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::PositionSetAutoAddMargin, request).await?;
         Ok(response)
     }
 
@@ -831,7 +858,7 @@ impl Client {
             .headers(headers)
             .body(json);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::PositionSetRiskLimit, request).await?;
         Ok(response)
     }
 
@@ -848,7 +875,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::PositionClosedPnl, request).await?;
         Ok(response)
     }
 
@@ -884,7 +911,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::ExecutionList, request).await?;
         Ok(response)
     }
 
@@ -922,7 +949,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::AccountWalletBalance, request).await?;
         Ok(response)
     }
 
@@ -939,7 +966,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::AccountTransactionLog, request).await?;
         Ok(response)
     }
 
@@ -973,7 +1000,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::AccountInfo, request).await?;
         Ok(response)
     }
 
@@ -996,7 +1023,7 @@ impl Client {
             .headers(headers)
             .query(params);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::AccountFeeRate, request).await?;
         Ok(response)
     }
 
@@ -1019,7 +1046,7 @@ impl Client {
             .headers(headers)
             .body(body);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::AccountSetMarginMode, request).await?;
         Ok(response)
     }
 
@@ -1040,7 +1067,7 @@ impl Client {
             .headers(headers)
             .body(body);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::AccountUpgradeToUta, request).await?;
         Ok(response)
     }
 
@@ -1059,7 +1086,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::AccountBorrowHistory, request).await?;
         Ok(response)
     }
 
@@ -1104,7 +1131,7 @@ impl Client {
             .headers(headers)
             .query(params);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::AccountCollateralInfo, request).await?;
         Ok(response)
     }
 }
@@ -1121,7 +1148,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::UserQueryApi, request).await?;
         Ok(response)
     }
 }
@@ -1147,7 +1174,7 @@ impl Client {
             .headers(headers)
             .body(body);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::AssetTransferInterTransfer, request).await?;
         Ok(response)
     }
 
@@ -1170,7 +1197,9 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self
+            .send(Path::AssetTransferQueryInterTransferList, request)
+            .await?;
         Ok(response)
     }
 
@@ -1194,7 +1223,9 @@ impl Client {
             .headers(headers)
             .body(body);
 
-        let response = self.send(request).await?;
+        let response = self
+            .send(Path::AssetTransferUniversalTransfer, request)
+            .await?;
         Ok(response)
     }
 
@@ -1217,7 +1248,9 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self
+            .send(Path::AssetTransferQueryUniversalTransferList, request)
+            .await?;
         Ok(response)
     }
 
@@ -1240,7 +1273,9 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self
+            .send(Path::AssetTransferQueryTransferCoinList, request)
+            .await?;
         Ok(response)
     }
 
@@ -1268,7 +1303,9 @@ impl Client {
             .headers(headers)
             .body(body);
 
-        let response = self.send(request).await?;
+        let response = self
+            .send(Path::AssetTransferSaveTransferSubMember, request)
+            .await?;
         Ok(response)
     }
 
@@ -1287,7 +1324,9 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self
+            .send(Path::AssetTransferQuerySubMemberList, request)
+            .await?;
         Ok(response)
     }
 
@@ -1311,7 +1350,9 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self
+            .send(Path::AssetTransferQueryAccountCoinBalance, request)
+            .await?;
         Ok(response)
     }
 
@@ -1334,7 +1375,9 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self
+            .send(Path::AssetTransferQueryAssetInfo, request)
+            .await?;
         Ok(response)
     }
 
@@ -1356,7 +1399,9 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self
+            .send(Path::AssetDepositQueryAllowedList, request)
+            .await?;
         Ok(response)
     }
 
@@ -1374,7 +1419,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::AssetDepositQueryRecord, request).await?;
         Ok(response)
     }
 
@@ -1396,7 +1441,9 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self
+            .send(Path::AssetDepositQuerySubMemberRecord, request)
+            .await?;
         Ok(response)
     }
 
@@ -1418,7 +1465,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::AssetDepositQueryAddress, request).await?;
         Ok(response)
     }
 
@@ -1440,7 +1487,9 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self
+            .send(Path::AssetDepositQuerySubMemberAddress, request)
+            .await?;
         Ok(response)
     }
 
@@ -1462,7 +1511,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::AssetWithdrawQueryRecord, request).await?;
         Ok(response)
     }
 
@@ -1485,7 +1534,7 @@ impl Client {
             .headers(headers)
             .body(body);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::AssetWithdrawCreate, request).await?;
         Ok(response)
     }
 
@@ -1508,7 +1557,7 @@ impl Client {
             .headers(headers)
             .body(body);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::AssetWithdrawCancel, request).await?;
         Ok(response)
     }
 
@@ -1531,7 +1580,7 @@ impl Client {
             .headers(headers)
             .query(params);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::AssetCoinQueryInfo, request).await?;
         Ok(response)
     }
 
@@ -1553,7 +1602,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::AssetExchangeOrderRecord, request).await?;
         Ok(response)
     }
 
@@ -1572,7 +1621,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::AssetDeliveryRecord, request).await?;
         Ok(response)
     }
 
@@ -1591,7 +1640,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::AssetSettlementRecord, request).await?;
         Ok(response)
     }
 
@@ -1610,7 +1659,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::AssetCoinGreeks, request).await?;
         Ok(response)
     }
 }
@@ -1630,7 +1679,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::SpotLeverTokenInfo, request).await?;
         Ok(response)
     }
 
@@ -1647,7 +1696,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).query(params);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::SpotLeverTokenReference, request).await?;
         Ok(response)
     }
 
@@ -1670,7 +1719,7 @@ impl Client {
             .headers(headers)
             .body(body);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::SpotLeverTokenPurchase, request).await?;
         Ok(response)
     }
 
@@ -1693,7 +1742,7 @@ impl Client {
             .headers(headers)
             .body(body);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::SpotLeverTokenRedeem, request).await?;
         Ok(response)
     }
 
@@ -1715,7 +1764,7 @@ impl Client {
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::SpotLeverTokenOrderRecord, request).await?;
         Ok(response)
     }
 }
@@ -1742,7 +1791,7 @@ impl Client {
             .headers(headers)
             .body(body);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::SpotMarginTradeSwitchMode, request).await?;
         Ok(response)
     }
 
@@ -1766,18 +1815,37 @@ impl Client {
             .headers(headers)
             .body(body);
 
-        let response = self.send(request).await?;
+        let response = self.send(Path::SpotMarginTradeSetLeverage, request).await?;
         Ok(response)
     }
 }
 
 impl Client {
-    async fn send<T>(&self, request: RequestBuilder) -> Result<Response<T>, Error>
+    /// Send a request against a category-independent rate-limit bucket, with a cost of 1.
+    async fn send<T>(&self, path: Path, request: RequestBuilder) -> Result<Response<T>, Error>
     where
         T: serde::de::DeserializeOwned,
     {
+        self.send_weighted(path, None, 1, request).await
+    }
+
+    /// Send a request against the bucket identified by `path` and `category`, consuming
+    /// `cost` units of that bucket's quota. Use `cost > 1` for batch endpoints, where Bybit
+    /// consumes one unit per order in the batch rather than one per request.
+    async fn send_weighted<T>(
+        &self,
+        path: Path,
+        category: Option<Category>,
+        cost: u32,
+        request: RequestBuilder,
+    ) -> Result<Response<T>, Error>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        let key = RateLimitKey { path, category };
+
         if let Some(rl) = &self.rate_limiter {
-            rl.check()
+            rl.check(key, cost)
                 .map_err(|retry_after_ms| Error::RateLimited { retry_after_ms })?;
         }
 
@@ -1787,7 +1855,11 @@ impl Client {
         let headers = parse_headers(response.headers());
 
         if let Some(rl) = &self.rate_limiter {
-            rl.update(headers.api_limit_status, headers.api_limit_reset_timestamp);
+            rl.update(
+                key,
+                headers.api_limit_status,
+                headers.api_limit_reset_timestamp,
+            );
         }
 
         let json = response.text().await?;

@@ -70,7 +70,7 @@ pub enum AnnouncementType {
 
 /// Unified Account: spot | linear | inverse | option
 /// Classic Account: linear | inverse | spot
-#[derive(PartialEq, Debug, Deserialize, Serialize, Clone, Copy)]
+#[derive(PartialEq, Eq, Hash, Debug, Deserialize, Serialize, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum Category {
     /// Inverse contract, including Inverse perp, Inverse futures.

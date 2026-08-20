@@ -52,6 +52,7 @@ pub const HEADER_RET_CODE: &str = "ret_code";
 pub const HEADER_TRACE_ID: &str = "traceid";
 pub const HEADER_TIME_NOW: &str = "timenow";
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Path {
     // Candlestick, orderbook, ticker, platform transaction data, underlying financial rules, risk control rules
     MarketServerTime,
@@ -93,7 +94,7 @@ pub enum Path {
     PositionClosedPnl,
     ExecutionList,
 
-    // Single account operations only – unified funding account, rates, etc.
+    // Single account operations only - unified funding account, rates, etc.
     AccountWalletBalance,
     AccountUpgradeToUta,
     AccountBorrowHistory,
@@ -105,7 +106,7 @@ pub enum Path {
     AccountSetMarginModeDemoApplyMoney,
     AccountFeeRate,
 
-    // Operations across multiple accounts – asset management, fund management, etc.
+    // Operations across multiple accounts - asset management, fund management, etc.
     AssetDeliveryRecord,
     AssetSettlementRecord,
     AssetTransferInterTransfer,
