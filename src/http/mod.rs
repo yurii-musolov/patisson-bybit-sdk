@@ -17,7 +17,7 @@ pub use common::*;
 pub use market::*;
 pub use orders::*;
 pub use positions::*;
-pub use rate_limiter::RateLimiterConfig;
+pub use rate_limiter::{BucketLimit, RateLimitKey, RateLimiterConfig};
 pub use spot_lever_token::*;
 pub use spot_margin_trade::*;
 pub use user::*;
