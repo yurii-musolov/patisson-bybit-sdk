@@ -23,19 +23,21 @@ use crate::{
         GetSettlementRecordParams, GetSpotBorrowCheckParams, GetSubDepositAddressParams,
         GetSubDepositRecordsParams, GetTickersParams, GetTradesParams, GetTransactionLogParams,
         GetTransferableCoinsParams, GetUniversalTransferRecordsParams, GetWalletBalanceParams,
-        GetWithdrawalRecordsParams, Headers, HistoricalVolatilityEntry, InstrumentsInfo, Insurance,
-        InternalTransferEntry, InternalTransferRequest, KLine, LeverageTokenInfo,
-        LeverageTokenMarket, LeverageTokenOrderRecord, List, OpenInterest, Order, Orderbook,
-        PlaceOrderBatchRequest, PlaceOrderBatchResult, PlaceOrderRequest, PlaceOrderResponse,
-        Position, PurchaseLeverageTokenRequest, PurchaseLeverageTokenResult,
-        RedeemLeverageTokenRequest, RedeemLeverageTokenResult, Resp, Response, RiskLimit,
-        SaveTransferSubMemberRequest, ServerTime, SetAutoAddMarginRequest, SetLeverageRequest,
-        SetMarginModeRequest, SetMarginModeResponse, SetRiskLimitRequest, SetRiskLimitResponse,
+        GetWithdrawableAmountParams, GetWithdrawalRecordsParams, Headers,
+        HistoricalVolatilityEntry, InstrumentsInfo, Insurance, InternalTransferEntry,
+        InternalTransferRequest, KLine, LeverageTokenInfo, LeverageTokenMarket,
+        LeverageTokenOrderRecord, List, OpenInterest, Order, Orderbook, PlaceOrderBatchRequest,
+        PlaceOrderBatchResult, PlaceOrderRequest, PlaceOrderResponse, Position,
+        PurchaseLeverageTokenRequest, PurchaseLeverageTokenResult, RedeemLeverageTokenRequest,
+        RedeemLeverageTokenResult, Resp, Response, RiskLimit, SaveTransferSubMemberRequest,
+        ServerTime, SetAutoAddMarginRequest, SetLeverageRequest, SetMarginModeRequest,
+        SetMarginModeResponse, SetRiskLimitRequest, SetRiskLimitResponse,
         SetSpotMarginLeverageRequest, SetTradingStopRequest, SettlementRecord, SpotBorrowCheck,
         SwitchCrossIsolatedMarginRequest, SwitchPositionModeRequest, SwitchSpotMarginModeRequest,
         SwitchSpotMarginModeResult, Ticker, Trade, TransactionLog, TransferResult,
         TransferableSubMembers, UniversalTransferEntry, UniversalTransferRequest,
         UpgradeToUtaResult, WalletBalance, WithdrawRecords, WithdrawRequest, WithdrawResult,
+        WithdrawableAmountResult,
     },
     serde::{deserialize_json, serialize_json, serialize_query},
     url::*,
@@ -1512,6 +1514,32 @@ impl Client {
         let request = self.client.request(Method::GET, url).headers(headers);
 
         let response = self.send(Path::AssetWithdrawQueryRecord, request).await?;
+        Ok(response)
+    }
+
+    /// Get Withdrawable Amount.
+    /// Query the amount available to withdraw for a coin, combined across the FUND, UTA, SPOT
+    /// and EARN wallets, along with any amount still frozen pending deposit risk review.
+    ///
+    /// Requires authentication.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn get_withdrawable_amount(
+        &self,
+        params: &GetWithdrawableAmountParams,
+    ) -> Result<Response<WithdrawableAmountResult>, Error> {
+        let query = serialize_query(params)?;
+        let url = format!(
+            "{}{}?{query}",
+            self.base_url,
+            Path::AssetWithdrawWithdrawableAmount
+        );
+        let headers = self.get_signed_headers(&query);
+
+        let request = self.client.request(Method::GET, url).headers(headers);
+
+        let response = self
+            .send(Path::AssetWithdrawWithdrawableAmount, request)
+            .await?;
         Ok(response)
     }
 

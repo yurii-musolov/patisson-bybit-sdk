@@ -1041,6 +1041,54 @@ pub struct CancelWithdrawalResult {
     pub status: i64,
 }
 
+// --- Get Withdrawable Amount ---
+
+/// Query params for
+/// [`Client::get_withdrawable_amount`](crate::http::Client::get_withdrawable_amount).
+#[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GetWithdrawableAmountParams {
+    /// Coin name, uppercase only
+    pub coin: String,
+}
+
+impl GetWithdrawableAmountParams {
+    pub fn new(coin: String) -> Self {
+        Self { coin }
+    }
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct WithdrawableAmountResult {
+    /// Amount frozen due to unresolved deposit risk, denominated in USD. "0" means all deposit
+    /// risks have been released
+    pub limit_amount_usd: Decimal,
+    pub withdrawable_amount: WithdrawableAmountByWallet,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct WithdrawableAmountByWallet {
+    /// Omitted if the Spot wallet has been removed
+    #[serde(rename = "SPOT")]
+    pub spot: Option<WithdrawableAmountEntry>,
+    #[serde(rename = "FUND")]
+    pub fund: Option<WithdrawableAmountEntry>,
+    #[serde(rename = "UTA")]
+    pub uta: Option<WithdrawableAmountEntry>,
+    /// Omitted if the coin isn't supported by Earn
+    #[serde(rename = "EARN")]
+    pub earn: Option<WithdrawableAmountEntry>,
+}
+
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct WithdrawableAmountEntry {
+    pub coin: String,
+    pub withdrawable_amount: Decimal,
+    pub available_balance: Decimal,
+}
+
 // ═══════════════════════════════════════ Coin / Misc ═══════════════════════════════════════
 
 // --- Get Coin Info ---
