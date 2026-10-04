@@ -209,7 +209,7 @@ impl Client {
     /// programs (clocks drift) and after a 10002 error. The offset is
     /// estimated as `server_time - (sent_at + received_at) / 2`, so its error
     /// is at most half the round trip.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn sync_time(&self) -> Result<i64, Error> {
         let sent_at = timestamp();
         let response = self.get_server_time().await?;
@@ -257,7 +257,7 @@ fn estimate_time_offset(sent_at: Timestamp, received_at: Timestamp, server_ms: T
 
 // Market.
 impl Client {
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_server_time(&self) -> Result<Response<ServerTime>, Error> {
         let url = format!("{}{}", self.base_url, Path::MarketServerTime);
 
@@ -267,7 +267,7 @@ impl Client {
         Ok(response)
     }
 
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_kline(&self, params: &GetKLinesParams) -> Result<Response<KLine>, Error> {
         let url = format!("{}{}", self.base_url, Path::MarketKline);
 
@@ -281,7 +281,7 @@ impl Client {
     /// Query the mark price kline data. Charts are returned in groups based on the requested interval.
     ///
     /// Covers: linear / inverse
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_mark_price_kline(
         &self,
         params: &GetKLinesParams,
@@ -298,7 +298,7 @@ impl Client {
     /// Query the index price kline data. Charts are returned in groups based on the requested interval.
     ///
     /// Covers: linear / inverse
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_index_price_kline(
         &self,
         params: &GetKLinesParams,
@@ -315,7 +315,7 @@ impl Client {
     /// Retrieve the premium index price kline data. Charts are returned in groups based on the requested interval.
     ///
     /// Covers: linear
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_premium_index_price_kline(
         &self,
         params: &GetKLinesParams,
@@ -333,7 +333,7 @@ impl Client {
     /// Get Tickers
     /// Query for the latest price snapshot, best bid/ask price, and trading volume in the last 24 hours.
     /// If category=option, symbol or baseCoin must be passed.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_tickers(&self, params: &GetTickersParams) -> Result<Response<Ticker>, Error> {
         let url = format!("{}{}", self.base_url, Path::MarketTickers);
 
@@ -347,7 +347,7 @@ impl Client {
     /// Query for orderbook depth data.
     ///
     /// Covers: Spot / USDT contract / USDC contract / Inverse contract / Option
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_orderbook(
         &self,
         params: &GetOrderbookParams,
@@ -360,7 +360,7 @@ impl Client {
         Ok(response)
     }
 
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_instruments_info(
         &self,
         params: &GetInstrumentsInfoParams,
@@ -373,7 +373,7 @@ impl Client {
         Ok(response)
     }
 
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_public_recent_trading_history(
         &self,
         params: &GetTradesParams,
@@ -390,7 +390,7 @@ impl Client {
     /// Query for historical funding rates. Each request returns up to 200 rows of data.
     ///
     /// Covers: linear / inverse
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_funding_rate_history(
         &self,
         params: &GetFundingRateHistoryParams,
@@ -407,7 +407,7 @@ impl Client {
     /// Get the open interest of each symbol.
     ///
     /// Covers: linear / inverse
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_open_interest(
         &self,
         params: &GetOpenInterestParams,
@@ -427,7 +427,7 @@ impl Client {
     ///
     /// Note: the result is returned as a top-level JSON array, so the response
     /// wraps `Vec<HistoricalVolatilityEntry>` directly.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_historical_volatility(
         &self,
         params: &GetHistoricalVolatilityParams,
@@ -442,7 +442,7 @@ impl Client {
 
     /// Get Insurance.
     /// Query for Bybit insurance pool data (1 day delay).
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_insurance(
         &self,
         params: &GetInsuranceParams,
@@ -459,7 +459,7 @@ impl Client {
     /// Query for the risk limit.
     ///
     /// Covers: linear / inverse
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_risk_limit(
         &self,
         params: &GetRiskLimitParams,
@@ -476,7 +476,7 @@ impl Client {
     /// Get the delivery price for option and USDC futures contracts.
     ///
     /// Covers: linear / inverse / option
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_delivery_price(
         &self,
         params: &GetDeliveryPriceParams,
@@ -538,7 +538,7 @@ impl Client {
     /// Spot supports TP/SL order, Conditional order, however, the system logic is different between classic account and Unified account
     /// classic account: When the stop order is created, you will get an order ID. After it is triggered, you will get a new order ID
     /// Unified account: When the stop order is created, you will get an order ID. After it is triggered, the order ID will not be changed
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn place_order(
         &self,
         request: &PlaceOrderRequest,
@@ -563,7 +563,7 @@ impl Client {
     /// Amend Order
     /// info
     /// You can only modify unfilled or partially filled orders.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn amend_order(
         &self,
         request: &AmendOrderRequest,
@@ -590,7 +590,7 @@ impl Client {
     /// You must specify orderId or orderLinkId to cancel the order.
     /// If orderId and orderLinkId do not match, the system will process orderId first.
     /// You can only cancel unfilled or partially filled orders.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn cancel_order(
         &self,
         request: &CancelOrderRequest,
@@ -625,7 +625,7 @@ impl Client {
     /// info
     /// classic account spot can return open orders only
     /// After a server release or restart, filled, canceled, and rejected orders of Unified account should only be queried through order history.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_open_closed_orders(
         &self,
         params: &GetOpenClosedOrdersParams,
@@ -643,7 +643,7 @@ impl Client {
     /// Collect all pages of open/closed orders into a single `Vec`.
     /// Repeatedly calls [`get_open_closed_orders`](Client::get_open_closed_orders) following `next_page_cursor`
     /// until the last page is reached (see [`MAX_PAGES`]).
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_open_closed_orders_all(
         &self,
         params: &GetOpenClosedOrdersParams,
@@ -660,7 +660,7 @@ impl Client {
 
     /// Cancel All Orders.
     /// Cancel all open orders. Support linear, inverse, spot, and option.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn cancel_all_orders(
         &self,
         request: &CancelAllOrdersRequest,
@@ -685,7 +685,7 @@ impl Client {
     /// Get Order History.
     /// Query order history. As order creation/cancellation is asynchronous, the data returned may be delayed.
     /// Supports up to 2 years of data.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_order_history(
         &self,
         params: &GetOrderHistoryParams,
@@ -701,7 +701,7 @@ impl Client {
     }
 
     /// Collect all pages of order history into a single `Vec`.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_order_history_all(
         &self,
         params: &GetOrderHistoryParams,
@@ -719,7 +719,7 @@ impl Client {
     /// Place Batch Orders.
     /// Supports up to 20 orders per request.
     /// Per-item results are in `response.ret_ext_info.list` (parallel to `response.result.list`).
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn place_orders_batch(
         &self,
         request: &PlaceOrderBatchRequest,
@@ -745,7 +745,7 @@ impl Client {
     /// Amend Batch Orders.
     /// Supports up to 20 orders per request.
     /// Per-item results are in `response.ret_ext_info.list` (parallel to `response.result.list`).
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn amend_orders_batch(
         &self,
         request: &AmendOrderBatchRequest,
@@ -771,7 +771,7 @@ impl Client {
     /// Cancel Batch Orders.
     /// Supports up to 20 orders per request.
     /// Per-item results are in `response.ret_ext_info.list` (parallel to `response.result.list`).
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn cancel_orders_batch(
         &self,
         request: &CancelOrderBatchRequest,
@@ -798,7 +798,7 @@ impl Client {
     /// Query the maximum quantity for purchase or sale, and check the borrowable quantity based on the fee types.
     ///
     /// Covers: spot only. Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_spot_borrow_check(
         &self,
         params: &GetSpotBorrowCheckParams,
@@ -830,7 +830,7 @@ impl Client {
     // UTA1.0(inverse) & Classic (inverse)
     // You can query all open positions with /v5/position/list?category=inverse;
     // symbol parameter can pass up to 10 symbols, e.g., symbol=BTCUSD,ETHUSD
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_position_info(
         &self,
         params: &GetPositionInfoParams,
@@ -848,7 +848,7 @@ impl Client {
     /// Collect all pages of position info into a single `Vec`.
     /// Repeatedly calls [`get_position_info`](Client::get_position_info) following `next_page_cursor`
     /// until the last page is reached (see [`MAX_PAGES`]).
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_position_info_all(
         &self,
         params: &GetPositionInfoParams,
@@ -865,7 +865,7 @@ impl Client {
 
     /// Set Leverage.
     /// Set the leverage for a position. Only for isolated margin mode.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn set_leverage(
         &self,
         request: &SetLeverageRequest,
@@ -886,7 +886,7 @@ impl Client {
 
     /// Set Trading Stop.
     /// Set take profit, stop loss, or trailing stop for a position.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn set_trading_stop(
         &self,
         request: &SetTradingStopRequest,
@@ -907,7 +907,7 @@ impl Client {
 
     /// Switch Cross/Isolated Margin.
     /// Switch the margin mode for a symbol between cross and isolated.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn switch_cross_isolated_margin(
         &self,
         request: &SwitchCrossIsolatedMarginRequest,
@@ -928,7 +928,7 @@ impl Client {
 
     /// Switch Position Mode.
     /// Switch between one-way (merged single) and hedge (both sides) position mode.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn switch_position_mode(
         &self,
         request: &SwitchPositionModeRequest,
@@ -949,7 +949,7 @@ impl Client {
 
     /// Set Auto Add Margin.
     /// Turn on/off auto-add-margin for an isolated margin position.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn set_auto_add_margin(
         &self,
         request: &SetAutoAddMarginRequest,
@@ -970,7 +970,7 @@ impl Client {
 
     /// Set Risk Limit.
     /// Set the risk limit for a position. The response includes the new risk limit and its value.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn set_risk_limit(
         &self,
         request: &SetRiskLimitRequest,
@@ -991,7 +991,7 @@ impl Client {
 
     /// Get Closed P&L.
     /// Query the closed profit and loss records of positions.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_closed_pnl(
         &self,
         params: &GetClosedPnlParams,
@@ -1007,7 +1007,7 @@ impl Client {
     }
 
     /// Collect all pages of closed P&L into a single `Vec`.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_closed_pnl_all(
         &self,
         params: &GetClosedPnlParams,
@@ -1024,7 +1024,7 @@ impl Client {
 
     /// Get Execution List.
     /// Query users' execution (trading) records, sorted by execTime descending.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_execution_list(
         &self,
         params: &GetExecutionListParams,
@@ -1040,7 +1040,7 @@ impl Client {
     }
 
     /// Collect all pages of execution list entries into a single `Vec`.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_execution_list_all(
         &self,
         params: &GetExecutionListParams,
@@ -1059,7 +1059,7 @@ impl Client {
 // Account.
 impl Client {
     /// Obtain wallet balance, query asset information of each currency. By default, currency information with assets or liabilities of 0 is not returned.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_wallet_balance(
         &self,
         params: &GetWalletBalanceParams,
@@ -1076,7 +1076,7 @@ impl Client {
 
     /// Get Transaction Log
     /// Query for transaction logs in your Unified account. It supports up to 2 years worth of data.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_transaction_log(
         &self,
         params: &GetTransactionLogParams,
@@ -1094,7 +1094,7 @@ impl Client {
     /// Collect all pages of transaction log entries into a single `Vec`.
     /// Repeatedly calls [`get_transaction_log`](Client::get_transaction_log) following `next_page_cursor`
     /// until the last page is reached (see [`MAX_PAGES`]).
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_transaction_log_all(
         &self,
         params: &GetTransactionLogParams,
@@ -1110,7 +1110,7 @@ impl Client {
     }
 
     /// Query the account information, like margin mode, account mode, etc.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_account_info(&self) -> Result<Response<AccountInfo>, Error> {
         let url = format!("{}{}", self.base_url, Path::AccountInfo);
         let query = "";
@@ -1126,7 +1126,7 @@ impl Client {
     /// Get the trading fee rate.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_fee_rate(
         &self,
         params: &GetFeeRateParams,
@@ -1149,7 +1149,7 @@ impl Client {
     /// Switch between regular margin, isolated margin, and portfolio margin.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn set_margin_mode(
         &self,
         request_body: &SetMarginModeRequest,
@@ -1173,7 +1173,7 @@ impl Client {
     /// during the upgrade.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn upgrade_to_uta(&self) -> Result<Response<UpgradeToUtaResult>, Error> {
         let url = format!("{}{}", self.base_url, Path::AccountUpgradeToUta);
         let body = "{}".to_owned();
@@ -1193,7 +1193,7 @@ impl Client {
     /// Get interest records, sorted in reverse order of creation time.
     ///
     /// Requires authentication. Unified account only.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_borrow_history(
         &self,
         params: &GetBorrowHistoryParams,
@@ -1211,7 +1211,7 @@ impl Client {
     /// Collect all pages of borrow history entries into a single `Vec`.
     /// Repeatedly calls [`get_borrow_history`](Client::get_borrow_history) following
     /// `next_page_cursor` until the last page is reached.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_borrow_history_all(
         &self,
         params: &GetBorrowHistoryParams,
@@ -1231,7 +1231,7 @@ impl Client {
     /// currency.
     ///
     /// Requires authentication. Unified account only.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_collateral_info(
         &self,
         params: &GetCollateralInfoParams,
@@ -1255,7 +1255,7 @@ impl Client {
 impl Client {
     /// Get API Key Information.
     /// Get the information of the api key. Use the api key pending to be checked to call the endpoint. Both master and sub user's api key are applicable.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_api_key_information(&self) -> Result<Response<APIKeyInformation>, Error> {
         let url = format!("{}{}", self.base_url, Path::UserQueryApi);
         let query = "";
@@ -1274,7 +1274,7 @@ impl Client {
     /// Transfer between different account types under the same UID.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn internal_transfer(
         &self,
         request: &InternalTransferRequest,
@@ -1297,7 +1297,7 @@ impl Client {
     /// Query the internal transfer records between different account types under the same UID.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_internal_transfer_records(
         &self,
         params: &GetInternalTransferRecordsParams,
@@ -1323,7 +1323,7 @@ impl Client {
     ///
     /// Requires authentication. Requires the master UID's API key, or a sub-account key with
     /// the `SubMemberTransferList` permission (may only transfer to the master account).
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn universal_transfer(
         &self,
         request: &UniversalTransferRequest,
@@ -1348,7 +1348,7 @@ impl Client {
     ///
     /// Requires authentication. Requires the master UID's API key, or a sub-account key with
     /// the `SubMemberTransferList` permission.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_universal_transfer_records(
         &self,
         params: &GetUniversalTransferRecordsParams,
@@ -1373,7 +1373,7 @@ impl Client {
     /// Query the transferable coins between two account types.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_transferable_coins(
         &self,
         params: &GetTransferableCoinsParams,
@@ -1399,7 +1399,7 @@ impl Client {
     /// Deprecated by Bybit: all sub UIDs are now automatically enabled for universal transfer,
     /// so this call is no longer necessary. Kept for completeness. Requires the master UID's
     /// API key.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn save_transfer_sub_member(
         &self,
         request: &SaveTransferSubMemberRequest,
@@ -1429,7 +1429,7 @@ impl Client {
     /// transfer.
     ///
     /// Requires authentication. Requires the master UID's API key.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_transferable_sub_members(
         &self,
     ) -> Result<Response<TransferableSubMembers>, Error> {
@@ -1450,7 +1450,7 @@ impl Client {
     /// safe to transfer between two accounts.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_account_coin_balance(
         &self,
         params: &GetAccountCoinBalanceParams,
@@ -1475,7 +1475,7 @@ impl Client {
     /// Query for the balance of the Spot account.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_asset_info(
         &self,
         params: &GetAssetInfoParams,
@@ -1499,7 +1499,7 @@ impl Client {
     /// Get Allowed Deposit Coin Info.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_deposit_allowed_coin_info(
         &self,
         params: &GetDepositAllowedCoinInfoParams,
@@ -1523,7 +1523,7 @@ impl Client {
     /// Get Deposit Records (on-chain).
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_deposit_records(
         &self,
         params: &GetDepositRecordsParams,
@@ -1541,7 +1541,7 @@ impl Client {
     /// Get Sub Account Deposit Records (on-chain).
     ///
     /// Requires authentication. Requires the master UID's API key.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_sub_deposit_records(
         &self,
         params: &GetSubDepositRecordsParams,
@@ -1565,7 +1565,7 @@ impl Client {
     /// Get Master Deposit Address.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_deposit_address(
         &self,
         params: &GetDepositAddressParams,
@@ -1587,7 +1587,7 @@ impl Client {
     /// Get Sub Account Deposit Address.
     ///
     /// Requires authentication. Requires the master account's API key.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_sub_deposit_address(
         &self,
         params: &GetSubDepositAddressParams,
@@ -1611,7 +1611,7 @@ impl Client {
     /// Get Withdrawal Records.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_withdrawal_records(
         &self,
         params: &GetWithdrawalRecordsParams,
@@ -1635,7 +1635,7 @@ impl Client {
     /// and EARN wallets, along with any amount still frozen pending deposit risk review.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_withdrawable_amount(
         &self,
         params: &GetWithdrawableAmountParams,
@@ -1660,7 +1660,7 @@ impl Client {
     /// Create a withdrawal request.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn withdraw(
         &self,
         request: &WithdrawRequest,
@@ -1683,7 +1683,7 @@ impl Client {
     /// Cancel a pending withdrawal request.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn cancel_withdrawal(
         &self,
         request: &CancelWithdrawalRequest,
@@ -1706,7 +1706,7 @@ impl Client {
     /// Query coin information, including chains, deposit/withdrawal limits, and fees.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_coin_info(
         &self,
         params: &GetCoinInfoParams,
@@ -1728,7 +1728,7 @@ impl Client {
     /// Get Coin Exchange Records.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_exchange_order_record(
         &self,
         params: &GetExchangeOrderRecordParams,
@@ -1751,7 +1751,7 @@ impl Client {
     /// Query delivery records of USDC futures and Options, sorted by descending delivery time.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_delivery_record(
         &self,
         params: &GetDeliveryRecordParams,
@@ -1770,7 +1770,7 @@ impl Client {
     /// Query session settlement records of USDC perpetual contracts.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_settlement_record(
         &self,
         params: &GetSettlementRecordParams,
@@ -1789,7 +1789,7 @@ impl Client {
     /// Query the current account's Greeks information. Option only.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_coin_greeks(
         &self,
         params: &GetCoinGreeksParams,
@@ -1811,7 +1811,7 @@ impl Client {
     /// Query leveraged token information, such as purchase/redeem limits and fees.
     ///
     /// No authentication required.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_leverage_token_info(
         &self,
         params: &GetLeverageTokenInfoParams,
@@ -1828,7 +1828,7 @@ impl Client {
     /// Query the leveraged token market data, such as net asset value and real leverage.
     ///
     /// No authentication required.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_leverage_token_market(
         &self,
         params: &GetLeverageTokenMarketParams,
@@ -1845,7 +1845,7 @@ impl Client {
     /// Purchase a leveraged token.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn purchase_leverage_token(
         &self,
         request: &PurchaseLeverageTokenRequest,
@@ -1868,7 +1868,7 @@ impl Client {
     /// Redeem a leveraged token.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn redeem_leverage_token(
         &self,
         request: &RedeemLeverageTokenRequest,
@@ -1890,7 +1890,7 @@ impl Client {
     /// Get Purchase/Redemption Records.
     ///
     /// Requires authentication.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_leverage_token_order_records(
         &self,
         params: &GetLeverageTokenOrderRecordsParams,
@@ -1917,7 +1917,7 @@ impl Client {
     ///
     /// Requires authentication. The account must have completed spot margin activation
     /// (including the required quiz) beforehand.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn switch_spot_margin_mode(
         &self,
         request: &SwitchSpotMarginModeRequest,
@@ -1941,7 +1941,7 @@ impl Client {
     ///
     /// Requires authentication. The account must have completed spot margin activation
     /// (including the required quiz) beforehand.
-    #[tracing::instrument(skip(self), err)]
+    #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn set_spot_margin_leverage(
         &self,
         request: &SetSpotMarginLeverageRequest,
@@ -2012,12 +2012,13 @@ impl Client {
         let result = parse_response(status, headers, &body);
         match &result {
             Ok(response) => tracing::debug!(
+                %path,
                 elapsed_ms,
                 api_limit = response.headers.api_limit,
                 api_limit_status = response.headers.api_limit_status,
                 "api call completed"
             ),
-            Err(e) => tracing::debug!(elapsed_ms, error = %e, "api call failed"),
+            Err(e) => tracing::debug!(%path, elapsed_ms, error = %e, "api call failed"),
         }
         result
     }
@@ -2336,6 +2337,49 @@ mod tests {
             skew.abs() < 1000,
             "signed timestamp is {skew} ms off the server clock"
         );
+    }
+
+    /// `MakeWriter` that collects formatted log output in memory.
+    #[derive(Clone, Default)]
+    struct LogBuffer(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+
+    impl std::io::Write for LogBuffer {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(buf);
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for LogBuffer {
+        type Writer = Self;
+        fn make_writer(&'a self) -> Self::Writer {
+            self.clone()
+        }
+    }
+
+    #[tokio::test]
+    async fn api_errors_are_logged_at_debug_without_request_parameters() {
+        let (url, _) = spawn_http_server(fake_bybit).await;
+        let client = Client::new(Config::new(url).credentials("key", "secret")).unwrap();
+        let logs = LogBuffer::default();
+        let subscriber = tracing_subscriber::fmt()
+            .with_max_level(tracing::Level::TRACE)
+            .with_ansi(false)
+            .with_writer(logs.clone())
+            .finish();
+        let _guard = tracing::subscriber::set_default(subscriber);
+
+        // The fake server answers every non-time request with retCode 10001.
+        let params = GetOrderHistoryParams::new(Category::Linear).with_symbol("SECRETUSDT".into());
+        assert!(client.get_order_history(&params).await.is_err());
+
+        let output = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
+        assert!(output.contains("api call failed"), "{output}");
+        assert!(!output.contains("ERROR"), "{output}");
+        assert!(!output.contains("SECRETUSDT"), "{output}");
     }
 
     #[tokio::test]
