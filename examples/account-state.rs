@@ -1,6 +1,10 @@
 //! Keep a local copy of open orders, positions and the wallet balance
 //! (`AccountState`) from REST snapshots and the private WebSocket stream.
 //!
+//! Signed requests and the stream `auth` use the server clock
+//! (`Client::sync_time`), so the example also works when the local clock is
+//! off by more than `recv_window`.
+//!
 //! Run with
 //!
 //! ```not_rust
@@ -11,13 +15,18 @@ use tracing::{Level, info, warn};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::{
-    AccountState, AccountType, BASE_URL_API_DEMO, BASE_URL_STREAM_DEMO, Category, Path, Topic,
+    AccountState, AccountType, BASE_URL_API_DEMO, BASE_URL_STREAM_DEMO, Category, Error, Path,
+    Topic,
     http::{
         Client, Config, GetOpenClosedOrdersParams, GetPositionInfoParams, GetWalletBalanceParams,
     },
-    timestamp,
-    ws::{self, IncomingMessage, OutgoingMessage, create_outgoing_message_auth},
+    ws::{self, CommandMsg, IncomingMessage, OutgoingMessage, create_outgoing_message_auth_at},
 };
+
+/// Bybit `retCode`: the request timestamp is outside `recv_window`.
+const RET_CODE_TIMESTAMP: i64 = 10002;
+/// Validity of signed requests and of the stream `auth`, milliseconds.
+const RECV_WINDOW: u64 = 5_000;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -31,8 +40,12 @@ async fn main() -> anyhow::Result<()> {
         std::env::var("API_SECRET").expect("environment variable API_SECRET is required");
 
     let client = Client::new(
-        Config::new(BASE_URL_API_DEMO).credentials(api_key.clone(), api_secret.clone()),
+        Config::new(BASE_URL_API_DEMO)
+            .credentials(api_key.clone(), api_secret.clone())
+            .recv_window(RECV_WINDOW),
     )?;
+    let offset_ms = client.sync_time().await?;
+    info!(offset_ms, "server time synchronized");
 
     let url = format!("{}{}", BASE_URL_STREAM_DEMO, Path::Private);
     let (handle, mut events) = ws::Stream::new(ws::Config::new(url));
@@ -47,11 +60,16 @@ async fn main() -> anyhow::Result<()> {
             // messages that arrive while the snapshots load wait in the event
             // queue and are merged afterwards.
             ws::Event::Connected => {
-                let auth = create_outgoing_message_auth(
+                // Re-measure the offset on every (re)connect: the clock of a
+                // long-running process drifts.
+                let offset_ms = client.sync_time().await?;
+                info!(offset_ms, "server time synchronized");
+                let auth = create_outgoing_message_auth_at(
                     api_key.as_str().into(),
                     api_secret.as_str().into(),
                     None,
-                    5_000,
+                    RECV_WINDOW,
+                    client.server_timestamp(),
                 );
                 let sub = OutgoingMessage::Subscribe {
                     req_id: None,
@@ -66,6 +84,14 @@ async fn main() -> anyhow::Result<()> {
 
                 load_snapshots(&client, &mut state).await?;
                 print_summary(&state);
+            }
+            ws::Event::Message(IncomingMessage::Command(CommandMsg::Auth {
+                success: false,
+                ret_msg,
+                ..
+            })) => {
+                warn!(?ret_msg, "stream authentication failed");
+                break;
             }
             ws::Event::Message(IncomingMessage::Topic(msg)) => {
                 for change in state.apply(msg) {
@@ -89,15 +115,32 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Load the snapshots; if Bybit rejects the request timestamp (the clock
+/// drifted since the last sync), re-synchronize and try once more.
+async fn load_snapshots(client: &Client, state: &mut AccountState) -> anyhow::Result<()> {
+    match try_load_snapshots(client, state).await {
+        Err(Error::Api { code, .. }) if code == RET_CODE_TIMESTAMP => {
+            let offset_ms = client.sync_time().await?;
+            warn!(
+                offset_ms,
+                "request timestamp rejected, server time re-synchronized"
+            );
+            Ok(try_load_snapshots(client, state).await?)
+        }
+        result => Ok(result?),
+    }
+}
+
 /// Load REST snapshots of USDT perpetual orders and positions and of the
 /// unified wallet into `state`.
-async fn load_snapshots(client: &Client, state: &mut AccountState) -> anyhow::Result<()> {
+async fn try_load_snapshots(client: &Client, state: &mut AccountState) -> Result<(), Error> {
     let category = Category::Linear;
     let settle_coin = String::from("USDT");
 
-    // Taken before the requests: anything the stream updated after this
-    // moment is newer than the snapshot.
-    let snapshot_time = timestamp();
+    // Server time taken before the requests: anything the stream updated
+    // after this moment is newer than the snapshot. Stream messages carry
+    // server timestamps, so the local clock must not be used here.
+    let snapshot_time = client.server_timestamp();
 
     let params = GetOpenClosedOrdersParams::new(category).with_settle_coin(settle_coin.clone());
     let orders = client.get_open_closed_orders_all(&params).await?;
