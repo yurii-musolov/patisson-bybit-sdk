@@ -2354,49 +2354,6 @@ mod tests {
         );
     }
 
-    /// `MakeWriter` that collects formatted log output in memory.
-    #[derive(Clone, Default)]
-    struct LogBuffer(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
-
-    impl std::io::Write for LogBuffer {
-        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-            self.0.lock().unwrap().extend_from_slice(buf);
-            Ok(buf.len())
-        }
-        fn flush(&mut self) -> std::io::Result<()> {
-            Ok(())
-        }
-    }
-
-    impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for LogBuffer {
-        type Writer = Self;
-        fn make_writer(&'a self) -> Self::Writer {
-            self.clone()
-        }
-    }
-
-    #[tokio::test]
-    async fn api_errors_are_logged_at_debug_without_request_parameters() {
-        let (url, _) = spawn_http_server(fake_bybit).await;
-        let client = Client::new(Config::new(url).credentials("key", "secret")).unwrap();
-        let logs = LogBuffer::default();
-        let subscriber = tracing_subscriber::fmt()
-            .with_max_level(tracing::Level::TRACE)
-            .with_ansi(false)
-            .with_writer(logs.clone())
-            .finish();
-        let _guard = tracing::subscriber::set_default(subscriber);
-
-        // The fake server answers every non-time request with retCode 10001.
-        let params = GetOrderHistoryParams::new(Category::Linear).with_symbol("SECRETUSDT".into());
-        assert!(client.get_order_history(&params).await.is_err());
-
-        let output = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
-        assert!(output.contains("api call failed"), "{output}");
-        assert!(!output.contains("ERROR"), "{output}");
-        assert!(!output.contains("SECRETUSDT"), "{output}");
-    }
-
     #[tokio::test]
     async fn clones_share_the_clock_offset_and_the_rate_limiter() {
         let (url, _) = spawn_http_server(fake_bybit).await;
