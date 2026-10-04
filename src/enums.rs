@@ -1132,6 +1132,13 @@ pub enum PlaceType {
     Price,
 }
 
+/// Option type.
+#[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum OptionType {
+    Call,
+    Put,
+}
+
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
 pub enum Side {
     Buy,
