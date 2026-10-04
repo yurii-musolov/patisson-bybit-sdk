@@ -2,6 +2,7 @@ use std::time::Duration;
 
 pub const DEFAULT_PING_INTERVAL: Duration = Duration::from_secs(20);
 pub const DEFAULT_PONG_TIMEOUT: Duration = Duration::from_secs(10);
+pub const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -14,7 +15,9 @@ pub struct Config {
     /// Maximum number of buffered events (backpressure)
     pub event_queue_size: usize,
 
-    /// Maximum reconnect attempts (0 = no reconnect)
+    /// Maximum number of consecutive reconnect attempts without a successful
+    /// connection (0 = no reconnect). The counter resets once a connection is
+    /// established.
     pub max_reconnect_attempts: u32,
 
     /// Base delay between reconnect attempts
@@ -25,6 +28,9 @@ pub struct Config {
 
     /// How long to wait for a clean close handshake
     pub close_timeout: Duration,
+
+    /// How long to wait for the TCP/TLS/WebSocket handshake to complete.
+    pub connect_timeout: Duration,
 
     /// How often to send a Ping frame to the server.
     /// `None` disables the heartbeat entirely.
@@ -46,6 +52,7 @@ impl Default for Config {
             reconnect_base_delay: Duration::from_millis(500),
             reconnect_max_delay: Duration::from_secs(30),
             close_timeout: Duration::from_secs(5),
+            connect_timeout: DEFAULT_CONNECT_TIMEOUT,
             ping_interval: Some(DEFAULT_PING_INTERVAL),
             pong_timeout: DEFAULT_PONG_TIMEOUT,
         }
@@ -87,6 +94,11 @@ impl Config {
 
     pub fn close_timeout(mut self, d: Duration) -> Self {
         self.close_timeout = d;
+        self
+    }
+
+    pub fn connect_timeout(mut self, d: Duration) -> Self {
+        self.connect_timeout = d;
         self
     }
 
