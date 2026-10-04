@@ -318,6 +318,66 @@ impl Order {
     }
 }
 
+/// Build an [`Order`] from its first `order` stream message (an order that
+/// was not in a REST snapshot).
+///
+/// `base_price` is not sent by the stream and stays `None`. When the stream
+/// omits `leavesQty`/`leavesValue`, they are derived as `qty - cumExecQty`
+/// and `price * leavesQty`.
+impl From<OrderMsg> for Order {
+    fn from(msg: OrderMsg) -> Self {
+        let leaves_qty = msg.leaves_qty.unwrap_or(msg.qty - msg.cum_exec_qty);
+        let leaves_value = msg.leaves_value.unwrap_or(msg.price * leaves_qty);
+        Self {
+            order_id: msg.order_id,
+            order_link_id: msg.order_link_id,
+            block_trade_id: msg.block_trade_id,
+            symbol: msg.symbol,
+            price: msg.price,
+            qty: msg.qty,
+            side: msg.side,
+            is_leverage: msg.is_leverage,
+            position_idx: msg.position_idx,
+            order_status: msg.order_status,
+            create_type: msg.create_type,
+            cancel_type: msg.cancel_type,
+            reject_reason: msg.reject_reason,
+            avg_price: msg.avg_price,
+            leaves_qty,
+            leaves_value,
+            cum_exec_qty: msg.cum_exec_qty,
+            cum_exec_value: msg.cum_exec_value,
+            cum_exec_fee: msg.cum_exec_fee,
+            time_in_force: msg.time_in_force,
+            order_type: msg.order_type,
+            stop_order_type: msg.stop_order_type,
+            order_iv: msg.order_iv,
+            market_unit: msg.market_unit,
+            trigger_price: msg.trigger_price,
+            take_profit: msg.take_profit,
+            stop_loss: msg.stop_loss,
+            tpsl_mode: msg.tpsl_mode,
+            oco_trigger_by: msg.oco_trigger_by,
+            tp_limit_price: msg.tp_limit_price,
+            sl_limit_price: msg.sl_limit_price,
+            tp_trigger_by: msg.tp_trigger_by,
+            sl_trigger_by: msg.sl_trigger_by,
+            trigger_direction: msg.trigger_direction,
+            trigger_by: msg.trigger_by,
+            last_price_on_created: msg.last_price_on_created,
+            base_price: None,
+            reduce_only: msg.reduce_only,
+            close_on_trigger: msg.close_on_trigger,
+            place_type: msg.place_type,
+            smp_type: msg.smp_type,
+            smp_group: msg.smp_group,
+            smp_order_id: msg.smp_order_id,
+            created_time: msg.created_time,
+            updated_time: msg.updated_time,
+        }
+    }
+}
+
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaceOrderRequest {

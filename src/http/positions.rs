@@ -13,8 +13,6 @@ use crate::{
     ws::PositionMsg,
 };
 
-use super::account::WalletCoin;
-
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetPositionInfoParams {
@@ -225,47 +223,52 @@ pub struct Position {
 }
 
 impl Position {
+    /// Replace the position with a `position` stream update (the stream
+    /// always sends the full position).
     pub fn update(&mut self, msg: PositionMsg) {
-        self.position_idx = msg.position_idx;
-        self.risk_id = msg.risk_id;
-        self.risk_limit_value = msg.risk_limit_value;
-        self.symbol = msg.symbol;
-        self.side = msg.side;
-        self.size = msg.size;
-        self.avg_price = msg.entry_price;
-        self.position_value = Some(msg.position_value);
-        self.auto_add_margin = msg.auto_add_margin;
-        self.position_status = msg.position_status;
-        self.leverage = msg.leverage;
-        self.mark_price = msg.mark_price;
-        self.liq_price = msg.liq_price;
-        // INFO: self.position_im updated in self.update_with_a_wallet_coin
-        // INFO: self.position_mm updated in self.update_with_a_wallet_coin
-        self.take_profit = Some(msg.take_profit);
-        self.stop_loss = Some(msg.stop_loss);
-        self.trailing_stop = Some(msg.trailing_stop);
-        // self.trailing_stop = msg.trailing_stop;
-        self.session_avg_price = msg.session_avg_price;
-        self.delta = msg.delta;
-        self.gamma = msg.gamma;
-        self.vega = msg.vega;
-        self.theta = msg.theta;
-        // INFO: self.unrealised_pnl updated in self.update_with_a_wallet_coin
-        self.cur_realised_pnl = msg.cur_realised_pnl;
-        self.cum_realised_pnl = msg.cum_realised_pnl;
-        self.adl_rank_indicator = msg.adl_rank_indicator;
-        self.created_time = msg.created_time;
-        self.updated_time = msg.updated_time;
-        self.seq = msg.seq;
-        self.is_reduce_only = msg.is_reduce_only;
-        self.mmr_sys_updated_time = msg.mmr_sys_updated_time;
-        self.leverage_sys_updated_time = msg.leverage_sys_updated_time;
+        *self = msg.into();
     }
+}
 
-    pub fn update_with_a_wallet_coin(&mut self, msg: &WalletCoin) {
-        self.position_mm = msg.total_position_im;
-        self.position_im = msg.total_position_mm;
-        self.unrealised_pnl = Some(msg.unrealised_pnl);
+impl From<PositionMsg> for Position {
+    fn from(msg: PositionMsg) -> Self {
+        Self {
+            position_idx: msg.position_idx,
+            risk_id: msg.risk_id,
+            risk_limit_value: msg.risk_limit_value,
+            symbol: msg.symbol,
+            side: msg.side,
+            size: msg.size,
+            avg_price: msg.entry_price,
+            position_value: Some(msg.position_value),
+            auto_add_margin: msg.auto_add_margin,
+            position_status: msg.position_status,
+            leverage: msg.leverage,
+            mark_price: msg.mark_price,
+            liq_price: msg.liq_price,
+            position_im: msg.position_im,
+            position_im_by_mp: msg.position_im_by_mp,
+            position_mm: msg.position_mm,
+            position_mm_by_mp: msg.position_mm_by_mp,
+            take_profit: Some(msg.take_profit),
+            stop_loss: Some(msg.stop_loss),
+            trailing_stop: Some(msg.trailing_stop),
+            session_avg_price: msg.session_avg_price,
+            delta: msg.delta,
+            gamma: msg.gamma,
+            vega: msg.vega,
+            theta: msg.theta,
+            unrealised_pnl: Some(msg.unrealised_pnl),
+            cur_realised_pnl: msg.cur_realised_pnl,
+            cum_realised_pnl: msg.cum_realised_pnl,
+            adl_rank_indicator: msg.adl_rank_indicator,
+            created_time: msg.created_time,
+            updated_time: msg.updated_time,
+            seq: msg.seq,
+            is_reduce_only: msg.is_reduce_only,
+            mmr_sys_updated_time: msg.mmr_sys_updated_time,
+            leverage_sys_updated_time: msg.leverage_sys_updated_time,
+        }
     }
 }
 

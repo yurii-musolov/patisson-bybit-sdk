@@ -73,18 +73,32 @@ pub struct WalletBalance {
 }
 
 impl WalletBalance {
+    /// Replace the balance with a `wallet` stream update (the stream always
+    /// sends the full balance of the account type).
     pub fn update(&mut self, msg: WalletMsg) {
-        self.account_type = msg.account_type;
-        self.account_im_rate = msg.account_im_rate;
-        self.account_mm_rate = msg.account_mm_rate;
-        self.total_equity = msg.total_equity;
-        self.total_wallet_balance = msg.total_wallet_balance;
-        self.total_margin_balance = msg.total_margin_balance;
-        self.total_available_balance = msg.total_available_balance;
-        self.total_perp_upl = msg.total_perp_upl;
-        self.total_initial_margin = msg.total_initial_margin;
-        self.total_maintenance_margin = msg.total_maintenance_margin;
-        self.coin = msg.coin;
+        *self = msg.into();
+    }
+}
+
+impl From<WalletMsg> for WalletBalance {
+    fn from(msg: WalletMsg) -> Self {
+        Self {
+            account_type: msg.account_type,
+            account_im_rate: msg.account_im_rate,
+            account_im_rate_by_mp: msg.account_im_rate_by_mp,
+            account_mm_rate: msg.account_mm_rate,
+            account_mm_rate_by_mp: msg.account_mm_rate_by_mp,
+            total_equity: msg.total_equity,
+            total_wallet_balance: msg.total_wallet_balance,
+            total_margin_balance: msg.total_margin_balance,
+            total_available_balance: msg.total_available_balance,
+            total_perp_upl: msg.total_perp_upl,
+            total_initial_margin: msg.total_initial_margin,
+            total_initial_margin_by_mp: msg.total_initial_margin_by_mp,
+            total_maintenance_margin: msg.total_maintenance_margin,
+            total_maintenance_margin_by_mp: msg.total_maintenance_margin_by_mp,
+            coin: msg.coin,
+        }
     }
 }
 
