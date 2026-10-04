@@ -9,7 +9,7 @@ use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::{
-    BASE_URL_API_DEMO, Category, Timestamp,
+    Category, Environment, Timestamp,
     http::{Client, Config, GetTransactionLogParams},
     timestamp,
 };
@@ -25,9 +25,9 @@ async fn main() -> anyhow::Result<()> {
     let api_secret =
         std::env::var("API_SECRET").expect("environment variable API_SECRET is required");
 
-    let base_url = BASE_URL_API_DEMO;
+    let env = Environment::Demo;
 
-    let cfg = Config::new(base_url).credentials(api_key, api_secret);
+    let cfg = Config::for_env(env).credentials(api_key, api_secret);
     let client = Client::new(cfg)?;
 
     let settle_coin = String::from("USDT");

@@ -1,5 +1,5 @@
 use crate::{
-    Error, Timestamp,
+    Environment, Error, Timestamp,
     crypto::{SensitiveString, Signer, timestamp},
     enums::Category,
     http::{
@@ -99,6 +99,11 @@ impl Config {
             timeout: Some(DEFAULT_TIMEOUT),
             connect_timeout: Some(DEFAULT_CONNECT_TIMEOUT),
         }
+    }
+
+    /// Config for the REST API of `env`, e.g. `Config::for_env(Environment::Demo)`.
+    pub fn for_env(env: Environment) -> Self {
+        Self::new(env.api_url())
     }
 
     /// Credentials required by private endpoints.

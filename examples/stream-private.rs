@@ -11,7 +11,7 @@ use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::{
-    BASE_URL_STREAM_DEMO, Path, Topic,
+    Environment, Topic,
     ws::{self, OutgoingMessage, create_outgoing_message_auth},
 };
 
@@ -31,7 +31,6 @@ async fn main() -> anyhow::Result<()> {
         .expect("environment variable API_SECRET is required")
         .into();
 
-    let url = format!("{}{}", BASE_URL_STREAM_DEMO, Path::Private);
     let args = vec![
         ExecutionAllCategory,
         OrderAllCategory,
@@ -49,7 +48,7 @@ async fn main() -> anyhow::Result<()> {
         args,
     };
 
-    let cfg = ws::Config::new(url);
+    let cfg = ws::Config::private(Environment::Demo);
     let (handle, mut events) = ws::Stream::new(cfg);
 
     tokio::spawn(async move {

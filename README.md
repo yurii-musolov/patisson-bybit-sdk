@@ -57,11 +57,11 @@ See [`examples/`](examples) for runnable programs.
 
 ```rust
 use bybit::{
-    BASE_URL_API_MAINNET_1, Category,
+    Category, Environment,
     http::{Client, Config, GetTickersParams},
 };
 
-let cfg = Config::new(BASE_URL_API_MAINNET_1);
+let cfg = Config::for_env(Environment::Mainnet);
 let client = Client::new(cfg)?;
 // If category=option, symbol or baseCoin must be passed.
 let params = GetTickersParams::new(Category::Linear).with_symbol("BTCUSDT");
@@ -75,11 +75,11 @@ println!("{response:#?}");
 use std::time::Duration;
 
 use bybit::{
-    BASE_URL_API_DEMO,
+    Environment,
     http::{Client, Config, RateLimiterConfig},
 };
 
-let cfg = Config::new(BASE_URL_API_DEMO)
+let cfg = Config::for_env(Environment::Demo)
     .credentials(api_key, api_secret)
     .recv_window(5_000) // Milliseconds.
     .timeout(Some(Duration::from_secs(10)))
@@ -115,14 +115,14 @@ let auth = create_outgoing_message_auth_at(
 
 ```rust
 use bybit::{
-    BASE_URL_STREAM_MAINNET_1, Path, Topic,
+    Category, Environment, Topic,
     ws::{self, OutgoingMessage},
 };
 
-let url = format!("{}{}", BASE_URL_STREAM_MAINNET_1, Path::PublicLinear);
 let args = vec![Topic::Ticker(String::from("BTCUSDT"))];
 
-let (handle, mut events) = ws::Stream::new(ws::Config::new(url));
+let config = ws::Config::public(Environment::Mainnet, Category::Linear);
+let (handle, mut events) = ws::Stream::new(config);
 handle.connect().await?;
 
 while let Some(event) = events.recv().await {
@@ -149,14 +149,13 @@ while let Some(event) = events.recv().await {
 
 ```rust
 use bybit::{
-    BASE_URL_STREAM_DEMO, Path, SensitiveString, Topic,
+    Environment, SensitiveString, Topic,
     ws::{self, OutgoingMessage, create_outgoing_message_auth},
 };
 
 let api_key = SensitiveString::from("XXXXXXXX");
 let api_secret = SensitiveString::from("XXXXXXXXXXXXXXXX");
 
-let url = format!("{}{}", BASE_URL_STREAM_DEMO, Path::Private);
 let args = vec![
     Topic::ExecutionAllCategory,
     Topic::OrderAllCategory,
@@ -164,7 +163,7 @@ let args = vec![
     Topic::Wallet,
 ];
 
-let (handle, mut events) = ws::Stream::new(ws::Config::new(url));
+let (handle, mut events) = ws::Stream::new(ws::Config::private(Environment::Demo));
 handle.connect().await?;
 
 while let Some(event) = events.recv().await {

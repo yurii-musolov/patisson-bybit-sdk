@@ -8,7 +8,7 @@ use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::{
-    BASE_URL_API_DEMO,
+    Environment,
     http::{Client, Config},
 };
 
@@ -23,9 +23,9 @@ async fn main() -> anyhow::Result<()> {
     let api_secret =
         std::env::var("API_SECRET").expect("environment variable API_SECRET is required");
 
-    let base_url = BASE_URL_API_DEMO; // or BASE_URL_API_MAINNET_1, BASE_URL_API_TESTNET
+    let env = Environment::Demo; // or Environment::Mainnet, Environment::Testnet
 
-    let cfg = Config::new(base_url).credentials(api_key, api_secret);
+    let cfg = Config::for_env(env).credentials(api_key, api_secret);
     let client = Client::new(cfg)?;
 
     let response = client.get_api_key_information().await?;

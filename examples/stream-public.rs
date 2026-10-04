@@ -11,7 +11,7 @@ use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::{
-    BASE_URL_STREAM_MAINNET_1, DepthLevel, Interval, Path, Topic,
+    Category, DepthLevel, Environment, Interval, Topic,
     ws::{self, OutgoingMessage},
 };
 
@@ -22,7 +22,6 @@ async fn main() -> anyhow::Result<()> {
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
-    let url = format!("{}{}", BASE_URL_STREAM_MAINNET_1, Path::PublicLinear);
     let symbol = String::from("BTCUSDT");
     let ticker = Topic::Ticker(symbol.clone());
     let trade = Topic::Trade(symbol.clone());
@@ -44,7 +43,7 @@ async fn main() -> anyhow::Result<()> {
         args,
     };
 
-    let cfg = ws::Config::new(url);
+    let cfg = ws::Config::public(Environment::Mainnet, Category::Linear);
     let (handle, mut events) = ws::Stream::new(cfg);
 
     tokio::spawn(async move {
