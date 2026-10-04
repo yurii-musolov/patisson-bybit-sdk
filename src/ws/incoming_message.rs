@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{borrow::Cow, collections::HashMap};
 
 use crate::{
     AccountType, AdlRankIndicator, CancelType, Category, CreateType, ExecType, ExtraFeeType,
@@ -6,7 +6,7 @@ use crate::{
     PositionStatus, RejectReason, Side, SlippageToleranceType, SmpType, StopOrderType,
     TickDirection, TimeInForce, Timestamp, Topic, TpslMode, TriggerBy, TriggerDirection,
     http::{OrderbookLevel, WalletCoin},
-    serde::hash_map,
+    serde::{deserialize_json, hash_map},
     serde::{empty_string_as_none, int_to_bool, string_to_bool, string_to_option_bool},
 };
 
@@ -33,7 +33,69 @@ pub enum IncomingMessage {
     Topic(TopicMessage),
 }
 
+/// The fields needed to pick the message type; everything else is skipped.
+#[derive(Deserialize)]
+struct Envelope<'a> {
+    #[serde(borrow, default)]
+    op: Option<Cow<'a, str>>,
+    #[serde(borrow, default)]
+    topic: Option<Cow<'a, str>>,
+}
+
 impl IncomingMessage {
+    /// Parse a WebSocket text frame.
+    ///
+    /// Prefer this over the derived `Deserialize` impl (which is
+    /// `#[serde(untagged)]` and tries every variant in turn): the `op`/`topic`
+    /// fields are read first and only the matching type is deserialized, so
+    /// errors point at the offending field (e.g. `data.b[0]`) and topics with
+    /// a category suffix such as `order.linear` are recognized.
+    pub fn from_json(json: &str) -> Result<Self, serde_path_to_error::Error<serde_json::Error>> {
+        let envelope: Envelope = deserialize_json(json)?;
+
+        if envelope.op.is_some() {
+            return deserialize_json(json).map(Self::Command);
+        }
+        let Some(topic) = envelope.topic else {
+            return deserialize_json(json);
+        };
+        let (kind, rest) = topic.split_once('.').unwrap_or((&topic, ""));
+
+        match kind {
+            "tickers" => deserialize_json(json).map(|msg| Self::Ticker(Box::new(msg))),
+            "publicTrade" => deserialize_json(json).map(Self::Trade),
+            "kline" => deserialize_json(json).map(Self::KLine),
+            "orderbook" => deserialize_json(json).map(Self::Orderbook),
+            "allLiquidation" => deserialize_json(json).map(Self::AllLiquidation),
+            "order" => deserialize_json(json)
+                .map(TopicMessage::Order)
+                .map(Self::Topic),
+            "position" => deserialize_json(json)
+                .map(TopicMessage::Position)
+                .map(Self::Topic),
+            "wallet" => deserialize_json(json)
+                .map(TopicMessage::Wallet)
+                .map(Self::Topic),
+            "execution" if rest == "fast" || rest.starts_with("fast.") => deserialize_json(json)
+                .map(TopicMessage::FastExecution)
+                .map(Self::Topic),
+            "execution" => deserialize_json(json)
+                .map(TopicMessage::Execution)
+                .map(Self::Topic),
+            "fastExecution" => deserialize_json(json)
+                .map(TopicMessage::FastExecution)
+                .map(Self::Topic),
+            "greeks" => deserialize_json(json)
+                .map(TopicMessage::Greeks)
+                .map(Self::Topic),
+            "dcp" => deserialize_json(json)
+                .map(TopicMessage::Dcp)
+                .map(Self::Topic),
+            // Unknown topic: let the untagged impl produce the error.
+            _ => deserialize_json(json),
+        }
+    }
+
     pub fn is_pong(&self) -> bool {
         matches!(
             self,
@@ -912,6 +974,15 @@ mod tests {
     use crate::DepthLevel;
     use crate::serde::{Unique, deserialize_json};
 
+    /// Parse with both the fast path and the derived untagged impl and check
+    /// that they agree.
+    fn parse(json: &str) -> IncomingMessage {
+        let fast = IncomingMessage::from_json(json).unwrap();
+        let untagged: IncomingMessage = deserialize_json(json).unwrap();
+        assert_eq!(fast, untagged);
+        fast
+    }
+
     use super::*;
 
     #[test]
@@ -924,7 +995,7 @@ mod tests {
             success: true,
         });
 
-        let message = deserialize_json(json).unwrap();
+        let message = parse(json);
 
         assert_eq!(expected, message);
     }
@@ -939,7 +1010,7 @@ mod tests {
             success: true,
         });
 
-        let message = deserialize_json(json).unwrap();
+        let message = parse(json);
 
         assert_eq!(expected, message);
     }
@@ -1000,7 +1071,7 @@ mod tests {
         };
         let expected = IncomingMessage::Ticker(Box::new(ticker_delta));
 
-        let message = deserialize_json(json).unwrap();
+        let message = parse(json);
 
         assert_eq!(expected, message);
     }
@@ -1075,7 +1146,7 @@ mod tests {
         };
         let expected = IncomingMessage::Ticker(Box::new(ticker_snapshot));
 
-        let message = deserialize_json(json).unwrap();
+        let message = parse(json);
 
         assert_eq!(expected, message);
     }
@@ -1121,7 +1192,7 @@ mod tests {
             }],
         });
 
-        let message = deserialize_json(json).unwrap();
+        let message = parse(json);
 
         assert_eq!(expected, message);
     }
@@ -1182,7 +1253,7 @@ mod tests {
             cts: 1672304484976,
         });
 
-        let message = deserialize_json(json).unwrap();
+        let message = parse(json);
 
         assert_eq!(expected, message);
     }
@@ -1248,7 +1319,7 @@ mod tests {
             cts: 1687940967464,
         });
 
-        let message = deserialize_json(json).unwrap();
+        let message = parse(json);
 
         assert_eq!(expected, message);
     }
@@ -1282,9 +1353,9 @@ mod tests {
             }],
         };
 
-        let message = deserialize_json(json).unwrap();
+        let message = parse(json);
 
-        assert_eq!(expected, message);
+        assert_eq!(IncomingMessage::AllLiquidation(expected), message);
     }
 
     #[test]
@@ -1403,7 +1474,7 @@ mod tests {
         };
         let expected = IncomingMessage::Topic(TopicMessage::Order(order));
 
-        let message = deserialize_json(json).unwrap();
+        let message = parse(json);
 
         assert_eq!(expected, message);
     }
@@ -1470,7 +1541,7 @@ mod tests {
         };
         let expected = IncomingMessage::Topic(TopicMessage::Order(order));
 
-        let message = deserialize_json(json).unwrap();
+        let message = parse(json);
 
         assert_eq!(expected, message);
     }
@@ -1537,7 +1608,7 @@ mod tests {
         };
         let expected = IncomingMessage::Topic(TopicMessage::Order(order));
 
-        let message = deserialize_json(json).unwrap();
+        let message = parse(json);
 
         assert_eq!(expected, message);
     }
@@ -1711,7 +1782,7 @@ mod tests {
         };
         let expected = IncomingMessage::Topic(TopicMessage::Position(position));
 
-        let message = deserialize_json(json).unwrap();
+        let message = parse(json);
 
         assert_eq!(expected, message);
     }
@@ -1885,7 +1956,7 @@ mod tests {
         };
         let expected = IncomingMessage::Topic(TopicMessage::Position(position));
 
-        let message = deserialize_json(json).unwrap();
+        let message = parse(json);
 
         assert_eq!(expected, message);
     }
@@ -1982,7 +2053,7 @@ mod tests {
         };
         let expected = IncomingMessage::Topic(TopicMessage::Wallet(wallet));
 
-        let message = deserialize_json(json).unwrap();
+        let message = parse(json);
 
         assert_eq!(expected, message);
     }
@@ -2078,7 +2149,7 @@ mod tests {
         };
         let expected = IncomingMessage::Topic(TopicMessage::Wallet(wallet));
 
-        let message = deserialize_json(json).unwrap();
+        let message = parse(json);
 
         assert_eq!(expected, message);
     }
@@ -2173,8 +2244,93 @@ mod tests {
         };
         let expected = IncomingMessage::Topic(TopicMessage::Execution(execution));
 
-        let message = deserialize_json(json).unwrap();
+        let message = parse(json);
 
         assert_eq!(expected, message);
+    }
+
+    #[test]
+    fn from_json_recognizes_topic_with_category_suffix() {
+        let json = r#"{
+            "id": "5923240c6880ab-c59f-420b-9adb-3639adc9dd90",
+            "topic": "order.option",
+            "creationTime": 1672364262474,
+            "data": [
+                {
+                    "symbol": "ETH-30DEC22-1400-C",
+                    "orderId": "5cf98598-39a7-459e-97bf-76ca765ee020",
+                    "side": "Sell",
+                    "orderType": "Market",
+                    "cancelType": "UNKNOWN",
+                    "price": "72.5",
+                    "qty": "1",
+                    "orderIv": "",
+                    "timeInForce": "IOC",
+                    "orderStatus": "Filled",
+                    "orderLinkId": "",
+                    "lastPriceOnCreated": "",
+                    "reduceOnly": false,
+                    "leavesQty": "",
+                    "leavesValue": "",
+                    "cumExecQty": "1",
+                    "cumExecValue": "75",
+                    "avgPrice": "75",
+                    "blockTradeId": "",
+                    "positionIdx": 0,
+                    "cumExecFee": "0.358635",
+                    "closedPnl": "0",
+                    "createdTime": "1672364262444",
+                    "updatedTime": "1672364262457",
+                    "rejectReason": "EC_NoError",
+                    "stopOrderType": "",
+                    "tpslMode": "",
+                    "triggerPrice": "",
+                    "takeProfit": "",
+                    "stopLoss": "",
+                    "tpTriggerBy": "",
+                    "slTriggerBy": "",
+                    "tpLimitPrice": "",
+                    "slLimitPrice": "",
+                    "triggerDirection": 0,
+                    "triggerBy": "",
+                    "closeOnTrigger": false,
+                    "category": "option",
+                    "placeType": "price",
+                    "smpType": "None",
+                    "smpGroup": 0,
+                    "smpOrderId": "",
+                    "feeCurrency": "",
+                    "cumFeeDetail": {
+                        "MNT": "0.00242968"
+                    }
+                }
+            ]
+        }"#;
+
+        let message = IncomingMessage::from_json(json).unwrap();
+
+        assert!(matches!(
+            message,
+            IncomingMessage::Topic(TopicMessage::Order(PrivateMsg { ref data, .. })) if data.len() == 1
+        ));
+    }
+
+    #[test]
+    fn from_json_error_describes_the_problem_instead_of_untagged_mismatch() {
+        let json = r#"{
+            "topic":"orderbook.50.BTCUSDT",
+            "type":"delta",
+            "ts":1687940967466,
+            "data":{"s":"BTCUSDT","b":[["abc","30.028"]],"a":[],"u":1,"seq":1},
+            "cts":1687940967464
+        }"#;
+
+        let fast = IncomingMessage::from_json(json).unwrap_err().to_string();
+        let untagged = deserialize_json::<IncomingMessage>(json)
+            .unwrap_err()
+            .to_string();
+
+        assert!(untagged.contains("did not match any variant"), "{untagged}");
+        assert!(!fast.contains("did not match any variant"), "{fast}");
     }
 }

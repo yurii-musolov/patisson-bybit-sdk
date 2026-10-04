@@ -7,10 +7,7 @@ use tokio::{
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{debug, error, info, warn};
 
-use crate::{
-    serde::{deserialize_json, serialize_json},
-    ws::IncomingMessage,
-};
+use crate::{serde::serialize_json, ws::IncomingMessage};
 
 use super::{
     Command, Config, DisconnectReason, Event, Handle,
@@ -248,7 +245,7 @@ impl Stream {
                     Some(Ok(msg)) => {
                         match msg {
                             Message::Text(json) => {
-                                match deserialize_json::<IncomingMessage>(&json){
+                                match IncomingMessage::from_json(&json){
                                     Ok(msg) => {
                                         // INFO: Bybit heartbeat process.
                                         // - send to server: { "op": "ping" }
