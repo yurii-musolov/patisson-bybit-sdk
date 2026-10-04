@@ -1,5 +1,5 @@
 //! Keep a local copy of open orders, positions and the wallet balance
-//! (`UserState`) from REST snapshots and the private WebSocket stream.
+//! (`AccountState`) from REST snapshots and the private WebSocket stream.
 //!
 //! Run with
 //!
@@ -11,7 +11,7 @@ use tracing::{Level, info, warn};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::{
-    AccountType, BASE_URL_API_DEMO, BASE_URL_STREAM_DEMO, Category, Path, Topic, UserState,
+    AccountState, AccountType, BASE_URL_API_DEMO, BASE_URL_STREAM_DEMO, Category, Path, Topic,
     http::{
         Client, Config, GetOpenClosedOrdersParams, GetPositionInfoParams, GetWalletBalanceParams,
     },
@@ -38,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
     let (handle, mut events) = ws::Stream::new(ws::Config::new(url));
     handle.connect().await?;
 
-    let mut state = UserState::new();
+    let mut state = AccountState::new();
 
     while let Some(event) = events.recv().await {
         match event {
@@ -91,7 +91,7 @@ async fn main() -> anyhow::Result<()> {
 
 /// Load REST snapshots of USDT perpetual orders and positions and of the
 /// unified wallet into `state`.
-async fn load_snapshots(client: &Client, state: &mut UserState) -> anyhow::Result<()> {
+async fn load_snapshots(client: &Client, state: &mut AccountState) -> anyhow::Result<()> {
     let category = Category::Linear;
     let settle_coin = String::from("USDT");
 
@@ -118,7 +118,7 @@ async fn load_snapshots(client: &Client, state: &mut UserState) -> anyhow::Resul
     Ok(())
 }
 
-fn print_summary(state: &UserState) {
+fn print_summary(state: &AccountState) {
     let equity = state
         .wallet(AccountType::UNIFIED)
         .map(|wallet| wallet.total_equity);
