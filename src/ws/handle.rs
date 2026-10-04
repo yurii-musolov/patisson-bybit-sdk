@@ -13,50 +13,44 @@ impl Handle {
     }
 
     pub async fn connect(&self) -> Result<(), ws::Error> {
-        let cmd = Command::Connect;
-        self.cmd_tx
-            .send(cmd)
-            .await
-            .map_err(|_| ws::Error::DriverGone)
+        self.send(Command::Connect).await
     }
 
     pub fn try_connect(&self) -> Result<(), ws::Error> {
-        let cmd = Command::Connect;
-        self.cmd_tx.try_send(cmd).map_err(|e| match e {
-            mpsc::error::TrySendError::Full(_) => ws::Error::QueueFull,
-            mpsc::error::TrySendError::Closed(_) => ws::Error::DriverGone,
-        })
+        self.try_send(Command::Connect)
     }
 
     pub async fn disconnect(&self) -> Result<(), ws::Error> {
-        let cmd = Command::Disconnect;
-        self.cmd_tx
-            .send(cmd)
-            .await
-            .map_err(|_| ws::Error::DriverGone)
+        self.send(Command::Disconnect).await
     }
 
     pub fn try_disconnect(&self) -> Result<(), ws::Error> {
-        let cmd = Command::Disconnect;
-        self.cmd_tx.try_send(cmd).map_err(|e| match e {
-            mpsc::error::TrySendError::Full(_) => ws::Error::QueueFull,
-            mpsc::error::TrySendError::Closed(_) => ws::Error::DriverGone,
-        })
+        self.try_send(Command::Disconnect)
     }
 
     pub async fn send_command(&self, msg: OutgoingMessage) -> Result<(), ws::Error> {
-        let cmd = Command::Send(msg);
+        self.send(Command::Send(msg)).await
+    }
+
+    pub fn try_send_command(&self, msg: OutgoingMessage) -> Result<(), ws::Error> {
+        self.try_send(Command::Send(msg))
+    }
+
+    async fn send(&self, cmd: Command) -> Result<(), ws::Error> {
         self.cmd_tx
             .send(cmd)
             .await
             .map_err(|_| ws::Error::DriverGone)
     }
 
-    pub fn try_send_command(&self, msg: OutgoingMessage) -> Result<(), ws::Error> {
-        let cmd = Command::Send(msg);
-        self.cmd_tx.try_send(cmd).map_err(|e| match e {
-            mpsc::error::TrySendError::Full(_) => ws::Error::QueueFull,
-            mpsc::error::TrySendError::Closed(_) => ws::Error::DriverGone,
-        })
+    fn try_send(&self, cmd: Command) -> Result<(), ws::Error> {
+        self.cmd_tx.try_send(cmd).map_err(map_try_send_err)
+    }
+}
+
+fn map_try_send_err(e: mpsc::error::TrySendError<Command>) -> ws::Error {
+    match e {
+        mpsc::error::TrySendError::Full(_) => ws::Error::QueueFull,
+        mpsc::error::TrySendError::Closed(_) => ws::Error::DriverGone,
     }
 }
