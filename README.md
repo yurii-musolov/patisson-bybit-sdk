@@ -96,49 +96,32 @@ Bybit rejects signed requests whose timestamp is more than `recv_window` behind
 (or 1 s ahead of) its own clock (`retCode` 10002). `Client::sync_time` measures
 the offset to the server clock and applies it to every signed request; call it
 after creating the client, periodically in long-running programs and after a
-10002 error. Use `Client::server_timestamp` for the WebSocket `auth` message:
+10002 error. `Client::clock()` shares that offset with WebSocket streams (see
+below).
 
 ```rust
-use bybit::ws::create_outgoing_message_auth_at;
-
 let offset_ms = client.sync_time().await?;
-let auth = create_outgoing_message_auth_at(
-    api_key.into(),
-    api_secret.into(),
-    None,
-    5_000, // recv_window, milliseconds.
-    client.server_timestamp(),
-);
 ```
 
 ### Subscribe to public channel 'ticker'
 
-```rust
-use bybit::{
-    Category, Environment, Topic,
-    ws::{self, OutgoingMessage},
-};
+Topics subscribed with `Handle::subscribe` are restored automatically after
+every reconnect.
 
-let args = vec![Topic::Ticker(String::from("BTCUSDT"))];
+```rust
+use bybit::{Category, Environment, Topic, ws};
 
 let config = ws::Config::public(Environment::Mainnet, Category::Linear);
 let (handle, mut events) = ws::Stream::new(config);
+handle.subscribe(vec![Topic::Ticker(String::from("BTCUSDT"))]).await?;
 handle.connect().await?;
 
 while let Some(event) = events.recv().await {
     match event {
-        // Sent after the first connection and after every reconnect:
-        // subscriptions are not restored automatically.
-        ws::Event::Connected => {
-            let sub = OutgoingMessage::Subscribe {
-                req_id: None,
-                args: args.clone(),
-            };
-            handle.send_command(sub).await?;
-        }
         ws::Event::Message(msg) => println!("{msg:?}"),
         // Data events were dropped because the event queue was full.
         ws::Event::Lagged { dropped } => eprintln!("lagged: {dropped} events dropped"),
+        ws::Event::SubscribeFailed { topics, ret_msg } => eprintln!("{topics:?}: {ret_msg:?}"),
         ws::Event::Disconnected { .. } => break,
         _ => {}
     }
@@ -147,41 +130,33 @@ while let Some(event) = events.recv().await {
 
 ### Subscribe to private channels
 
+With credentials the driver sends `auth` on every (re)connect and subscribes
+once it succeeded. Pass the REST client's clock so that `auth` uses the server
+time measured by `sync_time`.
+
 ```rust
-use bybit::{
-    Environment, SensitiveString, Topic,
-    ws::{self, OutgoingMessage, create_outgoing_message_auth},
-};
+use bybit::{Environment, Topic, ws};
 
-let api_key = SensitiveString::from("XXXXXXXX");
-let api_secret = SensitiveString::from("XXXXXXXXXXXXXXXX");
-
-let args = vec![
-    Topic::ExecutionAllCategory,
-    Topic::OrderAllCategory,
-    Topic::PositionAllCategory,
-    Topic::Wallet,
-];
-
-let (handle, mut events) = ws::Stream::new(ws::Config::private(Environment::Demo));
+let config = ws::Config::private(Environment::Demo)
+    .credentials(api_key, api_secret)
+    .server_clock(client.clock());
+let (handle, mut events) = ws::Stream::new(config);
+handle
+    .subscribe(vec![
+        Topic::ExecutionAllCategory,
+        Topic::OrderAllCategory,
+        Topic::PositionAllCategory,
+        Topic::Wallet,
+    ])
+    .await?;
 handle.connect().await?;
 
 while let Some(event) = events.recv().await {
     match event {
-        // Authenticate and subscribe again after every (re)connect.
-        ws::Event::Connected => {
-            let auth = create_outgoing_message_auth(
-                api_key.clone(),
-                api_secret.clone(),
-                None,
-                5_000, // Milliseconds.
-            );
-            let sub = OutgoingMessage::Subscribe {
-                req_id: None,
-                args: args.clone(),
-            };
-            handle.send_command(auth).await?;
-            handle.send_command(sub).await?;
+        ws::Event::Authenticated => println!("authenticated"),
+        ws::Event::AuthFailed { ret_msg } => {
+            eprintln!("auth rejected: {ret_msg:?}");
+            break;
         }
         ws::Event::Message(msg) => println!("{msg:?}"),
         ws::Event::Disconnected { .. } => break,

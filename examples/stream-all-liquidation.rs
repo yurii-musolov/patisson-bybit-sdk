@@ -10,10 +10,7 @@ use tokio::{self, time::sleep};
 use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
-use bybit::{
-    Category, Environment, Topic,
-    ws::{self, OutgoingMessage},
-};
+use bybit::{Category, Environment, Topic, ws};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -23,25 +20,16 @@ async fn main() -> anyhow::Result<()> {
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
     let symbol = String::from("BTCUSDT");
-    let args = vec![Topic::AllLiquidation(symbol)];
-
-    let sub = OutgoingMessage::Subscribe {
-        req_id: Some(String::from("req-0001")),
-        args: args.clone(),
-    };
-    let unsub = OutgoingMessage::Unsubscribe {
-        req_id: Some(String::from("req-0002")),
-        args,
-    };
+    let topics = vec![Topic::AllLiquidation(symbol)];
 
     let cfg = ws::Config::public(Environment::Mainnet, Category::Linear);
     let (handle, mut events) = ws::Stream::new(cfg);
+    handle.subscribe(topics.clone()).await?;
+    handle.connect().await?;
 
     tokio::spawn(async move {
-        let _ = handle.connect().await;
-        let _ = handle.send_command(sub).await;
         sleep(Duration::from_secs(24 * 60 * 60)).await;
-        let _ = handle.send_command(unsub).await;
+        let _ = handle.unsubscribe(topics).await;
         sleep(Duration::from_secs(2)).await;
         let _ = handle.disconnect().await;
     });

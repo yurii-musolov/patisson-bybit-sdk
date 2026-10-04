@@ -12,7 +12,8 @@ use tracing_subscriber::FmtSubscriber;
 
 use bybit::{
     Environment, Topic,
-    ws::{self, OutgoingMessage, create_outgoing_message_auth},
+    http::{self, Client},
+    ws,
 };
 
 use Topic::{ExecutionAllCategory, OrderAllCategory, PositionAllCategory, Wallet};
@@ -24,46 +25,43 @@ async fn main() -> anyhow::Result<()> {
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
-    let api_key = std::env::var("API_KEY")
-        .expect("environment variable API_KEY is required")
-        .into();
-    let api_secret = std::env::var("API_SECRET")
-        .expect("environment variable API_SECRET is required")
-        .into();
+    let api_key = std::env::var("API_KEY").expect("environment variable API_KEY is required");
+    let api_secret =
+        std::env::var("API_SECRET").expect("environment variable API_SECRET is required");
 
-    let args = vec![
+    // Use the server clock for the `auth` expiry.
+    let client = Client::new(http::Config::for_env(Environment::Demo))?;
+    client.sync_time().await?;
+
+    // The driver authenticates and restores the subscriptions on every
+    // (re)connect.
+    let cfg = ws::Config::private(Environment::Demo)
+        .credentials(api_key, api_secret)
+        .server_clock(client.clock());
+    let (handle, mut events) = ws::Stream::new(cfg);
+
+    let topics = vec![
         ExecutionAllCategory,
         OrderAllCategory,
         PositionAllCategory,
         Wallet,
     ];
-    let auth =
-        create_outgoing_message_auth(api_key, api_secret, Some(String::from("req-0001")), 5_000);
-    let sub = OutgoingMessage::Subscribe {
-        req_id: Some(String::from("req-0002")),
-        args: args.clone(),
-    };
-    let unsub = OutgoingMessage::Unsubscribe {
-        req_id: Some(String::from("req-0003")),
-        args,
-    };
-
-    let cfg = ws::Config::private(Environment::Demo);
-    let (handle, mut events) = ws::Stream::new(cfg);
+    handle.subscribe(topics.clone()).await?;
+    handle.connect().await?;
 
     tokio::spawn(async move {
-        let _ = handle.connect().await;
-        let _ = handle.send_command(auth).await;
-        let _ = handle.send_command(sub).await;
         sleep(Duration::from_secs(24 * 60 * 60)).await;
-        let _ = handle.send_command(unsub).await;
+        let _ = handle.unsubscribe(topics).await;
         sleep(Duration::from_secs(2)).await;
         let _ = handle.disconnect().await;
     });
 
     while let Some(event) = events.recv().await {
         info!(?event);
-        if matches!(event, ws::Event::Disconnected { reason: _ }) {
+        if matches!(
+            event,
+            ws::Event::Disconnected { .. } | ws::Event::AuthFailed { .. }
+        ) {
             break;
         }
     }

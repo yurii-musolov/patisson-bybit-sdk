@@ -1,15 +1,38 @@
-use crate::ws::{IncomingMessage, OutgoingMessage};
+use crate::{
+    Topic,
+    ws::{IncomingMessage, OutgoingMessage},
+};
 
 #[derive(Debug)]
 pub enum Command {
     Connect,
+    /// Send a raw message. Subscriptions sent this way are not restored
+    /// after a reconnect; use [`Command::Subscribe`] for that.
     Send(OutgoingMessage),
+    /// Subscribe now (if connected) and after every reconnect.
+    Subscribe(Vec<Topic>),
+    /// Unsubscribe and stop restoring the topics.
+    Unsubscribe(Vec<Topic>),
     Disconnect,
 }
 
 #[derive(Debug)]
 pub enum Event {
+    /// The connection is open. With credentials configured, `auth` has been
+    /// sent; subscriptions follow once it succeeds.
     Connected,
+    /// The stream accepted the credentials (private streams).
+    Authenticated,
+    /// The stream rejected the credentials; no topics are subscribed on this
+    /// connection.
+    AuthFailed {
+        ret_msg: Option<String>,
+    },
+    /// The stream rejected a `subscribe` sent by the driver for `topics`.
+    SubscribeFailed {
+        topics: Vec<Topic>,
+        ret_msg: Option<String>,
+    },
     Message(IncomingMessage),
     /// A WebSocket text frame arrived but could not be deserialized.
     /// The connection stays open — the raw error description is included.

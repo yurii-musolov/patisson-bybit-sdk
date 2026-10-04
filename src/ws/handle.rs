@@ -1,6 +1,9 @@
 use tokio::sync::mpsc;
 
-use crate::ws::{self, Command, OutgoingMessage};
+use crate::{
+    Topic,
+    ws::{self, Command, OutgoingMessage},
+};
 
 #[derive(Clone)]
 pub struct Handle {
@@ -34,6 +37,24 @@ impl Handle {
 
     pub fn try_send_command(&self, msg: OutgoingMessage) -> Result<(), ws::Error> {
         self.try_send(Command::Send(msg))
+    }
+
+    /// Subscribe to `topics` now and again after every reconnect.
+    pub async fn subscribe(&self, topics: Vec<Topic>) -> Result<(), ws::Error> {
+        self.send(Command::Subscribe(topics)).await
+    }
+
+    pub fn try_subscribe(&self, topics: Vec<Topic>) -> Result<(), ws::Error> {
+        self.try_send(Command::Subscribe(topics))
+    }
+
+    /// Unsubscribe from `topics` and stop restoring them.
+    pub async fn unsubscribe(&self, topics: Vec<Topic>) -> Result<(), ws::Error> {
+        self.send(Command::Unsubscribe(topics)).await
+    }
+
+    pub fn try_unsubscribe(&self, topics: Vec<Topic>) -> Result<(), ws::Error> {
+        self.try_send(Command::Unsubscribe(topics))
     }
 
     async fn send(&self, cmd: Command) -> Result<(), ws::Error> {

@@ -10,10 +10,7 @@ use tokio::{self, time::sleep};
 use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
-use bybit::{
-    Category, DepthLevel, Environment, Interval, Topic,
-    ws::{self, OutgoingMessage},
-};
+use bybit::{Category, DepthLevel, Environment, Interval, Topic, ws};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -33,24 +30,18 @@ async fn main() -> anyhow::Result<()> {
         symbol,
         depth: DepthLevel::Level1000,
     };
-    let args = vec![ticker, trade, kline, orderbook];
-    let sub = OutgoingMessage::Subscribe {
-        req_id: Some(String::from("req-0001")),
-        args: args.clone(),
-    };
-    let unsub = OutgoingMessage::Unsubscribe {
-        req_id: Some(String::from("req-0002")),
-        args,
-    };
+    let topics = vec![ticker, trade, kline, orderbook];
 
     let cfg = ws::Config::public(Environment::Mainnet, Category::Linear);
     let (handle, mut events) = ws::Stream::new(cfg);
 
+    // Subscriptions are restored automatically after every reconnect.
+    handle.subscribe(topics.clone()).await?;
+    handle.connect().await?;
+
     tokio::spawn(async move {
-        let _ = handle.connect().await;
-        let _ = handle.send_command(sub).await;
         sleep(Duration::from_secs(20)).await;
-        let _ = handle.send_command(unsub).await;
+        let _ = handle.unsubscribe(topics).await;
         sleep(Duration::from_secs(2)).await;
         let _ = handle.disconnect().await;
     });

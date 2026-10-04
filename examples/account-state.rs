@@ -19,7 +19,7 @@ use bybit::{
     http::{
         Client, Config, GetOpenClosedOrdersParams, GetPositionInfoParams, GetWalletBalanceParams,
     },
-    ws::{self, CommandMsg, IncomingMessage, OutgoingMessage, create_outgoing_message_auth_at},
+    ws::{self, IncomingMessage},
 };
 
 /// Bybit `retCode`: the request timestamp is outside `recv_window`.
@@ -46,48 +46,38 @@ async fn main() -> anyhow::Result<()> {
     let offset_ms = client.sync_time().await?;
     info!(offset_ms, "server time synchronized");
 
-    let (handle, mut events) = ws::Stream::new(ws::Config::private(Environment::Demo));
+    // The driver authenticates (with the server clock of `client`) and
+    // restores the subscriptions on every (re)connect.
+    let config = ws::Config::private(Environment::Demo)
+        .credentials(api_key, api_secret)
+        .auth_recv_window(RECV_WINDOW)
+        .server_clock(client.clock());
+    let (handle, mut events) = ws::Stream::new(config);
+    handle
+        .subscribe(vec![
+            Topic::OrderAllCategory,
+            Topic::PositionAllCategory,
+            Topic::Wallet,
+        ])
+        .await?;
     handle.connect().await?;
 
     let mut state = AccountState::new();
 
     while let Some(event) = events.recv().await {
         match event {
-            // After the first connection and after every reconnect:
-            // authenticate, subscribe, then (re)load the snapshots. Stream
-            // messages that arrive while the snapshots load wait in the event
-            // queue and are merged afterwards.
-            ws::Event::Connected => {
-                // Re-measure the offset on every (re)connect: the clock of a
-                // long-running process drifts.
+            // After every (re)connect, once authenticated: (re)load the
+            // snapshots. Stream messages that arrive meanwhile wait in the
+            // event queue and are merged afterwards.
+            ws::Event::Authenticated => {
+                // Re-measure the offset: the clock of a long-running process
+                // drifts, and the next reconnect authenticates with it.
                 let offset_ms = client.sync_time().await?;
                 info!(offset_ms, "server time synchronized");
-                let auth = create_outgoing_message_auth_at(
-                    api_key.as_str().into(),
-                    api_secret.as_str().into(),
-                    None,
-                    RECV_WINDOW,
-                    client.server_timestamp(),
-                );
-                let sub = OutgoingMessage::Subscribe {
-                    req_id: None,
-                    args: vec![
-                        Topic::OrderAllCategory,
-                        Topic::PositionAllCategory,
-                        Topic::Wallet,
-                    ],
-                };
-                handle.send_command(auth).await?;
-                handle.send_command(sub).await?;
-
                 load_snapshots(&client, &mut state).await?;
                 print_summary(&state);
             }
-            ws::Event::Message(IncomingMessage::Command(CommandMsg::Auth {
-                success: false,
-                ret_msg,
-                ..
-            })) => {
+            ws::Event::AuthFailed { ret_msg } => {
                 warn!(?ret_msg, "stream authentication failed");
                 break;
             }

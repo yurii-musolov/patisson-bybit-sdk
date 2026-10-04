@@ -68,30 +68,33 @@
 //!
 //! # WebSocket
 //!
-//! The driver reconnects by itself, but subscriptions (and, on private
-//! streams, authentication) must be sent again after every
-//! [`ws::Event::Connected`]:
+//! The driver reconnects by itself and restores the topics subscribed with
+//! [`ws::Handle::subscribe`]. With [`ws::Config::credentials`] it also sends
+//! `auth` on every connection (using [`ServerClock`], shared with
+//! [`http::Client::clock`]) and subscribes once it succeeded:
 //!
 //! ```no_run
 //! use bybit::{
-//!     Category, Environment, Topic,
-//!     ws::{self, OutgoingMessage},
+//!     Environment, Topic,
+//!     http::{Client, Config},
+//!     ws,
 //! };
 //!
-//! # async fn run() -> Result<(), bybit::ws::Error> {
-//! let config = ws::Config::public(Environment::Mainnet, Category::Linear);
+//! # async fn run() -> Result<(), Box<dyn std::error::Error>> {
+//! let client = Client::new(Config::for_env(Environment::Demo))?;
+//! client.sync_time().await?;
+//!
+//! let config = ws::Config::private(Environment::Demo)
+//!     .credentials("API_KEY", "API_SECRET")
+//!     .server_clock(client.clock());
 //! let (handle, mut events) = ws::Stream::new(config);
+//! handle.subscribe(vec![Topic::OrderAllCategory, Topic::Wallet]).await?;
 //! handle.connect().await?;
 //!
 //! while let Some(event) = events.recv().await {
 //!     match event {
-//!         ws::Event::Connected => {
-//!             let args = vec![Topic::Ticker(String::from("BTCUSDT"))];
-//!             let sub = OutgoingMessage::Subscribe { req_id: None, args };
-//!             handle.send_command(sub).await?;
-//!         }
 //!         ws::Event::Message(msg) => println!("{msg:?}"),
-//!         ws::Event::Disconnected { .. } => break,
+//!         ws::Event::AuthFailed { .. } | ws::Event::Disconnected { .. } => break,
 //!         _ => {}
 //!     }
 //! }
@@ -99,9 +102,8 @@
 //! # }
 //! ```
 //!
-//! For private streams build the `auth` message with
-//! [`ws::create_outgoing_message_auth_at`] and
-//! [`http::Client::server_timestamp`]. See the
+//! Public streams work the same way without credentials
+//! ([`ws::Config::public`]). See the
 //! [examples](https://github.com/yurii-musolov/patisson-bybit-sdk/tree/main/examples),
 //! in particular `account-state` for [`AccountState`] and `stream-orderbook`
 //! for [`OrderBookState`].
@@ -115,6 +117,7 @@
 compile_error!("enable a TLS backend: the `rustls` (default) or the `native-tls` feature");
 
 mod account_state;
+mod clock;
 mod common;
 mod crypto;
 mod enums;
@@ -128,6 +131,7 @@ pub mod http;
 pub mod ws;
 
 pub use account_state::*;
+pub use clock::ServerClock;
 pub use common::*;
 pub use crypto::*;
 pub use enums::*;
