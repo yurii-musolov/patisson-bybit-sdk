@@ -1,6 +1,6 @@
 //! Enums Definitions
 //!
-//! Ref: https://bybit-exchange.github.io/docs/v5/enum
+//! Ref: <https://bybit-exchange.github.io/docs/v5/enum>
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_repr::*;

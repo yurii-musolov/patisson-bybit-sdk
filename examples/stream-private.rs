@@ -56,7 +56,7 @@ async fn main() -> anyhow::Result<()> {
         let _ = handle.connect().await;
         let _ = handle.send_command(auth).await;
         let _ = handle.send_command(sub).await;
-        sleep(Duration::from_hours(24)).await;
+        sleep(Duration::from_secs(24 * 60 * 60)).await;
         let _ = handle.send_command(unsub).await;
         sleep(Duration::from_secs(2)).await;
         let _ = handle.disconnect().await;

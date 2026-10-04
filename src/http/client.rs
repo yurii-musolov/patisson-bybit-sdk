@@ -641,7 +641,7 @@ impl Client {
     }
 
     /// Collect all pages of open/closed orders into a single `Vec`.
-    /// Repeatedly calls [`get_open_closed_orders`] following `next_page_cursor`
+    /// Repeatedly calls [`get_open_closed_orders`](Client::get_open_closed_orders) following `next_page_cursor`
     /// until the last page is reached (see [`MAX_PAGES`]).
     #[tracing::instrument(skip(self), err)]
     pub async fn get_open_closed_orders_all(
@@ -846,7 +846,7 @@ impl Client {
     }
 
     /// Collect all pages of position info into a single `Vec`.
-    /// Repeatedly calls [`get_position_info`] following `next_page_cursor`
+    /// Repeatedly calls [`get_position_info`](Client::get_position_info) following `next_page_cursor`
     /// until the last page is reached (see [`MAX_PAGES`]).
     #[tracing::instrument(skip(self), err)]
     pub async fn get_position_info_all(
@@ -1092,7 +1092,7 @@ impl Client {
     }
 
     /// Collect all pages of transaction log entries into a single `Vec`.
-    /// Repeatedly calls [`get_transaction_log`] following `next_page_cursor`
+    /// Repeatedly calls [`get_transaction_log`](Client::get_transaction_log) following `next_page_cursor`
     /// until the last page is reached (see [`MAX_PAGES`]).
     #[tracing::instrument(skip(self), err)]
     pub async fn get_transaction_log_all(
