@@ -25,7 +25,9 @@ are the only exception to the naming scheme.
 ## Checks
 
 CI (`.github/workflows/ci.yml`) runs on every pull request: `rustfmt`,
-`clippy -D warnings`, tests on Linux/macOS/Windows, the MSRV build
+`clippy -D warnings`, tests on Linux/macOS/Windows (default `rustls`
+feature) and on Linux with `native-tls`, each checking that the other TLS
+stack is not in the dependency tree, the MSRV build
 (`rust-version` in `Cargo.toml`), `rustdoc -D warnings`,
 `cargo publish --dry-run` and `cargo deny check` (`deny.toml`). The branch
 protection requires the aggregate **CI result** check.

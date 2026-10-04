@@ -53,8 +53,31 @@ jobs:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: Only the rustls TLS stack is built
+        if: runner.os == 'Linux'
+        run: |
+          if cargo tree -e normal --prefix none --target all | grep -E '^(openssl|openssl-sys|native-tls) '; then
+            echo "::error::OpenSSL/native-tls is in the default dependency tree"
+            exit 1
+          fi
       - run: cargo test --all-targets
       - run: cargo test --doc
+
+  native-tls:
+    name: test (native-tls)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Only the native TLS stack is built
+        run: |
+          if cargo tree -e normal --prefix none --no-default-features --features native-tls --target all \
+            | grep -E '^(rustls|aws-lc-rs|aws-lc-sys) '; then
+            echo "::error::rustls is in the dependency tree with the native-tls feature"
+            exit 1
+          fi
+      - run: cargo test --all-targets --no-default-features --features native-tls
 
   msrv:
     name: MSRV
@@ -106,7 +129,7 @@ jobs:
   result:
     name: CI result
     if: always()
-    needs: [fmt, clippy, test, msrv, docs, package, deny]
+    needs: [fmt, clippy, test, native-tls, msrv, docs, package, deny]
     runs-on: ubuntu-latest
     steps:
       - name: All checks passed

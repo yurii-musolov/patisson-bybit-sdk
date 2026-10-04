@@ -35,6 +35,20 @@ The scope of the package is intentionally limited to the most commonly used func
 - Only async clients
 - All categories: Spot, Linear, Inverse, Option
 
+## TLS
+
+REST and WebSocket share one TLS backend, selected with a Cargo feature
+(enable exactly one):
+
+- `rustls` (default): rustls with aws-lc-rs and the operating system's root
+  certificates; no OpenSSL needed.
+- `native-tls`: the platform TLS library (OpenSSL on Linux, Schannel on
+  Windows, Security.framework on macOS).
+
+```toml
+patisson-bybit-sdk = { version = "=0.3.0", default-features = false, features = ["native-tls"] }
+```
+
 ## Examples
 
 See [`examples/`](examples) for runnable programs.
