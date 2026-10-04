@@ -6,7 +6,7 @@ use serde_aux::prelude::{
 };
 
 use crate::{
-    ContractType, CopyTrading, CurAuctionPhase, Side, Status, Timestamp,
+    ContractType, CopyTrading, CurAuctionPhase, OptionType, Side, Status, Timestamp,
     enums::{Category, Interval, IntervalTime},
     serde::{empty_string_as_none, int_to_bool, string_to_bool},
 };
@@ -293,8 +293,8 @@ pub struct GetTradesParams {
     /// Apply to option only
     /// If the field is not passed, return BTC data by default
     pub base_coin: Option<String>,
-    /// optionType false string Option type. Call or Put. Apply to option only
-    pub option_type: Option<u64>,
+    /// Option type. Apply to option only
+    pub option_type: Option<OptionType>,
     /// spot: `[1, 60]`, default: 60
     /// others: `[1, 1000]`, default: 500
     pub limit: Option<u64>,
@@ -784,4 +784,25 @@ pub struct DeliveryPriceEntry {
     pub delivery_price: Decimal,
     #[serde(deserialize_with = "number")]
     pub delivery_time: Timestamp,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Category, serde::serialize_query};
+
+    #[test]
+    fn trades_params_serialize_option_type_as_call_or_put() {
+        let params = GetTradesParams {
+            category: Category::Option,
+            symbol: None,
+            base_coin: Some(String::from("BTC")),
+            option_type: Some(OptionType::Put),
+            limit: None,
+        };
+
+        let query = serialize_query(&params).unwrap();
+
+        assert_eq!(query, "category=option&baseCoin=BTC&optionType=Put");
+    }
 }
