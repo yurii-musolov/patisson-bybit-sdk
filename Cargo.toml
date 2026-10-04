@@ -1,6 +1,6 @@
 [package]
 name = "patisson-bybit-sdk"
-version = "0.2.5"
+version = "0.2.6"
 edition = "2024"
 rust-version = "1.88"
 authors = ["Yurii Musolov <yurii.musolov@gmail.com>"]
