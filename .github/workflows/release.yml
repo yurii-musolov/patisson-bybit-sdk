@@ -1,0 +1,156 @@
+# Publish the crate and create the vX.Y.Z tag and GitHub Release when a new
+# version lands on main. See CONTRIBUTING.md, "Releasing".
+#
+# - No tag vX.Y.Z yet: tag the pushed commit, then publish it.
+# - Tag exists and is on main: publish the tagged commit if that version is
+#   not on crates.io yet (also resumes a release that failed half-way).
+# - Tag exists but is not on main: refuse.
+# - Version published, tag and GitHub Release exist: nothing to do.
+#
+# The tag is created before publishing, so re-running after a failed
+# publish picks up the same commit.
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      release: ${{ steps.plan.outputs.release }}
+      version: ${{ steps.plan.outputs.version }}
+      tag: ${{ steps.plan.outputs.tag }}
+      sha: ${{ steps.plan.outputs.sha }}
+      tag_exists: ${{ steps.plan.outputs.tag_exists }}
+      published: ${{ steps.plan.outputs.published }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          metadata=$(cargo metadata --no-deps --format-version 1)
+          name=$(jq -r '.packages[0].name' <<<"$metadata")
+          version=$(jq -r '.packages[0].version' <<<"$metadata")
+          tag="v$version"
+
+          status=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -A "$GITHUB_REPOSITORY release workflow" \
+            "https://crates.io/api/v1/crates/$name/$version")
+          case "$status" in
+            200) published=true ;;
+            404) published=false ;;
+            *) echo "::error::crates.io returned HTTP $status for $name $version"; exit 1 ;;
+          esac
+
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            tag_exists=true
+            sha=$(git rev-parse "$tag^{commit}")
+            if ! git merge-base --is-ancestor "$sha" "$GITHUB_SHA"; then
+              echo "::error::$tag points to $sha, which is not on main. Release tags are created by this workflow only."
+              exit 1
+            fi
+            tagged_version=$(git show "$sha:Cargo.toml" | sed -n 's/^version = "\(.*\)"$/\1/p' | head -n 1)
+            if [ "$tagged_version" != "$version" ]; then
+              echo "::error::$tag points to $sha with version $tagged_version, expected $version"
+              exit 1
+            fi
+          else
+            tag_exists=false
+            sha=$GITHUB_SHA
+          fi
+
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh_release=true
+          else
+            gh_release=false
+          fi
+
+          if [ "$published" = true ] && [ "$tag_exists" = false ]; then
+            echo "::warning::$name $version is on crates.io but $tag does not exist; not guessing which commit was published"
+            release=false
+          elif [ "$published" = true ] && [ "$gh_release" = true ]; then
+            echo "$name $version is already released"
+            release=false
+          else
+            release=true
+          fi
+
+          {
+            echo "release=$release"
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "sha=$sha"
+            echo "tag_exists=$tag_exists"
+            echo "published=$published"
+          } >>"$GITHUB_OUTPUT"
+          echo "plan: version=$version tag=$tag sha=$sha tag_exists=$tag_exists published=$published gh_release=$gh_release release=$release"
+
+  release:
+    needs: plan
+    if: needs.plan.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+      id-token: write
+    env:
+      TAG: ${{ needs.plan.outputs.tag }}
+      SHA: ${{ needs.plan.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.plan.outputs.sha }}
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Test
+        run: cargo test --all-targets
+
+      - name: Create tag
+        if: needs.plan.outputs.tag_exists == 'false'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "$TAG" "$SHA"
+          git push origin "refs/tags/$TAG"
+
+      - name: Authenticate to crates.io (Trusted Publishing)
+        if: needs.plan.outputs.published == 'false'
+        id: auth
+        uses: rust-lang/crates-io-auth-action@v1
+
+      - name: Publish
+        if: needs.plan.outputs.published == 'false'
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: cargo publish
+
+      - name: GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "GitHub Release $TAG already exists"
+          else
+            gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes
+          fi

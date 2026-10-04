@@ -45,4 +45,7 @@ cover the fast ones (`./.githooks/install.sh`).
    commit.
 
 Do not create release tags by hand: the workflow tags the commit that actually
-landed on `main`, and refuses to release if `vX.Y.Z` already points elsewhere.
+landed on `main`, and refuses to release if `vX.Y.Z` already points to a commit
+that is not on `main`. If the tag exists on `main` but the version is not on
+crates.io yet (e.g. a publish failed), the workflow publishes the tagged commit,
+so re-running it is safe.
