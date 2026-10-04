@@ -42,9 +42,23 @@ use crate::{
     serde::{deserialize_json, serialize_json, serialize_query},
     url::*,
 };
-use reqwest::{self, Method, RequestBuilder, header::HeaderMap};
+use reqwest::{
+    self, Method, RequestBuilder, StatusCode,
+    header::{CONTENT_TYPE, HeaderMap, HeaderValue},
+};
+use std::time::Duration;
 
 use super::rate_limiter::{RateLimitKey, RateLimiter, RateLimiterConfig};
+
+/// Default total timeout of one HTTP request.
+pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
+/// Default timeout of establishing a TCP/TLS connection.
+pub const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+/// Default `X-BAPI-RECV-WINDOW`, milliseconds.
+pub const DEFAULT_RECV_WINDOW: Timestamp = 5000;
+
+/// Maximum number of bytes of a non-2xx response body kept in [`Error::Http`].
+const MAX_ERROR_BODY_LEN: usize = 1024;
 
 pub struct Config {
     pub base_url: String,
@@ -58,6 +72,65 @@ pub struct Config {
     /// against a local token bucket and the last server-reported limit status.
     /// Set to `None` to disable rate limiting entirely.
     pub rate_limiter: Option<RateLimiterConfig>,
+    /// Total timeout of one request (connect + send + receive).
+    /// `None` disables it, which is not recommended: a hung request would
+    /// then wait forever.
+    pub timeout: Option<Duration>,
+    /// Timeout of establishing a connection. `None` disables it.
+    pub connect_timeout: Option<Duration>,
+}
+
+impl Config {
+    /// Config for public endpoints with default timeouts and no rate limiter.
+    pub fn new(base_url: impl Into<String>) -> Self {
+        Self {
+            base_url: base_url.into(),
+            api_key: None,
+            api_secret: None,
+            recv_window: DEFAULT_RECV_WINDOW,
+            referer: None,
+            rate_limiter: None,
+            timeout: Some(DEFAULT_TIMEOUT),
+            connect_timeout: Some(DEFAULT_CONNECT_TIMEOUT),
+        }
+    }
+
+    /// Credentials required by private endpoints.
+    pub fn credentials(
+        mut self,
+        api_key: impl Into<SensitiveString>,
+        api_secret: impl Into<SensitiveString>,
+    ) -> Self {
+        self.api_key = Some(api_key.into());
+        self.api_secret = Some(api_secret.into());
+        self
+    }
+
+    /// Milliseconds.
+    pub fn recv_window(mut self, recv_window: Timestamp) -> Self {
+        self.recv_window = recv_window;
+        self
+    }
+
+    pub fn referer(mut self, referer: impl Into<String>) -> Self {
+        self.referer = Some(referer.into());
+        self
+    }
+
+    pub fn rate_limiter(mut self, rate_limiter: RateLimiterConfig) -> Self {
+        self.rate_limiter = Some(rate_limiter);
+        self
+    }
+
+    pub fn timeout(mut self, timeout: Option<Duration>) -> Self {
+        self.timeout = timeout;
+        self
+    }
+
+    pub fn connect_timeout(mut self, connect_timeout: Option<Duration>) -> Self {
+        self.connect_timeout = connect_timeout;
+        self
+    }
 }
 
 // TODO: use proxy
@@ -99,25 +172,36 @@ impl Client {
 
         let rate_limiter = cfg.rate_limiter.map(RateLimiter::new);
 
+        // Bybit requires `Content-Type: application/json` for POST bodies;
+        // it is harmless on GET requests.
+        let mut default_headers = HeaderMap::new();
+        default_headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        let mut builder = reqwest::Client::builder().default_headers(default_headers);
+        if let Some(timeout) = cfg.timeout {
+            builder = builder.timeout(timeout);
+        }
+        if let Some(connect_timeout) = cfg.connect_timeout {
+            builder = builder.connect_timeout(connect_timeout);
+        }
+
         Ok(Self {
             base_url: cfg.base_url,
             headers,
-            client: reqwest::Client::builder().build()?,
+            client: builder.build()?,
             signer,
             rate_limiter,
         })
     }
 
-    fn get_signed_headers(&self, s: &str) -> HeaderMap {
+    fn get_signed_headers(&self, s: &str) -> Result<HeaderMap, Error> {
+        let signer = self.signer.as_ref().ok_or(Error::MissingCredentials)?;
         let mut headers = self.headers.clone();
 
-        let (signature, timestamp) = self.signer.as_ref().unwrap().sign(s);
-        let signature = signature.parse().unwrap();
-        headers.append(HEADER_X_BAPI_SIGN, signature);
-        let timestamp = timestamp.parse().unwrap();
-        headers.append(HEADER_X_BAPI_TIMESTAMP, timestamp);
+        let (signature, timestamp) = signer.sign(s);
+        headers.append(HEADER_X_BAPI_SIGN, signature.parse()?);
+        headers.append(HEADER_X_BAPI_TIMESTAMP, timestamp.parse()?);
 
-        headers
+        Ok(headers)
     }
 }
 
@@ -412,7 +496,7 @@ impl Client {
         let category = request.category;
         let url = format!("{}{}", self.base_url, Path::TradeOrderCreate);
         let json = serialize_json(request)?;
-        let headers = self.get_signed_headers(&json);
+        let headers = self.get_signed_headers(&json)?;
 
         let request = self
             .client
@@ -437,7 +521,7 @@ impl Client {
         let category = request.category;
         let url = format!("{}{}", self.base_url, Path::TradeOrderAmend);
         let json = serialize_json(request)?;
-        let headers = self.get_signed_headers(&json);
+        let headers = self.get_signed_headers(&json)?;
 
         let request = self
             .client
@@ -464,7 +548,7 @@ impl Client {
         let category = request.category;
         let url = format!("{}{}", self.base_url, Path::TradeOrderCancel);
         let json = serialize_json(request)?;
-        let headers = self.get_signed_headers(&json);
+        let headers = self.get_signed_headers(&json)?;
 
         let request = self
             .client
@@ -498,7 +582,7 @@ impl Client {
     ) -> Result<Response<CursorPagination<Order>>, Error> {
         let query = serialize_query(params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::TradeOrderRealtime);
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -537,7 +621,7 @@ impl Client {
         let category = request.category;
         let url = format!("{}{}", self.base_url, Path::TradeOrderCancelAll);
         let json = serialize_json(request)?;
-        let headers = self.get_signed_headers(&json);
+        let headers = self.get_signed_headers(&json)?;
 
         let request = self
             .client
@@ -561,7 +645,7 @@ impl Client {
     ) -> Result<Response<CursorPagination<Order>>, Error> {
         let query = serialize_query(params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::TradeOrderHistory);
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -600,7 +684,7 @@ impl Client {
         let cost = request.request.len() as u32;
         let url = format!("{}{}", self.base_url, Path::TradeOrderCreateBatch);
         let json = serialize_json(request)?;
-        let headers = self.get_signed_headers(&json);
+        let headers = self.get_signed_headers(&json)?;
 
         let request = self
             .client
@@ -626,7 +710,7 @@ impl Client {
         let cost = request.request.len() as u32;
         let url = format!("{}{}", self.base_url, Path::TradeOrderAmendBatch);
         let json = serialize_json(request)?;
-        let headers = self.get_signed_headers(&json);
+        let headers = self.get_signed_headers(&json)?;
 
         let request = self
             .client
@@ -652,7 +736,7 @@ impl Client {
         let cost = request.request.len() as u32;
         let url = format!("{}{}", self.base_url, Path::TradeOrderCancelBatch);
         let json = serialize_json(request)?;
-        let headers = self.get_signed_headers(&json);
+        let headers = self.get_signed_headers(&json)?;
 
         let request = self
             .client
@@ -677,7 +761,7 @@ impl Client {
     ) -> Result<Response<SpotBorrowCheck>, Error> {
         let url = format!("{}{}", self.base_url, Path::TradeOrderSpotBorrowCheck);
         let query = serialize_query(params)?;
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self
             .client
@@ -709,7 +793,7 @@ impl Client {
     ) -> Result<Response<CursorPagination<Position>>, Error> {
         let query = serialize_query(params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::PositionList);
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -747,7 +831,7 @@ impl Client {
     ) -> Result<Response<EmptyResult>, Error> {
         let url = format!("{}{}", self.base_url, Path::PositionSetLeverage);
         let json = serialize_json(request)?;
-        let headers = self.get_signed_headers(&json);
+        let headers = self.get_signed_headers(&json)?;
 
         let request = self
             .client
@@ -768,7 +852,7 @@ impl Client {
     ) -> Result<Response<EmptyResult>, Error> {
         let url = format!("{}{}", self.base_url, Path::PositionTradingStop);
         let json = serialize_json(request)?;
-        let headers = self.get_signed_headers(&json);
+        let headers = self.get_signed_headers(&json)?;
 
         let request = self
             .client
@@ -789,7 +873,7 @@ impl Client {
     ) -> Result<Response<EmptyResult>, Error> {
         let url = format!("{}{}", self.base_url, Path::PositionSwitchIsolated);
         let json = serialize_json(request)?;
-        let headers = self.get_signed_headers(&json);
+        let headers = self.get_signed_headers(&json)?;
 
         let request = self
             .client
@@ -810,7 +894,7 @@ impl Client {
     ) -> Result<Response<EmptyResult>, Error> {
         let url = format!("{}{}", self.base_url, Path::PositionSwitchMode);
         let json = serialize_json(request)?;
-        let headers = self.get_signed_headers(&json);
+        let headers = self.get_signed_headers(&json)?;
 
         let request = self
             .client
@@ -831,7 +915,7 @@ impl Client {
     ) -> Result<Response<EmptyResult>, Error> {
         let url = format!("{}{}", self.base_url, Path::PositionSetAutoAddMargin);
         let json = serialize_json(request)?;
-        let headers = self.get_signed_headers(&json);
+        let headers = self.get_signed_headers(&json)?;
 
         let request = self
             .client
@@ -852,7 +936,7 @@ impl Client {
     ) -> Result<Response<SetRiskLimitResponse>, Error> {
         let url = format!("{}{}", self.base_url, Path::PositionSetRiskLimit);
         let json = serialize_json(request)?;
-        let headers = self.get_signed_headers(&json);
+        let headers = self.get_signed_headers(&json)?;
 
         let request = self
             .client
@@ -873,7 +957,7 @@ impl Client {
     ) -> Result<Response<CursorPagination<ClosedPnl>>, Error> {
         let query = serialize_query(params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::PositionClosedPnl);
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -909,7 +993,7 @@ impl Client {
     ) -> Result<Response<CursorPagination<ExecutionEntry>>, Error> {
         let query = serialize_query(params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::ExecutionList);
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -947,7 +1031,7 @@ impl Client {
     ) -> Result<Response<List<WalletBalance>>, Error> {
         let query = serialize_query(params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::AccountWalletBalance);
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -964,7 +1048,7 @@ impl Client {
     ) -> Result<Response<CursorPagination<TransactionLog>>, Error> {
         let query = serialize_query(params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::AccountTransactionLog);
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -998,7 +1082,7 @@ impl Client {
     pub async fn get_account_info(&self) -> Result<Response<AccountInfo>, Error> {
         let url = format!("{}{}", self.base_url, Path::AccountInfo);
         let query = "";
-        let headers = self.get_signed_headers(query);
+        let headers = self.get_signed_headers(query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -1017,7 +1101,7 @@ impl Client {
     ) -> Result<Response<List<FeeRateEntry>>, Error> {
         let url = format!("{}{}", self.base_url, Path::AccountFeeRate);
         let query = serialize_query(params)?;
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self
             .client
@@ -1040,7 +1124,7 @@ impl Client {
     ) -> Result<Response<SetMarginModeResponse>, Error> {
         let url = format!("{}{}", self.base_url, Path::AccountSetMarginMode);
         let body = serialize_json(request_body)?;
-        let headers = self.get_signed_headers(&body);
+        let headers = self.get_signed_headers(&body)?;
 
         let request = self
             .client
@@ -1061,7 +1145,7 @@ impl Client {
     pub async fn upgrade_to_uta(&self) -> Result<Response<UpgradeToUtaResult>, Error> {
         let url = format!("{}{}", self.base_url, Path::AccountUpgradeToUta);
         let body = "{}".to_owned();
-        let headers = self.get_signed_headers(&body);
+        let headers = self.get_signed_headers(&body)?;
 
         let request = self
             .client
@@ -1084,7 +1168,7 @@ impl Client {
     ) -> Result<Response<CursorPagination<BorrowHistoryEntry>>, Error> {
         let query = serialize_query(params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::AccountBorrowHistory);
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -1125,7 +1209,7 @@ impl Client {
     ) -> Result<Response<List<CollateralInfoEntry>>, Error> {
         let url = format!("{}{}", self.base_url, Path::AccountCollateralInfo);
         let query = serialize_query(params)?;
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self
             .client
@@ -1146,7 +1230,7 @@ impl Client {
     pub async fn get_api_key_information(&self) -> Result<Response<APIKeyInformation>, Error> {
         let url = format!("{}{}", self.base_url, Path::UserQueryApi);
         let query = "";
-        let headers = self.get_signed_headers(query);
+        let headers = self.get_signed_headers(query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -1168,7 +1252,7 @@ impl Client {
     ) -> Result<Response<TransferResult>, Error> {
         let url = format!("{}{}", self.base_url, Path::AssetTransferInterTransfer);
         let body = serialize_json(request)?;
-        let headers = self.get_signed_headers(&body);
+        let headers = self.get_signed_headers(&body)?;
 
         let request = self
             .client
@@ -1195,7 +1279,7 @@ impl Client {
             self.base_url,
             Path::AssetTransferQueryInterTransferList
         );
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -1217,7 +1301,7 @@ impl Client {
     ) -> Result<Response<TransferResult>, Error> {
         let url = format!("{}{}", self.base_url, Path::AssetTransferUniversalTransfer);
         let body = serialize_json(request)?;
-        let headers = self.get_signed_headers(&body);
+        let headers = self.get_signed_headers(&body)?;
 
         let request = self
             .client
@@ -1246,7 +1330,7 @@ impl Client {
             self.base_url,
             Path::AssetTransferQueryUniversalTransferList
         );
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -1271,7 +1355,7 @@ impl Client {
             self.base_url,
             Path::AssetTransferQueryTransferCoinList
         );
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -1297,7 +1381,7 @@ impl Client {
             Path::AssetTransferSaveTransferSubMember
         );
         let body = serialize_json(request)?;
-        let headers = self.get_signed_headers(&body);
+        let headers = self.get_signed_headers(&body)?;
 
         let request = self
             .client
@@ -1322,7 +1406,7 @@ impl Client {
     ) -> Result<Response<TransferableSubMembers>, Error> {
         let url = format!("{}{}", self.base_url, Path::AssetTransferQuerySubMemberList);
         let query = "";
-        let headers = self.get_signed_headers(query);
+        let headers = self.get_signed_headers(query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -1348,7 +1432,7 @@ impl Client {
             self.base_url,
             Path::AssetTransferQueryAccountCoinBalance
         );
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -1373,7 +1457,7 @@ impl Client {
             self.base_url,
             Path::AssetTransferQueryAssetInfo
         );
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -1397,7 +1481,7 @@ impl Client {
             self.base_url,
             Path::AssetDepositQueryAllowedList
         );
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -1417,7 +1501,7 @@ impl Client {
     ) -> Result<Response<DepositRecords>, Error> {
         let query = serialize_query(params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::AssetDepositQueryRecord);
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -1439,7 +1523,7 @@ impl Client {
             self.base_url,
             Path::AssetDepositQuerySubMemberRecord
         );
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -1463,7 +1547,7 @@ impl Client {
             self.base_url,
             Path::AssetDepositQueryAddress
         );
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -1485,7 +1569,7 @@ impl Client {
             self.base_url,
             Path::AssetDepositQuerySubMemberAddress
         );
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -1509,7 +1593,7 @@ impl Client {
             self.base_url,
             Path::AssetWithdrawQueryRecord
         );
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -1533,7 +1617,7 @@ impl Client {
             self.base_url,
             Path::AssetWithdrawWithdrawableAmount
         );
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -1554,7 +1638,7 @@ impl Client {
     ) -> Result<Response<WithdrawResult>, Error> {
         let url = format!("{}{}", self.base_url, Path::AssetWithdrawCreate);
         let body = serialize_json(request)?;
-        let headers = self.get_signed_headers(&body);
+        let headers = self.get_signed_headers(&body)?;
 
         let request = self
             .client
@@ -1577,7 +1661,7 @@ impl Client {
     ) -> Result<Response<CancelWithdrawalResult>, Error> {
         let url = format!("{}{}", self.base_url, Path::AssetWithdrawCancel);
         let body = serialize_json(request)?;
-        let headers = self.get_signed_headers(&body);
+        let headers = self.get_signed_headers(&body)?;
 
         let request = self
             .client
@@ -1600,7 +1684,7 @@ impl Client {
     ) -> Result<Response<CoinInfoResult>, Error> {
         let url = format!("{}{}", self.base_url, Path::AssetCoinQueryInfo);
         let query = serialize_query(params)?;
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self
             .client
@@ -1626,7 +1710,7 @@ impl Client {
             self.base_url,
             Path::AssetExchangeOrderRecord
         );
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -1645,7 +1729,7 @@ impl Client {
     ) -> Result<Response<CursorPagination<DeliveryRecord>>, Error> {
         let query = serialize_query(params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::AssetDeliveryRecord);
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -1664,7 +1748,7 @@ impl Client {
     ) -> Result<Response<CursorPagination<SettlementRecord>>, Error> {
         let query = serialize_query(params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::AssetSettlementRecord);
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -1683,7 +1767,7 @@ impl Client {
     ) -> Result<Response<List<CoinGreeks>>, Error> {
         let query = serialize_query(params)?;
         let url = format!("{}{}?{query}", self.base_url, Path::AssetCoinGreeks);
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -1739,7 +1823,7 @@ impl Client {
     ) -> Result<Response<PurchaseLeverageTokenResult>, Error> {
         let url = format!("{}{}", self.base_url, Path::SpotLeverTokenPurchase);
         let body = serialize_json(request)?;
-        let headers = self.get_signed_headers(&body);
+        let headers = self.get_signed_headers(&body)?;
 
         let request = self
             .client
@@ -1762,7 +1846,7 @@ impl Client {
     ) -> Result<Response<RedeemLeverageTokenResult>, Error> {
         let url = format!("{}{}", self.base_url, Path::SpotLeverTokenRedeem);
         let body = serialize_json(request)?;
-        let headers = self.get_signed_headers(&body);
+        let headers = self.get_signed_headers(&body)?;
 
         let request = self
             .client
@@ -1788,7 +1872,7 @@ impl Client {
             self.base_url,
             Path::SpotLeverTokenOrderRecord
         );
-        let headers = self.get_signed_headers(&query);
+        let headers = self.get_signed_headers(&query)?;
 
         let request = self.client.request(Method::GET, url).headers(headers);
 
@@ -1811,7 +1895,7 @@ impl Client {
     ) -> Result<Response<SwitchSpotMarginModeResult>, Error> {
         let url = format!("{}{}", self.base_url, Path::SpotMarginTradeSwitchMode);
         let body = serialize_json(request)?;
-        let headers = self.get_signed_headers(&body);
+        let headers = self.get_signed_headers(&body)?;
 
         let request = self
             .client
@@ -1835,7 +1919,7 @@ impl Client {
     ) -> Result<Response<EmptyResult>, Error> {
         let url = format!("{}{}", self.base_url, Path::SpotMarginTradeSetLeverage);
         let body = serialize_json(request)?;
-        let headers = self.get_signed_headers(&body);
+        let headers = self.get_signed_headers(&body)?;
 
         let request = self
             .client
@@ -1880,6 +1964,7 @@ impl Client {
         let start = std::time::Instant::now();
         let response = request.send().await?;
         let elapsed_ms = start.elapsed().as_millis();
+        let status = response.status();
         let headers = parse_headers(response.headers());
 
         if let Some(rl) = &self.rate_limiter {
@@ -1890,28 +1975,66 @@ impl Client {
             );
         }
 
-        let json = response.text().await?;
-        if !headers.is_ret_code_ok() {
-            let msg: APIErrorResponse = deserialize_json(&json)?;
-            tracing::debug!(elapsed_ms, ret_code = msg.ret_code, "api error response");
-            return Err(msg.into());
+        let body = response.text().await?;
+        let result = parse_response(status, headers, &body);
+        match &result {
+            Ok(response) => tracing::debug!(
+                elapsed_ms,
+                api_limit = response.headers.api_limit,
+                api_limit_status = response.headers.api_limit_status,
+                "api call completed"
+            ),
+            Err(e) => tracing::debug!(elapsed_ms, error = %e, "api call failed"),
         }
-
-        tracing::debug!(
-            elapsed_ms,
-            api_limit = headers.api_limit,
-            api_limit_status = headers.api_limit_status,
-            "api call completed"
-        );
-        let response: Resp<_> = deserialize_json(&json)?;
-        let response = Response {
-            result: response.result,
-            time: response.time,
-            headers,
-            ret_ext_info: response.ret_ext_info,
-        };
-        Ok(response)
+        result
     }
+}
+
+/// Turn a raw HTTP response into a [`Response`] or an [`Error`].
+///
+/// A non-2xx status is reported as [`Error::Api`] when the body is a Bybit
+/// error envelope and as [`Error::Http`] otherwise (e.g. an HTML page from a
+/// CDN or gateway). For a 2xx status the `retCode` of the body decides.
+fn parse_response<T>(status: StatusCode, headers: Headers, body: &str) -> Result<Response<T>, Error>
+where
+    T: serde::de::DeserializeOwned,
+{
+    let envelope = deserialize_json::<APIErrorResponse>(body);
+
+    if !status.is_success() {
+        return Err(match envelope {
+            Ok(envelope) if envelope.ret_code != 0 => envelope.into(),
+            _ => Error::Http {
+                status: status.as_u16(),
+                body: truncate(body, MAX_ERROR_BODY_LEN).to_owned(),
+            },
+        });
+    }
+
+    let envelope = envelope?;
+    if envelope.ret_code != 0 {
+        return Err(envelope.into());
+    }
+
+    let response: Resp<T> = deserialize_json(body)?;
+    Ok(Response {
+        result: response.result,
+        time: response.time,
+        headers,
+        ret_ext_info: response.ret_ext_info,
+    })
+}
+
+/// Longest prefix of `s` not exceeding `max` bytes that ends on a char boundary.
+fn truncate(s: &str, max: usize) -> &str {
+    if s.len() <= max {
+        return s;
+    }
+    let mut end = max;
+    while !s.is_char_boundary(end) {
+        end -= 1;
+    }
+    &s[..end]
 }
 
 /// Parse response headers: ret_code, traceid, timenow, X-Bapi-Limit, X-Bapi-Limit-Status, X-Bapi-Limit-Reset-Timestamp
@@ -1943,5 +2066,67 @@ fn parse_headers(headers: &HeaderMap) -> Headers {
         api_limit,
         api_limit_status,
         api_limit_reset_timestamp,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn headers() -> Headers {
+        parse_headers(&HeaderMap::new())
+    }
+
+    #[test]
+    fn parse_response_success() {
+        let body = r#"{"retCode":0,"retMsg":"OK","result":{"timeSecond":"1688639403","timeNano":"1688639403423213947"},"retExtInfo":{},"time":1688639403423}"#;
+
+        let response: Response<ServerTime> =
+            parse_response(StatusCode::OK, headers(), body).unwrap();
+
+        assert_eq!(response.time, Some(1688639403423));
+    }
+
+    #[test]
+    fn parse_response_api_error_with_http_200() {
+        let body = r#"{"retCode":10001,"retMsg":"params error","result":{},"retExtInfo":{},"time":1688639403423}"#;
+
+        let err = parse_response::<ServerTime>(StatusCode::OK, headers(), body).unwrap_err();
+
+        assert!(matches!(err, Error::Api { code: 10001, ref msg } if msg == "params error"));
+    }
+
+    #[test]
+    fn parse_response_api_error_with_http_error_status() {
+        let body = r#"{"retCode":10006,"retMsg":"Too many visits!","result":{},"retExtInfo":{},"time":1688639403423}"#;
+
+        let err = parse_response::<ServerTime>(StatusCode::TOO_MANY_REQUESTS, headers(), body)
+            .unwrap_err();
+
+        assert!(matches!(err, Error::Api { code: 10006, .. }));
+    }
+
+    #[test]
+    fn parse_response_non_json_error_page() {
+        let body = "<html><body>403 Forbidden</body></html>";
+
+        let err = parse_response::<ServerTime>(StatusCode::FORBIDDEN, headers(), body).unwrap_err();
+
+        assert!(matches!(err, Error::Http { status: 403, body: ref b } if b == body));
+    }
+
+    #[test]
+    fn truncate_respects_char_boundaries() {
+        assert_eq!(truncate("abc", 10), "abc");
+        assert_eq!(truncate("ab\u{00e9}c", 3), "ab");
+    }
+
+    #[tokio::test]
+    async fn private_endpoint_without_credentials_returns_error() {
+        let client = Client::new(Config::new("http://127.0.0.1:1")).unwrap();
+
+        let err = client.get_api_key_information().await.unwrap_err();
+
+        assert!(matches!(err, Error::MissingCredentials));
     }
 }

@@ -31,14 +31,7 @@ async fn main() -> anyhow::Result<()> {
         depth,
     };
 
-    let cfg = Config {
-        base_url: BASE_URL_API_MAINNET_1.to_owned(),
-        api_key: None,
-        api_secret: None,
-        recv_window: 5000, // Milliseconds.
-        referer: None,
-        rate_limiter: None,
-    };
+    let cfg = Config::new(BASE_URL_API_MAINNET_1);
     let rest = Client::new(cfg)?;
 
     let url = format!("{}{}", BASE_URL_STREAM_MAINNET_1, Path::PublicLinear);

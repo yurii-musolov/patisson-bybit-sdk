@@ -4,8 +4,17 @@ pub enum Error {
         code: i64,
         msg: String,
     },
+    /// A non-2xx HTTP response whose body is not a Bybit error envelope
+    /// (e.g. an HTML page from a CDN or gateway). `body` may be truncated.
+    Http {
+        status: u16,
+        body: String,
+    },
     InvalidHeaderValue(reqwest::header::InvalidHeaderValue),
     Io(std::io::Error),
+    /// A private endpoint was called on a client created without
+    /// `api_key`/`api_secret`.
+    MissingCredentials,
     Msg(String),
     /// The local rate limiter rejected the request before it was sent.
     /// `retry_after_ms` is the estimated wait until capacity is available.
@@ -22,8 +31,15 @@ impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Error::Api { code, msg } => write!(f, "Bybit API error: code: {code}, message: {msg}"),
+            Error::Http { status, body } => write!(f, "HTTP error: status: {status}, body: {body}"),
             Error::InvalidHeaderValue(error) => write!(f, "invalid header value: {error}"),
             Error::Io(error) => write!(f, "I/O error: {error}"),
+            Error::MissingCredentials => {
+                write!(
+                    f,
+                    "api_key and api_secret are required for private endpoints"
+                )
+            }
             Error::Msg(msg) => write!(f, "{msg}"),
             Error::RateLimited { retry_after_ms } => {
                 write!(f, "rate limited: retry after {retry_after_ms} ms")
