@@ -3,12 +3,12 @@
 //! Every SDK user who trades needs the same bookkeeping: load REST snapshots,
 //! then keep them current with the private `order`, `position` and `wallet`
 //! WebSocket topics, without letting a late or out-of-order message overwrite
-//! newer data. [`UserState`] does exactly that.
+//! newer data. [`AccountState`] does exactly that.
 //!
 //! # Typical flow
 //! 1. Connect the private stream, authenticate and subscribe to `order`,
 //!    `position` and `wallet`. Feed every [`TopicMessage`] into
-//!    [`UserState::apply`] from now on.
+//!    [`AccountState::apply`] from now on.
 //! 2. Load the REST snapshots (`get_open_closed_orders_all`,
 //!    `get_position_info_all`, `get_wallet_balance`) and pass them to the
 //!    `set_*` methods together with the response `time`.
@@ -20,7 +20,7 @@
 //! regardless of arrival order.
 //!
 //! Executions (`execution`, `execution.fast`) are a feed of events, not state,
-//! and are ignored by [`UserState::apply`].
+//! and are ignored by [`AccountState::apply`].
 
 use std::collections::{HashMap, HashSet, VecDeque};
 
@@ -50,7 +50,7 @@ pub struct PositionKey {
     pub position_idx: PositionIdx,
 }
 
-/// What [`UserState::apply`] and friends changed. Updates that were older than
+/// What [`AccountState::apply`] and friends changed. Updates that were older than
 /// the stored data are ignored and not reported.
 #[derive(Debug)]
 pub enum Change {
@@ -71,14 +71,14 @@ pub enum Change {
 ///
 /// Plain data (`Send + Sync`): it can live in any task. It does no I/O.
 #[derive(Debug, Default)]
-pub struct UserState {
+pub struct AccountState {
     wallets: HashMap<AccountType, WalletBalance>,
     orders: HashMap<OrderKey, Order>,
     closed_orders: ClosedOrders,
     positions: HashMap<PositionKey, Position>,
 }
 
-impl UserState {
+impl AccountState {
     pub fn new() -> Self {
         Self::default()
     }
@@ -427,14 +427,14 @@ mod tests {
     }
 
     #[test]
-    fn user_state_is_send_and_sync() {
+    fn account_state_is_send_and_sync() {
         fn assert_send_sync<T: Send + Sync>() {}
-        assert_send_sync::<UserState>();
+        assert_send_sync::<AccountState>();
     }
 
     #[test]
     fn order_lifecycle_open_update_close() {
-        let mut state = UserState::new();
+        let mut state = AccountState::new();
 
         let opened = state.apply_order(order_msg("1", "New", 1));
         let updated = state.apply_order(order_msg("1", "PartiallyFilled", 2));
@@ -451,7 +451,7 @@ mod tests {
 
     #[test]
     fn open_order_is_queryable() {
-        let mut state = UserState::new();
+        let mut state = AccountState::new();
         state.apply_order(order_msg("1", "New", 1));
 
         assert!(state.order(LINEAR, "1").is_some());
@@ -467,7 +467,7 @@ mod tests {
 
     #[test]
     fn stale_order_update_is_ignored() {
-        let mut state = UserState::new();
+        let mut state = AccountState::new();
         state.apply_order(order_msg("1", "PartiallyFilled", 5));
 
         let change = state.apply_order(order_msg("1", "New", 4));
@@ -481,7 +481,7 @@ mod tests {
 
     #[test]
     fn late_update_after_close_does_not_reopen_the_order() {
-        let mut state = UserState::new();
+        let mut state = AccountState::new();
         state.apply_order(order_msg("1", "New", 1));
         state.apply_order(order_msg("1", "Filled", 3));
 
@@ -493,7 +493,7 @@ mod tests {
 
     #[test]
     fn order_closed_before_being_seen_open_is_reported_but_not_stored() {
-        let mut state = UserState::new();
+        let mut state = AccountState::new();
 
         let change = state.apply_order(order_msg("1", "Cancelled", 1));
 
@@ -503,7 +503,7 @@ mod tests {
 
     #[test]
     fn triggered_conditional_order_continues_under_the_same_id() {
-        let mut state = UserState::new();
+        let mut state = AccountState::new();
         state.apply_order(order_msg("1", "Untriggered", 1));
         state.apply_order(order_msg("1", "Triggered", 2));
 
@@ -515,7 +515,7 @@ mod tests {
 
     #[test]
     fn snapshot_does_not_resurrect_an_order_closed_by_the_stream() {
-        let mut state = UserState::new();
+        let mut state = AccountState::new();
         state.apply_order(order_msg("1", "Filled", 5));
 
         // The snapshot was taken before the fill.
@@ -526,7 +526,7 @@ mod tests {
 
     #[test]
     fn snapshot_does_not_overwrite_newer_stream_data() {
-        let mut state = UserState::new();
+        let mut state = AccountState::new();
         state.apply_order(order_msg("1", "PartiallyFilled", 5));
 
         state.set_orders(LINEAR, vec![order("1", "New", 4)], 4);
@@ -539,7 +539,7 @@ mod tests {
 
     #[test]
     fn snapshot_removes_missing_orders_but_keeps_orders_opened_after_it() {
-        let mut state = UserState::new();
+        let mut state = AccountState::new();
         state.apply_order(order_msg("old", "New", 1));
         state.apply_order(order_msg("new", "New", 20));
         state.apply_order(order_msg("spot-is-untouched", "New", 1));
@@ -553,7 +553,7 @@ mod tests {
 
     #[test]
     fn snapshot_skips_closed_orders() {
-        let mut state = UserState::new();
+        let mut state = AccountState::new();
 
         state.set_orders(LINEAR, vec![order("1", "Filled", 5)], 10);
 
@@ -562,7 +562,7 @@ mod tests {
 
     #[test]
     fn hedge_mode_positions_are_separate() {
-        let mut state = UserState::new();
+        let mut state = AccountState::new();
 
         state.apply_position(position_msg(1, "1", 1, 1));
         state.apply_position(position_msg(2, "3", 1, 2));
@@ -581,7 +581,7 @@ mod tests {
 
     #[test]
     fn stale_position_update_is_ignored() {
-        let mut state = UserState::new();
+        let mut state = AccountState::new();
         state.apply_position(position_msg(0, "2", 5, 10));
 
         assert!(state.apply_position(position_msg(0, "1", 4, 11)).is_none());
@@ -597,7 +597,7 @@ mod tests {
 
     #[test]
     fn closed_position_is_kept_but_not_open() {
-        let mut state = UserState::new();
+        let mut state = AccountState::new();
         state.apply_position(position_msg(0, "2", 1, 1));
 
         state.apply_position(position_msg(0, "0", 2, 2));
@@ -608,7 +608,7 @@ mod tests {
 
     #[test]
     fn position_snapshot_merges_by_updated_time() {
-        let mut state = UserState::new();
+        let mut state = AccountState::new();
         state.apply_position(position_msg(1, "5", 20, 1));
         state.apply_position(position_msg(2, "5", 1, 1));
 
@@ -686,7 +686,7 @@ mod tests {
                 }
             ]
         }"#;
-        let mut state = UserState::new();
+        let mut state = AccountState::new();
 
         let changes = state.apply(topic_message(json));
 
@@ -747,7 +747,7 @@ mod tests {
                 }
             ]
         }"#;
-        let mut state = UserState::new();
+        let mut state = AccountState::new();
 
         let changes = state.apply(topic_message(json));
 
