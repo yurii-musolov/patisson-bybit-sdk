@@ -52,62 +52,6 @@ where
     deserializer.deserialize_option(OptVisitor(std::marker::PhantomData))
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::serde::deserialize_json;
-
-    use super::*;
-
-    #[test]
-    fn deserialize_with_empty_string_as_none() {
-        #[derive(PartialEq, Deserialize, Debug)]
-        enum MassageType {
-            Type,
-        }
-        #[derive(PartialEq, Deserialize, Debug)]
-        struct Massage {
-            #[serde(default, deserialize_with = "empty_string_as_none")]
-            pub enum1: Option<MassageType>,
-            #[serde(default, deserialize_with = "empty_string_as_none")]
-            pub enum2: Option<MassageType>,
-            #[serde(default, deserialize_with = "empty_string_as_none")]
-            pub enum3: Option<MassageType>,
-            #[serde(default, deserialize_with = "empty_string_as_none")]
-            pub enum4: Option<MassageType>,
-            #[serde(default, deserialize_with = "empty_string_as_none")]
-            pub str1: Option<String>,
-            #[serde(default, deserialize_with = "empty_string_as_none")]
-            pub str2: Option<String>,
-            #[serde(default, deserialize_with = "empty_string_as_none")]
-            pub str3: Option<String>,
-            #[serde(default, deserialize_with = "empty_string_as_none")]
-            pub str4: Option<String>,
-        }
-        let json = r#"{
-            "enum2": null,
-            "enum3": "",
-            "enum4": "Type",
-            "str2": null,
-            "str3": "",
-            "str4": "string"
-        }"#;
-        let expected = Massage {
-            enum1: None,                        // missing field
-            enum2: None,                        // null value
-            enum3: None,                        // empty string
-            enum4: Some(MassageType::Type),     // correct enum
-            str1: None,                         // missing field
-            str2: None,                         // null value
-            str3: None,                         // empty string
-            str4: Some(String::from("string")), // correct string
-        };
-
-        let message = deserialize_json(json).unwrap();
-
-        assert_eq!(expected, message);
-    }
-}
-
 pub fn int_to_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>
 where
     D: Deserializer<'de>,
@@ -197,4 +141,60 @@ where
         map.insert(item.unique_key(), item);
     }
     Ok(map)
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::serde::deserialize_json;
+
+    use super::*;
+
+    #[test]
+    fn deserialize_with_empty_string_as_none() {
+        #[derive(PartialEq, Deserialize, Debug)]
+        enum MassageType {
+            Type,
+        }
+        #[derive(PartialEq, Deserialize, Debug)]
+        struct Massage {
+            #[serde(default, deserialize_with = "empty_string_as_none")]
+            pub enum1: Option<MassageType>,
+            #[serde(default, deserialize_with = "empty_string_as_none")]
+            pub enum2: Option<MassageType>,
+            #[serde(default, deserialize_with = "empty_string_as_none")]
+            pub enum3: Option<MassageType>,
+            #[serde(default, deserialize_with = "empty_string_as_none")]
+            pub enum4: Option<MassageType>,
+            #[serde(default, deserialize_with = "empty_string_as_none")]
+            pub str1: Option<String>,
+            #[serde(default, deserialize_with = "empty_string_as_none")]
+            pub str2: Option<String>,
+            #[serde(default, deserialize_with = "empty_string_as_none")]
+            pub str3: Option<String>,
+            #[serde(default, deserialize_with = "empty_string_as_none")]
+            pub str4: Option<String>,
+        }
+        let json = r#"{
+            "enum2": null,
+            "enum3": "",
+            "enum4": "Type",
+            "str2": null,
+            "str3": "",
+            "str4": "string"
+        }"#;
+        let expected = Massage {
+            enum1: None,                        // missing field
+            enum2: None,                        // null value
+            enum3: None,                        // empty string
+            enum4: Some(MassageType::Type),     // correct enum
+            str1: None,                         // missing field
+            str2: None,                         // null value
+            str3: None,                         // empty string
+            str4: Some(String::from("string")), // correct string
+        };
+
+        let message = deserialize_json(json).unwrap();
+
+        assert_eq!(expected, message);
+    }
 }

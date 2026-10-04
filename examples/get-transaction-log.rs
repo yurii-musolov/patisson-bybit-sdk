@@ -5,7 +5,6 @@
 //! ```
 
 use rust_decimal::Decimal;
-use tokio;
 use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
