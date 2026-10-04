@@ -22,14 +22,7 @@ async fn main() -> anyhow::Result<()> {
 
     let base_url = BASE_URL_API_MAINNET_1;
 
-    let cfg = Config {
-        base_url: base_url.to_owned(),
-        api_key: None,
-        api_secret: None,
-        recv_window: 5000, // Milliseconds.
-        referer: None,
-        rate_limiter: None,
-    };
+    let cfg = Config::new(base_url);
     let client = Client::new(cfg)?;
     let params = GetTickersParams {
         category: Category::Linear,

@@ -20,23 +20,13 @@ async fn main() -> anyhow::Result<()> {
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
-    let api_key = std::env::var("API_KEY")
-        .expect("environment variable API_KEY is required")
-        .into();
-    let api_secret = std::env::var("API_SECRET")
-        .expect("environment variable API_SECRET is required")
-        .into();
+    let api_key = std::env::var("API_KEY").expect("environment variable API_KEY is required");
+    let api_secret =
+        std::env::var("API_SECRET").expect("environment variable API_SECRET is required");
 
     let base_url = BASE_URL_API_DEMO;
 
-    let cfg = Config {
-        base_url: base_url.to_owned(),
-        api_key: Some(api_key),
-        api_secret: Some(api_secret),
-        recv_window: 5000, // Milliseconds.
-        referer: None,
-        rate_limiter: None,
-    };
+    let cfg = Config::new(base_url).credentials(api_key, api_secret);
     let client = Client::new(cfg)?;
 
     let params = GetWalletBalanceParams {
