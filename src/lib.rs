@@ -15,6 +15,13 @@
 //!
 //! Everything is async and runs on Tokio.
 //!
+//! # TLS
+//!
+//! REST and WebSocket use the same TLS backend, chosen with a Cargo feature
+//! (enable exactly one): `rustls` (default; aws-lc-rs and the operating
+//! system's root certificates, no OpenSSL) or `native-tls` (OpenSSL,
+//! Schannel or Security.framework).
+//!
 //! # REST
 //!
 //! ```no_run
@@ -103,6 +110,9 @@
 //!
 //! There are no stability guarantees yet: treat every version change as
 //! breaking and pin an exact version (`patisson-bybit-sdk = "=x.y.z"`).
+
+#[cfg(not(any(feature = "rustls", feature = "native-tls")))]
+compile_error!("enable a TLS backend: the `rustls` (default) or the `native-tls` feature");
 
 mod account_state;
 mod common;
