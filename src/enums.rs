@@ -335,7 +335,7 @@ pub enum IntervalTime {
     Day1,
 }
 
-#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
+#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Eq, Hash, Clone, Copy)]
 #[repr(u8)]
 pub enum PositionIdx {
     /// 0:one-way mode position
@@ -467,7 +467,7 @@ pub enum RejectReason {
     EcReachMarketPriceLimit,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum AccountType {
     /// Inverse Derivatives Account | Derivatives Account
     CONTRACT,
