@@ -47,7 +47,10 @@ use reqwest::{
     header::{CONTENT_TYPE, HeaderMap, HeaderValue},
 };
 use std::{
-    sync::atomic::{AtomicI64, Ordering},
+    sync::{
+        Arc,
+        atomic::{AtomicI64, Ordering},
+    },
     time::Duration,
 };
 
@@ -136,16 +139,21 @@ impl Config {
     }
 }
 
+/// Bybit V5 REST client.
+///
+/// Cloning is cheap, and clones share the connection pool, the rate limiter
+/// state and the clock offset measured by [`Client::sync_time`]: clone the
+/// client into tasks instead of wrapping it in `Arc`.
 // TODO: use proxy
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Client {
     base_url: String,
     headers: HeaderMap,
     client: reqwest::Client,
-    signer: Option<Signer>,
-    rate_limiter: Option<RateLimiter>,
+    signer: Option<Arc<Signer>>,
+    rate_limiter: Option<Arc<RateLimiter>>,
     /// Server clock minus local clock, milliseconds (see [`Client::sync_time`]).
-    time_offset_ms: AtomicI64,
+    time_offset_ms: Arc<AtomicI64>,
 }
 
 impl Client {
@@ -167,15 +175,22 @@ impl Client {
 
         let signer = cfg
             .api_secret
-            .map(|api_secret| -> Result<Signer, Error> {
+            .map(|api_secret| -> Result<Arc<Signer>, Error> {
                 let api_key = cfg
                     .api_key
                     .ok_or_else(|| Error::from("api_key is required when api_secret is set"))?;
-                Ok(Signer::new(api_key, api_secret, cfg.recv_window, None))
+                Ok(Arc::new(Signer::new(
+                    api_key,
+                    api_secret,
+                    cfg.recv_window,
+                    None,
+                )))
             })
             .transpose()?;
 
-        let rate_limiter = cfg.rate_limiter.map(RateLimiter::new);
+        let rate_limiter = cfg
+            .rate_limiter
+            .map(|config| Arc::new(RateLimiter::new(config)));
 
         // Bybit requires `Content-Type: application/json` for POST bodies;
         // it is harmless on GET requests.
@@ -195,7 +210,7 @@ impl Client {
             client: builder.build()?,
             signer,
             rate_limiter,
-            time_offset_ms: AtomicI64::new(0),
+            time_offset_ms: Arc::new(AtomicI64::new(0)),
         })
     }
 
@@ -2336,6 +2351,25 @@ mod tests {
             skew.abs() < 1000,
             "signed timestamp is {skew} ms off the server clock"
         );
+    }
+
+    #[tokio::test]
+    async fn clones_share_the_clock_offset_and_the_rate_limiter() {
+        let (url, _) = spawn_http_server(fake_bybit).await;
+        let config = Config::new(url).rate_limiter(RateLimiterConfig::uniform(0.0, 2));
+        let client = Client::new(config).unwrap();
+        let clone = client.clone();
+
+        clone.sync_time().await.unwrap();
+        assert_ne!(client.time_offset(), 0);
+        assert_eq!(client.time_offset(), clone.time_offset());
+
+        // The clone used one of the two tokens; the original gets the last one.
+        client.get_server_time().await.unwrap();
+        assert!(matches!(
+            clone.get_server_time().await,
+            Err(Error::RateLimitUnsatisfiable { .. })
+        ));
     }
 
     #[tokio::test]
