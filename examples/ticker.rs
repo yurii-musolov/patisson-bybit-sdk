@@ -23,12 +23,7 @@ async fn main() -> anyhow::Result<()> {
 
     let cfg = Config::new(base_url);
     let client = Client::new(cfg)?;
-    let params = GetTickersParams {
-        category: Category::Linear,
-        symbol: Some(String::from("BTCUSDT")),
-        base_coin: None, // If category=option, symbol or baseCoin must be passed.
-        exp_date: None,
-    };
+    let params = GetTickersParams::new(Category::Linear).with_symbol("BTCUSDT");
     let response = client.get_tickers(&params).await?;
     info!(?response);
 

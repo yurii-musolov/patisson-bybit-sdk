@@ -23,14 +23,7 @@ async fn main() -> anyhow::Result<()> {
 
     let cfg = Config::new(base_url);
     let client = Client::new(cfg)?;
-    let params = GetInstrumentsInfoParams {
-        category: Category::Linear,
-        symbol: Some(String::from("BTCUSDT")),
-        status: None,
-        base_coin: None,
-        limit: None,
-        cursor: None,
-    };
+    let params = GetInstrumentsInfoParams::new(Category::Linear).with_symbol("BTCUSDT");
     let response = client.get_instruments_info(&params).await?;
     info!(?response);
 

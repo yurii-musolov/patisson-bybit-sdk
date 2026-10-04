@@ -65,12 +65,7 @@ async fn main() -> anyhow::Result<()> {
 
     // -------------------------------------------------------------------------
 
-    let params = GetTickersParams {
-        category,
-        symbol: Some(symbol.clone()),
-        base_coin: None,
-        exp_date: None,
-    };
+    let params = GetTickersParams::new(category).with_symbol(symbol.clone());
     let price = match client.get_tickers(&params).await?.result {
         Ticker::Linear { list } => list[0].last_price - dec!(5),
         _ => panic!(),

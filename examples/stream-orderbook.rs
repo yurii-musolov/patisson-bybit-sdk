@@ -46,11 +46,7 @@ async fn main() -> anyhow::Result<()> {
 
     let mut book = OrderBookState::new();
 
-    let params = GetOrderbookParams {
-        category,
-        symbol: symbol.clone(),
-        limit: Some(limit),
-    };
+    let params = GetOrderbookParams::new(category, symbol.clone()).with_limit(limit);
     let snapshot = rest.get_orderbook(&params).await?.result;
     info!(outcome = ?book.apply_snapshot(snapshot), "applied initial snapshot");
 
