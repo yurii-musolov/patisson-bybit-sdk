@@ -1,6 +1,6 @@
 use crate::{
     Error, Timestamp,
-    crypto::{SensitiveString, Signer},
+    crypto::{SensitiveString, Signer, timestamp},
     enums::Category,
     http::{
         APIErrorResponse, APIKeyInformation, AccountCoinBalance, AccountInfo,
@@ -46,7 +46,10 @@ use reqwest::{
     self, Method, RequestBuilder, StatusCode,
     header::{CONTENT_TYPE, HeaderMap, HeaderValue},
 };
-use std::time::Duration;
+use std::{
+    sync::atomic::{AtomicI64, Ordering},
+    time::Duration,
+};
 
 use super::rate_limiter::{RateLimitKey, RateLimiter, RateLimiterConfig, Rejection};
 
@@ -141,6 +144,8 @@ pub struct Client {
     client: reqwest::Client,
     signer: Option<Signer>,
     rate_limiter: Option<RateLimiter>,
+    /// Server clock minus local clock, milliseconds (see [`Client::sync_time`]).
+    time_offset_ms: AtomicI64,
 }
 
 impl Client {
@@ -190,19 +195,64 @@ impl Client {
             client: builder.build()?,
             signer,
             rate_limiter,
+            time_offset_ms: AtomicI64::new(0),
         })
+    }
+
+    /// Measure the offset between the Bybit server clock and the local clock
+    /// and use it for all signed requests from now on. Returns the offset in
+    /// milliseconds (positive: the local clock is behind).
+    ///
+    /// Bybit rejects signed requests whose timestamp is not within
+    /// `[server_time - recv_window, server_time + 1000)` (`retCode` 10002).
+    /// Call this after creating the client, periodically in long-running
+    /// programs (clocks drift) and after a 10002 error. The offset is
+    /// estimated as `server_time - (sent_at + received_at) / 2`, so its error
+    /// is at most half the round trip.
+    #[tracing::instrument(skip(self), err)]
+    pub async fn sync_time(&self) -> Result<i64, Error> {
+        let sent_at = timestamp();
+        let response = self.get_server_time().await?;
+        let received_at = timestamp();
+
+        let server_ms = response.result.time_nano / 1_000_000;
+        let offset = estimate_time_offset(sent_at, received_at, server_ms);
+        self.time_offset_ms.store(offset, Ordering::Relaxed);
+        tracing::debug!(offset_ms = offset, "server time synchronized");
+        Ok(offset)
+    }
+
+    /// Offset applied to signed requests: server clock minus local clock,
+    /// milliseconds. `0` until [`Client::sync_time`] is called.
+    pub fn time_offset(&self) -> i64 {
+        self.time_offset_ms.load(Ordering::Relaxed)
+    }
+
+    /// Current server time estimated from the local clock and
+    /// [`Client::time_offset`], milliseconds. Use it for the WebSocket
+    /// `auth` message ([`create_outgoing_message_auth_at`](crate::ws::create_outgoing_message_auth_at)).
+    pub fn server_timestamp(&self) -> Timestamp {
+        timestamp().saturating_add_signed(self.time_offset())
     }
 
     fn get_signed_headers(&self, s: &str) -> Result<HeaderMap, Error> {
         let signer = self.signer.as_ref().ok_or(Error::MissingCredentials)?;
         let mut headers = self.headers.clone();
 
-        let (signature, timestamp) = signer.sign(s);
+        let timestamp = self.server_timestamp();
+        let signature = signer.sign_at(s, timestamp);
         headers.append(HEADER_X_BAPI_SIGN, signature.parse()?);
-        headers.append(HEADER_X_BAPI_TIMESTAMP, timestamp.parse()?);
+        headers.append(HEADER_X_BAPI_TIMESTAMP, timestamp.to_string().parse()?);
 
         Ok(headers)
     }
+}
+
+/// Server clock minus local clock, assuming the server read its clock halfway
+/// between `sent_at` and `received_at` (local milliseconds).
+fn estimate_time_offset(sent_at: Timestamp, received_at: Timestamp, server_ms: Timestamp) -> i64 {
+    let midpoint = sent_at + received_at.saturating_sub(sent_at) / 2;
+    server_ms as i64 - midpoint as i64
 }
 
 // Market.
@@ -2199,6 +2249,93 @@ mod tests {
             Err(Error::TooManyPages { max: MAX_PAGES })
         ));
         assert_eq!(n, MAX_PAGES);
+    }
+
+    #[test]
+    fn time_offset_is_measured_from_the_middle_of_the_round_trip() {
+        // Request sent at 1000, answer received at 1100, server said 61050.
+        assert_eq!(estimate_time_offset(1000, 1100, 61_050), 60_000);
+        // Local clock ahead of the server.
+        assert_eq!(estimate_time_offset(1000, 1000, 400), -600);
+    }
+
+    /// Minimal HTTP server: answers every request with `body_for(path)` and
+    /// records the request heads it received.
+    async fn spawn_http_server(
+        body_for: fn(&str) -> String,
+    ) -> (String, std::sync::Arc<std::sync::Mutex<Vec<String>>>) {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let requests = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let recorded = requests.clone();
+        tokio::spawn(async move {
+            while let Ok((mut tcp, _)) = listener.accept().await {
+                let mut head = Vec::new();
+                let mut buf = [0u8; 1024];
+                while !head.windows(4).any(|w| w == b"\r\n\r\n") {
+                    match tcp.read(&mut buf).await {
+                        Ok(0) | Err(_) => break,
+                        Ok(n) => head.extend_from_slice(&buf[..n]),
+                    }
+                }
+                let head = String::from_utf8_lossy(&head).into_owned();
+                let path = head.split_whitespace().nth(1).unwrap_or("").to_owned();
+                recorded.lock().unwrap().push(head);
+                let body = body_for(&path);
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                let _ = tcp.write_all(response.as_bytes()).await;
+            }
+        });
+        (format!("http://{addr}"), requests)
+    }
+
+    /// The fake server's clock runs this far ahead of the local one.
+    const SERVER_AHEAD_MS: u64 = 60_000;
+
+    fn fake_bybit(path: &str) -> String {
+        if path.starts_with("/v5/market/time") {
+            let server_ms = timestamp() + SERVER_AHEAD_MS;
+            format!(
+                r#"{{"retCode":0,"retMsg":"OK","result":{{"timeSecond":"{}","timeNano":"{}"}},"retExtInfo":{{}},"time":{server_ms}}}"#,
+                server_ms / 1000,
+                server_ms * 1_000_000
+            )
+        } else {
+            r#"{"retCode":10001,"retMsg":"test","result":{},"retExtInfo":{},"time":1}"#.to_owned()
+        }
+    }
+
+    #[tokio::test]
+    async fn signed_requests_use_the_synchronized_server_time() {
+        let (url, requests) = spawn_http_server(fake_bybit).await;
+        let client = Client::new(Config::new(url).credentials("key", "secret")).unwrap();
+
+        let offset = client.sync_time().await.unwrap();
+        let _ = client.get_api_key_information().await;
+
+        let expected = SERVER_AHEAD_MS as i64;
+        assert!((offset - expected).abs() < 1000, "offset {offset}");
+        assert_eq!(client.time_offset(), offset);
+
+        let head = requests.lock().unwrap().last().cloned().unwrap();
+        let sent: i64 = head
+            .lines()
+            .find_map(|line| {
+                let (name, value) = line.split_once(':')?;
+                name.eq_ignore_ascii_case(HEADER_X_BAPI_TIMESTAMP)
+                    .then(|| value.trim().parse().unwrap())
+            })
+            .expect("no X-BAPI-TIMESTAMP header");
+        let skew = sent - (timestamp() as i64 + expected);
+        assert!(
+            skew.abs() < 1000,
+            "signed timestamp is {skew} ms off the server clock"
+        );
     }
 
     #[tokio::test]

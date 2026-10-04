@@ -99,16 +99,22 @@ impl Signer {
         }
     }
 
+    /// Sign `s` with the current time of this signer's timer.
+    ///
     /// return: (signature, timestamp)
     pub fn sign(&self, s: &str) -> (String, String) {
-        let timestamp = (self.timer)().to_string();
+        let timestamp = (self.timer)();
+        (self.sign_at(s, timestamp), timestamp.to_string())
+    }
+
+    /// Sign `s` as if sent at `timestamp` (milliseconds), e.g. the local time
+    /// corrected by the offset to the server clock.
+    pub fn sign_at(&self, s: &str, timestamp: Timestamp) -> String {
         let api_key = self.api_key.expose();
         let api_secret = self.api_secret.expose();
         let message = format!("{timestamp}{}{}{s}", api_key, self.recv_window);
 
-        let signature = hmac_sha256(api_secret, message);
-
-        (signature, timestamp)
+        hmac_sha256(api_secret, message)
     }
 }
 
@@ -155,5 +161,20 @@ mod tests {
 
         assert_eq!(signature, expected);
         assert_eq!(timestamp.len(), 13);
+    }
+
+    #[test]
+    fn sign_at_matches_sign_with_the_same_time() {
+        let signer = Signer::new(
+            "API_KEY".into(),
+            "API_SECRET".into(),
+            5000,
+            Some(|| 1658384314791),
+        );
+        let query = "category=option&symbol=BTC-29JUL22-25000-C";
+
+        let (signature, _) = signer.sign(query);
+
+        assert_eq!(signer.sign_at(query, 1658384314791), signature);
     }
 }

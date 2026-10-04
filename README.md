@@ -80,6 +80,27 @@ let client = Client::new(cfg)?;
 Calling a private endpoint on a client without credentials returns
 `Error::MissingCredentials`.
 
+### Clock synchronization
+
+Bybit rejects signed requests whose timestamp is more than `recv_window` behind
+(or 1 s ahead of) its own clock (`retCode` 10002). `Client::sync_time` measures
+the offset to the server clock and applies it to every signed request; call it
+after creating the client, periodically in long-running programs and after a
+10002 error. Use `Client::server_timestamp` for the WebSocket `auth` message:
+
+```rust
+use bybit::ws::create_outgoing_message_auth_at;
+
+let offset_ms = client.sync_time().await?;
+let auth = create_outgoing_message_auth_at(
+    api_key.into(),
+    api_secret.into(),
+    None,
+    5_000, // recv_window, milliseconds.
+    client.server_timestamp(),
+);
+```
+
 ### Subscribe to public channel 'ticker'
 
 ```rust
