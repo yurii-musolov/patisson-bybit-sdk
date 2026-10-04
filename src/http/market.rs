@@ -295,8 +295,8 @@ pub struct GetTradesParams {
     pub base_coin: Option<String>,
     /// optionType false string Option type. Call or Put. Apply to option only
     pub option_type: Option<u64>,
-    /// spot: [1,60], default: 60
-    /// others: [1,1000], default: 500
+    /// spot: `[1, 60]`, default: 60
+    /// others: `[1, 1000]`, default: 500
     pub limit: Option<u64>,
 }
 

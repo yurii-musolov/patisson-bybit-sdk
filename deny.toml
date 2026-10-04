@@ -1,0 +1,37 @@
+# cargo-deny configuration, checked in CI (`cargo deny check`).
+# https://embarkstudios.github.io/cargo-deny/
+
+[graph]
+all-features = true
+
+[advisories]
+# Security advisories from the RustSec database are errors; unmaintained
+# crates are reported only for direct dependencies.
+unmaintained = "workspace"
+yanked = "deny"
+ignore = []
+
+[licenses]
+# Licenses compatible with distributing this MIT-licensed crate.
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "CDLA-Permissive-2.0",
+    "ISC",
+    "MIT",
+    "Unicode-3.0",
+]
+confidence-threshold = 0.9
+
+[bans]
+# Duplicate versions come from the ecosystem (e.g. two TLS stacks); report
+# them without failing the build.
+multiple-versions = "warn"
+wildcards = "deny"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
