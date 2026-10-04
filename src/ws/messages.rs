@@ -14,6 +14,12 @@ pub enum Event {
     /// A WebSocket text frame arrived but could not be deserialized.
     /// The connection stays open — the raw error description is included.
     ParseError(String),
+    /// `dropped` data events (`Message`/`ParseError`) were discarded because
+    /// the event queue was full. Local state built from the stream (e.g. an
+    /// order book) may be stale and should be resynchronized.
+    Lagged {
+        dropped: u64,
+    },
     Reconnecting {
         attempt: u32,
         delay_ms: u64,
