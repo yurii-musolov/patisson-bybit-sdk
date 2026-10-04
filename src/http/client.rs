@@ -1,5 +1,5 @@
 use crate::{
-    Environment, Error, Timestamp,
+    Environment, Error, ServerClock, Timestamp,
     crypto::{SensitiveString, Signer, timestamp},
     enums::Category,
     http::{
@@ -46,13 +46,7 @@ use reqwest::{
     self, Method, RequestBuilder, StatusCode,
     header::{CONTENT_TYPE, HeaderMap, HeaderValue},
 };
-use std::{
-    sync::{
-        Arc,
-        atomic::{AtomicI64, Ordering},
-    },
-    time::Duration,
-};
+use std::{sync::Arc, time::Duration};
 
 use super::rate_limiter::{RateLimitKey, RateLimiter, RateLimiterConfig, Rejection};
 
@@ -157,8 +151,8 @@ pub struct Client {
     client: reqwest::Client,
     signer: Option<Arc<Signer>>,
     rate_limiter: Option<Arc<RateLimiter>>,
-    /// Server clock minus local clock, milliseconds (see [`Client::sync_time`]).
-    time_offset_ms: Arc<AtomicI64>,
+    /// Offset to the server clock (see [`Client::sync_time`]).
+    clock: ServerClock,
 }
 
 impl Client {
@@ -215,7 +209,7 @@ impl Client {
             client: builder.build()?,
             signer,
             rate_limiter,
-            time_offset_ms: Arc::new(AtomicI64::new(0)),
+            clock: ServerClock::new(),
         })
     }
 
@@ -237,7 +231,7 @@ impl Client {
 
         let server_ms = response.result.time_nano / 1_000_000;
         let offset = estimate_time_offset(sent_at, received_at, server_ms);
-        self.time_offset_ms.store(offset, Ordering::Relaxed);
+        self.clock.set_offset(offset);
         tracing::debug!(offset_ms = offset, "server time synchronized");
         Ok(offset)
     }
@@ -245,14 +239,21 @@ impl Client {
     /// Offset applied to signed requests: server clock minus local clock,
     /// milliseconds. `0` until [`Client::sync_time`] is called.
     pub fn time_offset(&self) -> i64 {
-        self.time_offset_ms.load(Ordering::Relaxed)
+        self.clock.offset()
+    }
+
+    /// The server clock estimate used for signing. Clones share the offset;
+    /// pass it to [`ws::Config::server_clock`](crate::ws::Config::server_clock)
+    /// so that stream authentication uses the same offset.
+    pub fn clock(&self) -> ServerClock {
+        self.clock.clone()
     }
 
     /// Current server time estimated from the local clock and
     /// [`Client::time_offset`], milliseconds. Use it for the WebSocket
     /// `auth` message ([`create_outgoing_message_auth_at`](crate::ws::create_outgoing_message_auth_at)).
     pub fn server_timestamp(&self) -> Timestamp {
-        timestamp().saturating_add_signed(self.time_offset())
+        self.clock.now()
     }
 
     fn get_signed_headers(&self, s: &str) -> Result<HeaderMap, Error> {

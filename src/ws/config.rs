@@ -1,10 +1,12 @@
 use std::time::Duration;
 
-use crate::{Category, Environment};
+use crate::{Category, Environment, SensitiveString, ServerClock, Timestamp};
 
 pub const DEFAULT_PING_INTERVAL: Duration = Duration::from_secs(20);
 pub const DEFAULT_PONG_TIMEOUT: Duration = Duration::from_secs(10);
 pub const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+/// Default validity of the stream `auth` message, milliseconds.
+pub const DEFAULT_AUTH_RECV_WINDOW: Timestamp = 5_000;
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -42,6 +44,21 @@ pub struct Config {
     /// connection as dead and triggering a reconnect.
     /// Ignored when `ping_interval` is `None`.
     pub pong_timeout: Duration,
+
+    /// API key for private streams. With [`Config::api_secret`] set, the
+    /// driver authenticates on every (re)connect before subscribing.
+    pub api_key: Option<SensitiveString>,
+
+    /// API secret for private streams (see [`Config::api_key`]).
+    pub api_secret: Option<SensitiveString>,
+
+    /// How long the `auth` message stays valid, milliseconds.
+    pub auth_recv_window: Timestamp,
+
+    /// Clock used for the `auth` expiry; share
+    /// [`http::Client::clock`](crate::http::Client::clock) to use the offset
+    /// measured by `sync_time`.
+    pub server_clock: ServerClock,
 }
 
 impl Default for Config {
@@ -57,6 +74,10 @@ impl Default for Config {
             connect_timeout: DEFAULT_CONNECT_TIMEOUT,
             ping_interval: Some(DEFAULT_PING_INTERVAL),
             pong_timeout: DEFAULT_PONG_TIMEOUT,
+            api_key: None,
+            api_secret: None,
+            auth_recv_window: DEFAULT_AUTH_RECV_WINDOW,
+            server_clock: ServerClock::new(),
         }
     }
 }
@@ -122,6 +143,30 @@ impl Config {
 
     pub fn pong_timeout(mut self, d: Duration) -> Self {
         self.pong_timeout = d;
+        self
+    }
+
+    /// Credentials for a private stream: the driver sends `auth` on every
+    /// (re)connect and subscribes only after it succeeded.
+    pub fn credentials(
+        mut self,
+        api_key: impl Into<SensitiveString>,
+        api_secret: impl Into<SensitiveString>,
+    ) -> Self {
+        self.api_key = Some(api_key.into());
+        self.api_secret = Some(api_secret.into());
+        self
+    }
+
+    /// Validity of the `auth` message, milliseconds.
+    pub fn auth_recv_window(mut self, recv_window: Timestamp) -> Self {
+        self.auth_recv_window = recv_window;
+        self
+    }
+
+    /// Clock for the `auth` expiry, e.g. `client.clock()`.
+    pub fn server_clock(mut self, clock: ServerClock) -> Self {
+        self.server_clock = clock;
         self
     }
 }

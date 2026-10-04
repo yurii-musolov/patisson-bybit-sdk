@@ -7,7 +7,13 @@ use tokio::{
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use tracing::{debug, error, info, warn};
 
-use crate::{serde::serialize_json, ws::IncomingMessage};
+use std::collections::HashMap;
+
+use crate::{
+    Topic,
+    serde::serialize_json,
+    ws::{CommandMsg, IncomingMessage, OutgoingMessage, create_outgoing_message_auth_at},
+};
 
 use super::{
     Command, Config, DisconnectReason, Event, Handle,
@@ -22,9 +28,13 @@ use super::{
 /// # Reconnects
 /// After an unexpected disconnect the driver reconnects automatically (see
 /// [`Config::max_reconnect_attempts`]) and emits [`Event::Connected`] again.
-/// Subscriptions and authentication are *not* restored: after every
-/// `Event::Connected` the user must send `auth` (private streams) and
-/// `subscribe` again.
+///
+/// Topics subscribed with [`Handle::subscribe`] are restored on every
+/// connection. With [`Config::credentials`] the driver first sends `auth`
+/// (expiry from [`Config::server_clock`]) and subscribes only after
+/// [`Event::Authenticated`]; a rejected `auth` is reported as
+/// [`Event::AuthFailed`]. Messages sent with [`Handle::send_command`] are not
+/// restored.
 ///
 /// # Event delivery
 /// Lifecycle events (`Connected`, `Reconnecting`, `Disconnected`) are always
@@ -38,6 +48,25 @@ pub struct Stream {
     evt_tx: mpsc::Sender<Event>,
     /// Data events dropped since the last [`Event::Lagged`].
     dropped: u64,
+    /// Topics to (re)subscribe on every connection, in subscription order.
+    topics: Vec<Topic>,
+    /// Counter for the `req_id` of driver-sent `subscribe` messages.
+    next_req_id: u64,
+}
+
+/// Bybit accepts at most 10 topics in one `subscribe` for some streams
+/// (e.g. spot); use that limit everywhere.
+const MAX_TOPICS_PER_REQUEST: usize = 10;
+
+/// Per-connection authentication and subscription progress.
+#[derive(Default)]
+struct Session {
+    /// `auth` was sent and its reply has not arrived yet.
+    awaiting_auth: bool,
+    /// Topics may be subscribed (no credentials, or `auth` succeeded).
+    ready: bool,
+    /// Topics of driver-sent `subscribe` messages, by `req_id`.
+    pending: HashMap<String, Vec<Topic>>,
 }
 
 impl Stream {
@@ -51,6 +80,8 @@ impl Stream {
             cmd_rx,
             evt_tx,
             dropped: 0,
+            topics: Vec::new(),
+            next_req_id: 0,
         };
 
         tokio::spawn(stream.run());
@@ -146,6 +177,12 @@ impl Stream {
                 Some(Command::Send(_)) => {
                     warn!("Send ignored - not connected");
                 }
+                Some(Command::Subscribe(topics)) => {
+                    self.add_topics(topics);
+                }
+                Some(Command::Unsubscribe(topics)) => {
+                    self.remove_topics(topics);
+                }
             }
         }
     }
@@ -173,6 +210,12 @@ impl Stream {
                     }
                     Some(Command::Connect) => debug!("Connect ignored - already connecting"),
                     Some(Command::Send(_)) => warn!("Send ignored - not connected yet"),
+                    Some(Command::Subscribe(topics)) => {
+                        self.add_topics(topics);
+                    }
+                    Some(Command::Unsubscribe(topics)) => {
+                        self.remove_topics(topics);
+                    }
                 },
             }
         };
@@ -232,6 +275,27 @@ impl Stream {
         let mut pong_timer = Box::pin(sleep(FAR_FUTURE));
         let mut hb = HeartbeatState::Idle;
 
+        let mut session = Session::default();
+        let opened = match self.auth_message() {
+            Some(auth) => {
+                session.awaiting_auth = true;
+                send_message(&mut sink, &auth).await
+            }
+            None => {
+                session.ready = true;
+                let topics = self.topics.clone();
+                self.send_topics(&mut sink, &mut session, true, &topics)
+                    .await
+            }
+        };
+        if let Err(e) = opened {
+            error!(error = %e, "send error");
+            read_task.abort();
+            return self
+                .next_reconnect_state(1, DisconnectReason::Error(e.to_string()))
+                .await;
+        }
+
         loop {
             tokio::select! {
                 biased;
@@ -260,6 +324,11 @@ impl Stream {
                                             }
                                         }
 
+                                        if let Err(e) = self.on_command_reply(&msg, &mut session, &mut sink).await {
+                                            error!(error = %e, "send error");
+                                            read_task.abort();
+                                            return self.next_reconnect_state(1, DisconnectReason::Error(e.to_string())).await;
+                                        }
                                         self.emit(Event::Message(msg));
                                     }
                                     Err(e) => {
@@ -287,15 +356,28 @@ impl Stream {
                         info!("disconnect requested");
                         return State::Closing { frame_rx, read_task, sink };
                     }
-                    Some(Command::Send(msg)) => {
-                        let json = match serialize_json(&msg) {
-                            Ok(json) => json,
-                            Err(e) => {
-                                warn!(error = %e, "serializing outgoing message failed, message dropped");
-                                continue;
+                    Some(cmd @ (Command::Send(_) | Command::Subscribe(_) | Command::Unsubscribe(_))) => {
+                        let sent = match cmd {
+                            Command::Send(msg) => send_message(&mut sink, &msg).await,
+                            Command::Subscribe(topics) => {
+                                let added = self.add_topics(topics);
+                                if session.ready {
+                                    self.send_topics(&mut sink, &mut session, true, &added).await
+                                } else {
+                                    Ok(())
+                                }
                             }
+                            Command::Unsubscribe(topics) => {
+                                let removed = self.remove_topics(topics);
+                                if session.ready {
+                                    self.send_topics(&mut sink, &mut session, false, &removed).await
+                                } else {
+                                    Ok(())
+                                }
+                            }
+                            Command::Connect | Command::Disconnect => unreachable!(),
                         };
-                        if let Err(e) = sink.send(Message::Text(json.into())).await {
+                        if let Err(e) = sent {
                             error!(error = %e, "send error");
                             read_task.abort();
                             return self.next_reconnect_state(1, DisconnectReason::Error(e.to_string())).await;
@@ -347,6 +429,12 @@ impl Stream {
                     }
                     Some(Command::Connect) => debug!("Connect ignored - already reconnecting"),
                     Some(Command::Send(_)) => warn!("Send ignored - not connected"),
+                    Some(Command::Subscribe(topics)) => {
+                        self.add_topics(topics);
+                    }
+                    Some(Command::Unsubscribe(topics)) => {
+                        self.remove_topics(topics);
+                    }
                 },
             }
         }
@@ -383,6 +471,117 @@ impl Stream {
         })
         .await;
         State::Idle
+    }
+
+    /// Remember `topics`; returns those that were not subscribed yet.
+    fn add_topics(&mut self, topics: Vec<Topic>) -> Vec<Topic> {
+        let mut added = Vec::new();
+        for topic in topics {
+            if !self.topics.contains(&topic) && !added.contains(&topic) {
+                added.push(topic);
+            }
+        }
+        self.topics.extend(added.iter().cloned());
+        added
+    }
+
+    /// Forget `topics`; returns those that were subscribed.
+    fn remove_topics(&mut self, topics: Vec<Topic>) -> Vec<Topic> {
+        let removed: Vec<Topic> = topics
+            .into_iter()
+            .filter(|topic| self.topics.contains(topic))
+            .collect();
+        self.topics.retain(|topic| !removed.contains(topic));
+        removed
+    }
+
+    /// The `auth` message, if credentials are configured.
+    fn auth_message(&self) -> Option<OutgoingMessage> {
+        let api_key = self.config.api_key.clone()?;
+        let api_secret = self.config.api_secret.clone()?;
+        Some(create_outgoing_message_auth_at(
+            api_key,
+            api_secret,
+            None,
+            self.config.auth_recv_window,
+            self.config.server_clock.now(),
+        ))
+    }
+
+    /// Send `subscribe` (or `unsubscribe`) for `topics` in batches of
+    /// [`MAX_TOPICS_PER_REQUEST`]; `subscribe` batches get a `req_id` so that
+    /// a rejection can be reported with its topics.
+    async fn send_topics(
+        &mut self,
+        sink: &mut Sink,
+        session: &mut Session,
+        subscribe: bool,
+        topics: &[Topic],
+    ) -> Result<(), tokio_tungstenite::tungstenite::Error> {
+        for chunk in topics.chunks(MAX_TOPICS_PER_REQUEST) {
+            let args = chunk.to_vec();
+            let msg = if subscribe {
+                self.next_req_id += 1;
+                let req_id = format!("sub-{}", self.next_req_id);
+                session.pending.insert(req_id.clone(), args.clone());
+                OutgoingMessage::Subscribe {
+                    req_id: Some(req_id),
+                    args,
+                }
+            } else {
+                OutgoingMessage::Unsubscribe { req_id: None, args }
+            };
+            send_message(sink, &msg).await?;
+        }
+        Ok(())
+    }
+
+    /// React to replies to driver-sent `auth` and `subscribe` messages.
+    async fn on_command_reply(
+        &mut self,
+        msg: &IncomingMessage,
+        session: &mut Session,
+        sink: &mut Sink,
+    ) -> Result<(), tokio_tungstenite::tungstenite::Error> {
+        match msg {
+            IncomingMessage::Command(CommandMsg::Auth {
+                success, ret_msg, ..
+            }) if session.awaiting_auth => {
+                session.awaiting_auth = false;
+                if *success {
+                    info!("stream authenticated");
+                    session.ready = true;
+                    self.emit_lifecycle(Event::Authenticated).await;
+                    let topics = self.topics.clone();
+                    self.send_topics(sink, session, true, &topics).await?;
+                } else {
+                    warn!(?ret_msg, "stream authentication failed");
+                    self.emit_lifecycle(Event::AuthFailed {
+                        ret_msg: ret_msg.clone(),
+                    })
+                    .await;
+                }
+            }
+            IncomingMessage::Command(CommandMsg::Subscribe {
+                req_id: Some(req_id),
+                success,
+                ret_msg,
+                ..
+            }) => {
+                if let Some(topics) = session.pending.remove(req_id)
+                    && !*success
+                {
+                    warn!(?topics, ?ret_msg, "subscribe rejected");
+                    self.emit_lifecycle(Event::SubscribeFailed {
+                        topics,
+                        ret_msg: ret_msg.clone(),
+                    })
+                    .await;
+                }
+            }
+            _ => {}
+        }
+        Ok(())
     }
 
     async fn next_reconnect_state(&mut self, next_attempt: u32, reason: DisconnectReason) -> State {
@@ -423,6 +622,21 @@ const FAR_FUTURE: Duration = Duration::from_secs(u64::MAX / 4);
 #[inline]
 fn far_future_instant() -> Instant {
     Instant::now() + FAR_FUTURE
+}
+
+/// Serialize and send `msg`; a serialization failure is logged and the message
+/// dropped (it cannot be fixed by reconnecting).
+async fn send_message(
+    sink: &mut Sink,
+    msg: &OutgoingMessage,
+) -> Result<(), tokio_tungstenite::tungstenite::Error> {
+    match serialize_json(msg) {
+        Ok(json) => sink.send(Message::Text(json.into())).await,
+        Err(e) => {
+            warn!(error = %e, "serializing outgoing message failed, message dropped");
+            Ok(())
+        }
+    }
 }
 
 /// Bybit application-level heartbeat (`OutgoingMessage::Ping` without `req_id`).
@@ -632,5 +846,246 @@ mod tests {
             next_event(&mut events).await,
             Event::Disconnected { .. }
         ));
+    }
+
+    /// Behaviour of [`spawn_bybit_server`].
+    #[derive(Clone, Copy)]
+    struct ServerScript {
+        /// Reply `success` to `auth`.
+        auth_ok: bool,
+        /// On the first connection, close right after receiving this `op`.
+        close_first_after: Option<&'static str>,
+    }
+
+    /// Text frames received, as (connection number, parsed JSON).
+    type Received = std::sync::Arc<std::sync::Mutex<Vec<(usize, serde_json::Value)>>>;
+
+    /// Local server that answers `auth` and `subscribe` like Bybit (topics
+    /// containing "BAD" are rejected) and records what it receives.
+    async fn spawn_bybit_server(script: ServerScript) -> (String, Received) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let received: Received = Default::default();
+        let recorded = received.clone();
+        tokio::spawn(async move {
+            let mut conn = 0;
+            while let Ok((tcp, _)) = listener.accept().await {
+                conn += 1;
+                let recorded = recorded.clone();
+                tokio::spawn(async move {
+                    let Ok(mut ws) = tokio_tungstenite::accept_async(tcp).await else {
+                        return;
+                    };
+                    while let Some(Ok(frame)) = ws.next().await {
+                        let Message::Text(text) = frame else { continue };
+                        let json: serde_json::Value = serde_json::from_str(&text).unwrap();
+                        recorded.lock().unwrap().push((conn, json.clone()));
+                        let op = json["op"].as_str().unwrap_or_default().to_owned();
+                        let reply = match op.as_str() {
+                            "auth" => Some(serde_json::json!({
+                                "op": "auth", "conn_id": "c", "success": script.auth_ok,
+                                "ret_msg": if script.auth_ok { "" } else { "Invalid apikey" },
+                            })),
+                            "subscribe" => {
+                                let ok = !json["args"].to_string().contains("BAD");
+                                Some(serde_json::json!({
+                                    "op": "subscribe", "conn_id": "c", "success": ok,
+                                    "ret_msg": if ok { "" } else { "error:handler not found" },
+                                    "req_id": json["req_id"],
+                                }))
+                            }
+                            _ => None,
+                        };
+                        if let Some(reply) = reply
+                            && ws
+                                .send(Message::Text(reply.to_string().into()))
+                                .await
+                                .is_err()
+                        {
+                            return;
+                        }
+                        if conn == 1 && script.close_first_after == Some(op.as_str()) {
+                            return;
+                        }
+                    }
+                });
+            }
+        });
+        (format!("ws://{addr}"), received)
+    }
+
+    /// Wait until `received` holds a frame matching `pred`.
+    async fn wait_for_frame(received: &Received, pred: impl Fn(usize, &serde_json::Value) -> bool) {
+        timeout(EVENT_TIMEOUT, async {
+            loop {
+                if received.lock().unwrap().iter().any(|(c, j)| pred(*c, j)) {
+                    return;
+                }
+                sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("timed out waiting for a frame");
+    }
+
+    /// Skip events until one matches `pred`.
+    async fn wait_for_event(
+        rx: &mut mpsc::Receiver<Event>,
+        pred: impl Fn(&Event) -> bool,
+    ) -> Event {
+        loop {
+            let event = next_event(rx).await;
+            if pred(&event) {
+                return event;
+            }
+        }
+    }
+
+    fn ops(received: &Received, conn: usize) -> Vec<String> {
+        received
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|(c, _)| *c == conn)
+            .map(|(_, j)| j["op"].as_str().unwrap_or_default().to_owned())
+            .collect()
+    }
+
+    fn subscribed_args(received: &Received, conn: usize) -> Vec<String> {
+        received
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|(c, j)| *c == conn && j["op"] == "subscribe")
+            .flat_map(|(_, j)| j["args"].as_array().unwrap().clone())
+            .map(|a| a.as_str().unwrap().to_owned())
+            .collect()
+    }
+
+    fn ticker(symbol: &str) -> Topic {
+        Topic::Ticker(symbol.to_owned())
+    }
+
+    #[tokio::test]
+    async fn authenticates_then_restores_subscriptions_after_reconnect() {
+        let (url, received) = spawn_bybit_server(ServerScript {
+            auth_ok: true,
+            close_first_after: Some("subscribe"),
+        })
+        .await;
+        let (handle, mut events) = Stream::new(test_config(url).credentials("key", "secret"));
+
+        handle
+            .subscribe(vec![ticker("BTCUSDT"), ticker("ETHUSDT")])
+            .await
+            .unwrap();
+        handle.connect().await.unwrap();
+
+        wait_for_event(&mut events, |e| matches!(e, Event::Authenticated)).await;
+        wait_for_frame(&received, |c, j| c == 2 && j["op"] == "subscribe").await;
+
+        for conn in [1, 2] {
+            assert_eq!(
+                ops(&received, conn),
+                ["auth", "subscribe"],
+                "connection {conn}"
+            );
+            assert_eq!(
+                subscribed_args(&received, conn),
+                ["tickers.BTCUSDT", "tickers.ETHUSDT"],
+                "connection {conn}"
+            );
+        }
+        let auth = &received.lock().unwrap()[0].1;
+        assert_eq!(auth["args"][0], "key");
+    }
+
+    #[tokio::test]
+    async fn unsubscribed_topics_are_not_restored() {
+        let (url, received) = spawn_bybit_server(ServerScript {
+            auth_ok: true,
+            close_first_after: Some("unsubscribe"),
+        })
+        .await;
+        let (handle, _events) = Stream::new(test_config(url));
+        handle.connect().await.unwrap();
+
+        handle
+            .subscribe(vec![ticker("BTCUSDT"), ticker("ETHUSDT")])
+            .await
+            .unwrap();
+        wait_for_frame(&received, |c, j| c == 1 && j["op"] == "subscribe").await;
+        handle.unsubscribe(vec![ticker("BTCUSDT")]).await.unwrap();
+        wait_for_frame(&received, |c, j| c == 2 && j["op"] == "subscribe").await;
+
+        assert_eq!(ops(&received, 1), ["subscribe", "unsubscribe"]);
+        assert_eq!(subscribed_args(&received, 2), ["tickers.ETHUSDT"]);
+    }
+
+    #[tokio::test]
+    async fn rejected_auth_is_reported_and_nothing_is_subscribed() {
+        let (url, received) = spawn_bybit_server(ServerScript {
+            auth_ok: false,
+            close_first_after: None,
+        })
+        .await;
+        let (handle, mut events) = Stream::new(test_config(url).credentials("key", "bad"));
+        handle.subscribe(vec![ticker("BTCUSDT")]).await.unwrap();
+        handle.connect().await.unwrap();
+
+        let event = wait_for_event(&mut events, |e| matches!(e, Event::AuthFailed { .. })).await;
+        sleep(Duration::from_millis(200)).await;
+
+        assert!(matches!(
+            event,
+            Event::AuthFailed { ret_msg: Some(ref m) } if m == "Invalid apikey"
+        ));
+        assert_eq!(ops(&received, 1), ["auth"]);
+    }
+
+    #[tokio::test]
+    async fn rejected_subscribe_is_reported_with_its_topics() {
+        let (url, _received) = spawn_bybit_server(ServerScript {
+            auth_ok: true,
+            close_first_after: None,
+        })
+        .await;
+        let (handle, mut events) = Stream::new(test_config(url));
+        handle.connect().await.unwrap();
+
+        handle.subscribe(vec![ticker("BAD")]).await.unwrap();
+        let event =
+            wait_for_event(&mut events, |e| matches!(e, Event::SubscribeFailed { .. })).await;
+
+        assert!(matches!(
+            event,
+            Event::SubscribeFailed { ref topics, .. } if *topics == [ticker("BAD")]
+        ));
+    }
+
+    #[tokio::test]
+    async fn subscriptions_are_sent_in_batches_of_ten() {
+        let (url, received) = spawn_bybit_server(ServerScript {
+            auth_ok: true,
+            close_first_after: None,
+        })
+        .await;
+        let (handle, _events) = Stream::new(test_config(url));
+        let topics: Vec<Topic> = (0..25).map(|i| ticker(&format!("SYM{i}"))).collect();
+        handle.subscribe(topics).await.unwrap();
+        // Subscribing again to known topics sends nothing.
+        handle.subscribe(vec![ticker("SYM0")]).await.unwrap();
+        handle.connect().await.unwrap();
+
+        wait_for_frame(&received, |_, j| j["args"].to_string().contains("SYM24")).await;
+        sleep(Duration::from_millis(100)).await;
+
+        let sizes: Vec<usize> = received
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(_, j)| j["args"].as_array().unwrap().len())
+            .collect();
+        assert_eq!(sizes, [10, 10, 5]);
     }
 }

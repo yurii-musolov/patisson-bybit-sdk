@@ -10,7 +10,7 @@ use tracing_subscriber::FmtSubscriber;
 use bybit::{
     ApplyOutcome, Category, DepthLevel, Environment, OrderBookState, Topic,
     http::{Client, Config, GetOrderbookParams},
-    ws::{self, IncomingMessage, OutgoingMessage},
+    ws::{self, IncomingMessage},
 };
 
 #[tokio::main]
@@ -35,12 +35,8 @@ async fn main() -> anyhow::Result<()> {
     let cfg = ws::Config::public(Environment::Mainnet, Category::Linear);
     let (handle, mut events) = ws::Stream::new(cfg);
 
-    let subscribe = OutgoingMessage::Subscribe {
-        req_id: Some(String::from("req-0001")),
-        args: vec![topic],
-    };
+    handle.subscribe(vec![topic]).await?;
     handle.connect().await?;
-    handle.send_command(subscribe).await?;
 
     let mut book = OrderBookState::new();
 
