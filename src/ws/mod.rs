@@ -7,7 +7,7 @@ mod outgoing_message;
 mod state;
 mod stream;
 
-pub use config::{Config, DEFAULT_PING_INTERVAL, DEFAULT_PONG_TIMEOUT};
+pub use config::{Config, DEFAULT_CONNECT_TIMEOUT, DEFAULT_PING_INTERVAL, DEFAULT_PONG_TIMEOUT};
 pub use error::Error;
 pub use handle::Handle;
 pub use incoming_message::*;

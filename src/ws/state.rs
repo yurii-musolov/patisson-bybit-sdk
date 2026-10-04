@@ -8,6 +8,8 @@ pub type Sink = Box<
 
 pub enum State {
     Idle,
+    /// `attempt` is the number of consecutive reconnect attempts made so far
+    /// (0 for the initial connection).
     Connecting {
         attempt: u32,
     },
@@ -21,6 +23,8 @@ pub enum State {
         delay_ms: u64,
     },
     Closing {
+        frame_rx: mpsc::Receiver<FrameResult>,
+        read_task: tokio::task::JoinHandle<()>,
         sink: Sink,
     },
     Done,
