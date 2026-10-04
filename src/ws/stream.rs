@@ -467,7 +467,8 @@ mod tests {
         format!("ws://{addr}")
     }
 
-    /// An address nothing listens on.
+    /// An address nothing listens on. Connecting to it fails at once on
+    /// Linux and macOS, but takes about 2 s on Windows (SYN retries).
     async fn closed_port_url() -> String {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
@@ -475,8 +476,12 @@ mod tests {
         format!("ws://{addr}")
     }
 
+    /// Generous upper bound for a single event; tests do not wait this long
+    /// unless something is wrong (see [`closed_port_url`] for Windows).
+    const EVENT_TIMEOUT: Duration = Duration::from_secs(10);
+
     async fn next_event(rx: &mut mpsc::Receiver<Event>) -> Event {
-        timeout(Duration::from_secs(2), rx.recv())
+        timeout(EVENT_TIMEOUT, rx.recv())
             .await
             .expect("timed out waiting for event")
             .expect("event channel closed")
