@@ -35,14 +35,30 @@ pub enum OutgoingMessage {
     },
 }
 
+/// `auth` message for a private stream, valid for `recv_window` ms from now
+/// by the local clock. With a skewed clock use
+/// [`create_outgoing_message_auth_at`] and
+/// [`Client::server_timestamp`](crate::http::Client::server_timestamp).
 pub fn create_outgoing_message_auth(
     api_key: SensitiveString,
     api_secret: SensitiveString,
     req_id: Option<String>,
     recv_window: Timestamp,
 ) -> OutgoingMessage {
+    create_outgoing_message_auth_at(api_key, api_secret, req_id, recv_window, timestamp())
+}
+
+/// `auth` message for a private stream, valid for `recv_window` ms from
+/// `now` (milliseconds, ideally the server time).
+pub fn create_outgoing_message_auth_at(
+    api_key: SensitiveString,
+    api_secret: SensitiveString,
+    req_id: Option<String>,
+    recv_window: Timestamp,
+    now: Timestamp,
+) -> OutgoingMessage {
     let api_key = api_key.expose().to_string();
-    let expires = timestamp() + recv_window;
+    let expires = now + recv_window;
 
     let signature = create_stream_signature(expires, api_secret);
 
