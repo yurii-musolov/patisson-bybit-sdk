@@ -155,6 +155,7 @@ impl RateLimiterConfig {
             set(path, Category::Linear, 20.0, 20);
             set(path, Category::Inverse, 10.0, 10);
             set(path, Category::Spot, 10.0, 10);
+            set(path, Category::Option, 10.0, 10);
         }
 
         // A few high-traffic, category-independent endpoints.
@@ -200,6 +201,16 @@ impl RateLimiterConfig {
         self.overrides.insert(key, limit);
         self
     }
+}
+
+/// Why [`RateLimiter::check`] rejected a request.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Rejection {
+    /// Not enough capacity right now; retry after this many milliseconds.
+    RetryAfter(u64),
+    /// The request can never pass this bucket: its cost exceeds the bucket's
+    /// burst, or the bucket does not refill (`requests_per_second <= 0`).
+    Unsatisfiable { cost: u32, burst: u32 },
 }
 
 pub(crate) struct RateLimiter {
@@ -255,9 +266,15 @@ impl RateLimiter {
     }
 
     /// Returns `Ok(())` if the request may proceed, consuming `cost` tokens from the bucket
-    /// identified by `key`. Returns `Err(retry_after_ms)` if it should be rejected pre-flight.
-    pub(crate) fn check(&self, key: RateLimitKey, cost: u32) -> Result<(), u64> {
+    /// identified by `key`. Returns `Err` if it should be rejected pre-flight.
+    pub(crate) fn check(&self, key: RateLimitKey, cost: u32) -> Result<(), Rejection> {
         let limit = self.limit_for(&key);
+        if cost > limit.burst {
+            return Err(Rejection::Unsatisfiable {
+                cost,
+                burst: limit.burst,
+            });
+        }
         let mut g = self.buckets.lock().unwrap();
         let bucket = g.entry(key).or_insert_with(|| Bucket::new(limit));
 
@@ -266,7 +283,7 @@ impl RateLimiter {
         if let (Some(0), Some(reset_at)) = (bucket.server_remaining, bucket.server_reset_at_ms) {
             let now_ms = unix_ms();
             if now_ms < reset_at {
-                return Err(reset_at - now_ms);
+                return Err(Rejection::RetryAfter(reset_at - now_ms));
             }
             // Window has expired — clear stale server state.
             bucket.server_remaining = None;
@@ -274,20 +291,29 @@ impl RateLimiter {
         }
 
         // Token bucket: refill proportional to elapsed time, then try to consume `cost` tokens.
+        // A non-positive or non-finite rate means the bucket never refills.
+        let rps = bucket.limit.requests_per_second;
+        let refills = rps.is_finite() && rps > 0.0;
         let now = Instant::now();
-        let elapsed = now.duration_since(bucket.last_refill).as_secs_f64();
-        bucket.tokens = (bucket.tokens + elapsed * bucket.limit.requests_per_second)
-            .min(bucket.limit.burst as f64);
+        if refills {
+            let elapsed = now.duration_since(bucket.last_refill).as_secs_f64();
+            bucket.tokens = (bucket.tokens + elapsed * rps).min(bucket.limit.burst as f64);
+        }
         bucket.last_refill = now;
 
-        let cost = cost as f64;
-        if bucket.tokens < cost {
-            let wait_ms =
-                ((cost - bucket.tokens) / bucket.limit.requests_per_second * 1000.0).ceil() as u64;
-            return Err(wait_ms);
+        let needed = cost as f64;
+        if bucket.tokens < needed {
+            if !refills {
+                return Err(Rejection::Unsatisfiable {
+                    cost,
+                    burst: bucket.limit.burst,
+                });
+            }
+            let wait_ms = ((needed - bucket.tokens) / rps * 1000.0).ceil() as u64;
+            return Err(Rejection::RetryAfter(wait_ms));
         }
 
-        bucket.tokens -= cost;
+        bucket.tokens -= needed;
         Ok(())
     }
 
@@ -318,4 +344,74 @@ fn unix_ms() -> u64 {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
         .as_millis() as u64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const KEY: RateLimitKey = RateLimitKey::new(Path::MarketTickers);
+
+    fn limiter(requests_per_second: f64, burst: u32) -> RateLimiter {
+        RateLimiter::new(RateLimiterConfig::uniform(requests_per_second, burst))
+    }
+
+    #[test]
+    fn burst_is_available_then_requests_are_rejected_with_retry_after() {
+        let rl = limiter(10.0, 2);
+
+        assert_eq!(rl.check(KEY, 1), Ok(()));
+        assert_eq!(rl.check(KEY, 1), Ok(()));
+        assert!(matches!(
+            rl.check(KEY, 1),
+            Err(Rejection::RetryAfter(ms)) if ms > 0 && ms <= 100
+        ));
+    }
+
+    #[test]
+    fn tokens_refill_over_time() {
+        let rl = limiter(1000.0, 1);
+        assert_eq!(rl.check(KEY, 1), Ok(()));
+
+        std::thread::sleep(std::time::Duration::from_millis(5));
+
+        assert_eq!(rl.check(KEY, 1), Ok(()));
+    }
+
+    #[test]
+    fn cost_above_burst_is_unsatisfiable() {
+        let rl = limiter(10.0, 5);
+
+        assert_eq!(
+            rl.check(KEY, 10),
+            Err(Rejection::Unsatisfiable { cost: 10, burst: 5 })
+        );
+    }
+
+    #[test]
+    fn non_refilling_bucket_is_unsatisfiable_once_empty() {
+        let rl = limiter(0.0, 1);
+
+        assert_eq!(rl.check(KEY, 1), Ok(()));
+        assert_eq!(
+            rl.check(KEY, 1),
+            Err(Rejection::Unsatisfiable { cost: 1, burst: 1 })
+        );
+    }
+
+    #[test]
+    fn server_reported_exhaustion_blocks_until_reset() {
+        let rl = limiter(10.0, 10);
+        rl.update(KEY, Some(0), Some(unix_ms() + 60_000));
+
+        assert!(matches!(rl.check(KEY, 1), Err(Rejection::RetryAfter(_))));
+    }
+
+    #[test]
+    fn base_tier_defaults_cover_option_batches() {
+        let config = RateLimiterConfig::bybit_base_tier_defaults();
+        let key = RateLimitKey::with_category(Path::TradeOrderCreateBatch, Category::Option);
+
+        assert!(config.overrides[&key].burst >= 10);
+    }
 }

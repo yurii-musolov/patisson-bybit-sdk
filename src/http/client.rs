@@ -48,7 +48,7 @@ use reqwest::{
 };
 use std::time::Duration;
 
-use super::rate_limiter::{RateLimitKey, RateLimiter, RateLimiterConfig};
+use super::rate_limiter::{RateLimitKey, RateLimiter, RateLimiterConfig, Rejection};
 
 /// Default total timeout of one HTTP request.
 pub const DEFAULT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -1957,8 +1957,12 @@ impl Client {
         let key = RateLimitKey { path, category };
 
         if let Some(rl) = &self.rate_limiter {
-            rl.check(key, cost)
-                .map_err(|retry_after_ms| Error::RateLimited { retry_after_ms })?;
+            rl.check(key, cost).map_err(|rejection| match rejection {
+                Rejection::RetryAfter(retry_after_ms) => Error::RateLimited { retry_after_ms },
+                Rejection::Unsatisfiable { cost, burst } => {
+                    Error::RateLimitUnsatisfiable { cost, burst }
+                }
+            })?;
         }
 
         let start = std::time::Instant::now();

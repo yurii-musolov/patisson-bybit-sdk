@@ -21,6 +21,13 @@ pub enum Error {
     RateLimited {
         retry_after_ms: u64,
     },
+    /// The local rate limiter can never let this request through: its cost
+    /// exceeds the bucket's burst, or the bucket does not refill. Retrying
+    /// will not help; adjust [`RateLimiterConfig`](crate::http::RateLimiterConfig).
+    RateLimitUnsatisfiable {
+        cost: u32,
+        burst: u32,
+    },
     Reqwest(reqwest::Error),
     SerdeJson(serde_json::Error),
     SerdeUrlEncoded(serde_urlencoded::ser::Error),
@@ -44,6 +51,10 @@ impl std::fmt::Display for Error {
             Error::RateLimited { retry_after_ms } => {
                 write!(f, "rate limited: retry after {retry_after_ms} ms")
             }
+            Error::RateLimitUnsatisfiable { cost, burst } => write!(
+                f,
+                "rate limit can never be satisfied: request cost {cost}, bucket burst {burst}"
+            ),
             Error::Reqwest(error) => write!(f, "reqwest error: {error}"),
             Error::SerdeJson(error) => write!(f, "serde_json error: {error}"),
             Error::SerdeUrlEncoded(error) => write!(f, "serde_urlencoded error: {error}"),
