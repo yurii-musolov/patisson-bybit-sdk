@@ -17,10 +17,30 @@ use super::{
     state::{FrameResult, HeartbeatState, Sink, State},
 };
 
+/// WebSocket connection driver.
+///
+/// [`Stream::new`] spawns the driver on the current Tokio runtime and returns a
+/// [`Handle`] for commands and a receiver of [`Event`]s.
+///
+/// # Reconnects
+/// After an unexpected disconnect the driver reconnects automatically (see
+/// [`Config::max_reconnect_attempts`]) and emits [`Event::Connected`] again.
+/// Subscriptions and authentication are *not* restored: after every
+/// `Event::Connected` the user must send `auth` (private streams) and
+/// `subscribe` again.
+///
+/// # Event delivery
+/// Lifecycle events (`Connected`, `Reconnecting`, `Disconnected`) are always
+/// delivered: the driver waits for free space in the event queue. Market and
+/// account data (`Message`, `ParseError`) are dropped when the queue is full;
+/// the number of dropped events is reported by [`Event::Lagged`] as soon as
+/// there is room again.
 pub struct Stream {
     config: Config,
     cmd_rx: mpsc::Receiver<Command>,
     evt_tx: mpsc::Sender<Event>,
+    /// Data events dropped since the last [`Event::Lagged`].
+    dropped: u64,
 }
 
 impl Stream {
@@ -33,6 +53,7 @@ impl Stream {
             config,
             cmd_rx,
             evt_tx,
+            dropped: 0,
         };
 
         tokio::spawn(stream.run());
@@ -68,16 +89,50 @@ impl Stream {
         info!("stream shut down");
     }
 
-    fn emit(&self, event: Event) {
-        if let Err(e) = self.evt_tx.try_send(event) {
-            match e {
-                mpsc::error::TrySendError::Full(dropped) => {
-                    warn!("event queue full, dropping event: {:?}", dropped);
+    /// Deliver a data event without blocking the driver; drop it (and count
+    /// it) when the event queue is full.
+    fn emit(&mut self, event: Event) {
+        if self.dropped > 0 {
+            match self.evt_tx.try_send(Event::Lagged {
+                dropped: self.dropped,
+            }) {
+                Ok(()) => self.dropped = 0,
+                Err(mpsc::error::TrySendError::Full(_)) => {
+                    self.dropped += 1;
+                    return;
                 }
-                mpsc::error::TrySendError::Closed(_) => {
-                    debug!("event receiver dropped");
-                }
+                Err(mpsc::error::TrySendError::Closed(_)) => return,
             }
+        }
+
+        match self.evt_tx.try_send(event) {
+            Ok(()) => {}
+            Err(mpsc::error::TrySendError::Full(dropped)) => {
+                if self.dropped == 0 {
+                    warn!("event queue full, dropping events");
+                }
+                debug!(event = ?dropped, "event dropped");
+                self.dropped += 1;
+            }
+            Err(mpsc::error::TrySendError::Closed(_)) => debug!("event receiver dropped"),
+        }
+    }
+
+    /// Deliver a lifecycle event, waiting for space in the event queue.
+    /// A pending [`Event::Lagged`] is delivered first to keep the order.
+    async fn emit_lifecycle(&mut self, event: Event) {
+        if self.dropped > 0 {
+            let lagged = Event::Lagged {
+                dropped: self.dropped,
+            };
+            if self.evt_tx.send(lagged).await.is_err() {
+                debug!("event receiver dropped");
+                return;
+            }
+            self.dropped = 0;
+        }
+        if self.evt_tx.send(event).await.is_err() {
+            debug!("event receiver dropped");
         }
     }
 
@@ -101,7 +156,8 @@ impl Stream {
     async fn step_connecting(&mut self, attempt: u32) -> State {
         debug!(attempt, "connecting");
 
-        let connect = timeout(self.config.connect_timeout, connect_async(&self.config.url));
+        let url = self.config.url.clone();
+        let connect = timeout(self.config.connect_timeout, connect_async(url));
         tokio::pin!(connect);
 
         // Keep serving commands while the handshake is in flight so that a
@@ -112,9 +168,10 @@ impl Stream {
                 cmd = self.cmd_rx.recv() => match cmd {
                     None | Some(Command::Disconnect) => {
                         info!("disconnect requested while connecting");
-                        self.emit(Event::Disconnected {
+                        self.emit_lifecycle(Event::Disconnected {
                             reason: DisconnectReason::Requested,
-                        });
+                        })
+                        .await;
                         return State::Idle;
                     }
                     Some(Command::Connect) => debug!("Connect ignored - already connecting"),
@@ -126,7 +183,7 @@ impl Stream {
         match result {
             Ok(Ok((ws_stream, _))) => {
                 info!("websocket connected");
-                self.emit(Event::Connected);
+                self.emit_lifecycle(Event::Connected).await;
 
                 let (sink, stream) = ws_stream.split();
                 let (frame_tx, frame_rx) =
@@ -150,6 +207,7 @@ impl Stream {
             Ok(Err(e)) => {
                 error!(error = %e, attempt, "connection failed");
                 self.next_reconnect_state(attempt + 1, DisconnectReason::Error(e.to_string()))
+                    .await
             }
             Err(_) => {
                 error!(attempt, "connection timed out");
@@ -157,6 +215,7 @@ impl Stream {
                     attempt + 1,
                     DisconnectReason::Error(String::from("connect timeout")),
                 )
+                .await
             }
         }
     }
@@ -184,7 +243,7 @@ impl Stream {
                     None => {
                         info!("remote closed the connection");
                         read_task.abort();
-                        return self.next_reconnect_state(1, DisconnectReason::RemoteClosed);
+                        return self.next_reconnect_state(1, DisconnectReason::RemoteClosed).await;
                     }
                     Some(Ok(msg)) => {
                         match msg {
@@ -222,7 +281,7 @@ impl Stream {
                     Some(Err(e)) => {
                         error!(error = %e, "websocket read error");
                         read_task.abort();
-                        return self.next_reconnect_state(1, DisconnectReason::Error(e.to_string()));
+                        return self.next_reconnect_state(1, DisconnectReason::Error(e.to_string())).await;
                     }
                 },
 
@@ -242,7 +301,7 @@ impl Stream {
                         if let Err(e) = sink.send(Message::Text(json.into())).await {
                             error!(error = %e, "send error");
                             read_task.abort();
-                            return self.next_reconnect_state(1, DisconnectReason::Error(e.to_string()));
+                            return self.next_reconnect_state(1, DisconnectReason::Error(e.to_string())).await;
                         }
                     }
                     Some(Command::Connect) => warn!("Connect ignored - already connected")
@@ -253,7 +312,7 @@ impl Stream {
                     if let Err(e) = sink.send(ping()).await {
                         error!(error = %e, "ping send error");
                         read_task.abort();
-                        return self.next_reconnect_state(1, DisconnectReason::Error(e.to_string()));
+                        return self.next_reconnect_state(1, DisconnectReason::Error(e.to_string())).await;
                     }
 
                     hb = HeartbeatState::PingSent;
@@ -264,7 +323,7 @@ impl Stream {
                 () = &mut pong_timer, if matches!(hb, HeartbeatState::PingSent) => {
                     warn!("pong timeout - connection appears dead");
                     read_task.abort();
-                    return self.next_reconnect_state(1, DisconnectReason::PongTimeout);
+                    return self.next_reconnect_state(1, DisconnectReason::PongTimeout).await;
                 },
             }
         }
@@ -272,7 +331,8 @@ impl Stream {
 
     async fn step_reconnecting(&mut self, attempt: u32, delay_ms: u64) -> State {
         warn!(attempt, delay_ms, "waiting before reconnect");
-        self.emit(Event::Reconnecting { attempt, delay_ms });
+        self.emit_lifecycle(Event::Reconnecting { attempt, delay_ms })
+            .await;
 
         // Commands that arrive during the back-off must neither shorten the
         // delay nor vanish silently, so the deadline is fixed up front.
@@ -282,9 +342,10 @@ impl Stream {
                 () = sleep_until(deadline) => return State::Connecting { attempt },
                 cmd = self.cmd_rx.recv() => match cmd {
                     None | Some(Command::Disconnect) => {
-                        self.emit(Event::Disconnected {
+                        self.emit_lifecycle(Event::Disconnected {
                             reason: DisconnectReason::Requested,
-                        });
+                        })
+                        .await;
                         return State::Idle;
                     }
                     Some(Command::Connect) => debug!("Connect ignored - already reconnecting"),
@@ -320,13 +381,14 @@ impl Stream {
         }
         read_task.abort();
 
-        self.emit(Event::Disconnected {
+        self.emit_lifecycle(Event::Disconnected {
             reason: DisconnectReason::Requested,
-        });
+        })
+        .await;
         State::Idle
     }
 
-    fn next_reconnect_state(&self, next_attempt: u32, reason: DisconnectReason) -> State {
+    async fn next_reconnect_state(&mut self, next_attempt: u32, reason: DisconnectReason) -> State {
         match reconnect_delay_ms(&self.config, next_attempt) {
             Some(delay_ms) => {
                 debug!(next_attempt, delay_ms, ?reason, "scheduling reconnect");
@@ -337,7 +399,7 @@ impl Stream {
             }
             None => {
                 warn!(?reason, "giving up reconnecting");
-                self.emit(Event::Disconnected { reason });
+                self.emit_lifecycle(Event::Disconnected { reason }).await;
                 State::Idle
             }
         }
@@ -381,14 +443,26 @@ mod tests {
     /// Local WebSocket server that accepts any number of connections and
     /// answers the close handshake. Returns its `ws://` URL.
     async fn spawn_server() -> String {
+        spawn_server_with_greeting(Vec::new()).await
+    }
+
+    /// Like [`spawn_server`], but sends `greeting` text frames right after
+    /// every handshake.
+    async fn spawn_server_with_greeting(greeting: Vec<String>) -> String {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
         tokio::spawn(async move {
             while let Ok((tcp, _)) = listener.accept().await {
+                let greeting = greeting.clone();
                 tokio::spawn(async move {
                     let Ok(mut ws) = tokio_tungstenite::accept_async(tcp).await else {
                         return;
                     };
+                    for text in greeting {
+                        if ws.send(Message::Text(text.into())).await.is_err() {
+                            return;
+                        }
+                    }
                     while let Some(Ok(_)) = ws.next().await {}
                 });
             }
@@ -532,5 +606,29 @@ mod tests {
             Event::Disconnected { .. }
         ));
         assert!(started.elapsed() >= Duration::from_millis(250));
+    }
+
+    #[tokio::test]
+    async fn dropped_data_events_are_reported_before_the_next_lifecycle_event() {
+        let pong = r#"{"op":"pong","conn_id":"test"}"#.to_string();
+        let url = spawn_server_with_greeting(vec![pong; 10]).await;
+        let (handle, mut events) = Stream::new(test_config(url).event_queue_size(2));
+
+        handle.connect().await.unwrap();
+        // Let the driver fill the queue (Connected + 1 message) and drop the rest.
+        sleep(Duration::from_millis(300)).await;
+        assert!(matches!(next_event(&mut events).await, Event::Connected));
+        assert!(matches!(next_event(&mut events).await, Event::Message(_)));
+
+        handle.disconnect().await.unwrap();
+
+        assert!(matches!(
+            next_event(&mut events).await,
+            Event::Lagged { dropped: 9 }
+        ));
+        assert!(matches!(
+            next_event(&mut events).await,
+            Event::Disconnected { .. }
+        ));
     }
 }
