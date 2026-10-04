@@ -23,13 +23,9 @@ async fn main() -> anyhow::Result<()> {
 
     let cfg = Config::new(base_url);
     let client = Client::new(cfg)?;
-    let params = GetTradesParams {
-        category: Category::Linear,
-        symbol: Some(String::from("BTCUSDT")),
-        base_coin: None,
-        option_type: None,
-        limit: Some(2),
-    };
+    let params = GetTradesParams::new(Category::Linear)
+        .with_symbol("BTCUSDT")
+        .with_limit(2);
     let response = client.get_public_recent_trading_history(&params).await?;
     info!(?response);
 

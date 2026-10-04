@@ -49,12 +49,8 @@ use bybit::{
 
 let cfg = Config::new(BASE_URL_API_MAINNET_1);
 let client = Client::new(cfg)?;
-let params = GetTickersParams {
-    category: Category::Linear,
-    symbol: Some(String::from("BTCUSDT")),
-    base_coin: None, // If category=option, symbol or baseCoin must be passed.
-    exp_date: None,
-};
+// If category=option, symbol or baseCoin must be passed.
+let params = GetTickersParams::new(Category::Linear).with_symbol("BTCUSDT");
 let response = client.get_tickers(&params).await?;
 println!("{response:#?}");
 ```

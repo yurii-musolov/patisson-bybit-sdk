@@ -23,11 +23,7 @@ async fn main() -> anyhow::Result<()> {
 
     let cfg = Config::new(base_url);
     let client = Client::new(cfg)?;
-    let params = GetOrderbookParams {
-        category: Category::Linear,
-        symbol: String::from("BTCUSDT"),
-        limit: Some(1),
-    };
+    let params = GetOrderbookParams::new(Category::Linear, "BTCUSDT").with_limit(1);
     let response = client.get_orderbook(&params).await?;
     info!(?response);
 

@@ -990,6 +990,12 @@ pub struct PlaceOrderBatchRequest {
     pub request: Vec<PlaceOrderRequest>,
 }
 
+impl PlaceOrderBatchRequest {
+    pub fn new(category: Category, request: Vec<PlaceOrderRequest>) -> Self {
+        Self { category, request }
+    }
+}
+
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AmendOrderBatchRequest {
@@ -997,11 +1003,23 @@ pub struct AmendOrderBatchRequest {
     pub request: Vec<AmendOrderRequest>,
 }
 
+impl AmendOrderBatchRequest {
+    pub fn new(category: Category, request: Vec<AmendOrderRequest>) -> Self {
+        Self { category, request }
+    }
+}
+
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CancelOrderBatchRequest {
     pub category: Category,
     pub request: Vec<CancelOrderRequest>,
+}
+
+impl CancelOrderBatchRequest {
+    pub fn new(category: Category, request: Vec<CancelOrderRequest>) -> Self {
+        Self { category, request }
+    }
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -1047,6 +1065,16 @@ pub struct GetSpotBorrowCheckParams {
     pub category: Category,
     pub symbol: String,
     pub side: Side,
+}
+
+impl GetSpotBorrowCheckParams {
+    pub fn new(category: Category, symbol: impl Into<String>, side: Side) -> Self {
+        Self {
+            category,
+            symbol: symbol.into(),
+            side,
+        }
+    }
 }
 
 /// Response for [`Client::get_spot_borrow_check`](crate::http::Client::get_spot_borrow_check).

@@ -27,6 +27,20 @@ pub struct GetWalletBalanceParams {
     pub coin: Option<String>,
 }
 
+impl GetWalletBalanceParams {
+    pub fn new(account_type: AccountType) -> Self {
+        Self {
+            account_type,
+            coin: None,
+        }
+    }
+
+    pub fn with_coin(mut self, v: impl Into<String>) -> Self {
+        self.coin = Some(v.into());
+        self
+    }
+}
+
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct WalletBalance {
@@ -383,6 +397,26 @@ pub struct GetFeeRateParams {
     pub base_coin: Option<String>,
 }
 
+impl GetFeeRateParams {
+    pub fn new(category: Category) -> Self {
+        Self {
+            category,
+            symbol: None,
+            base_coin: None,
+        }
+    }
+
+    pub fn with_symbol(mut self, v: impl Into<String>) -> Self {
+        self.symbol = Some(v.into());
+        self
+    }
+
+    pub fn with_base_coin(mut self, v: impl Into<String>) -> Self {
+        self.base_coin = Some(v.into());
+        self
+    }
+}
+
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct FeeRateEntry {
@@ -403,6 +437,12 @@ pub struct FeeRateEntry {
 #[serde(rename_all = "camelCase")]
 pub struct SetMarginModeRequest {
     pub set_margin_mode: MarginMode,
+}
+
+impl SetMarginModeRequest {
+    pub fn new(set_margin_mode: MarginMode) -> Self {
+        Self { set_margin_mode }
+    }
 }
 
 /// Response for [`Client::set_margin_mode`](crate::http::Client::set_margin_mode).

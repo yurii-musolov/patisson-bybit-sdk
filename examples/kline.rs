@@ -23,14 +23,7 @@ async fn main() -> anyhow::Result<()> {
 
     let cfg = Config::new(base_url);
     let client = Client::new(cfg)?;
-    let params = GetKLinesParams {
-        category: Category::Linear,
-        symbol: String::from("BTCUSDT"),
-        interval: Interval::Minute1,
-        start: None,
-        end: None,
-        limit: Some(2),
-    };
+    let params = GetKLinesParams::new(Category::Linear, "BTCUSDT", Interval::Minute1).with_limit(2);
     let response = client.get_kline(&params).await?;
     info!(?response);
 

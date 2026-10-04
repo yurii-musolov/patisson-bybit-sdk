@@ -28,10 +28,7 @@ async fn main() -> anyhow::Result<()> {
     let cfg = Config::new(base_url).credentials(api_key, api_secret);
     let client = Client::new(cfg)?;
 
-    let params = GetWalletBalanceParams {
-        account_type: AccountType::UNIFIED,
-        coin: None,
-    };
+    let params = GetWalletBalanceParams::new(AccountType::UNIFIED);
 
     let response = client.get_wallet_balance(&params).await?;
     info!(?response);

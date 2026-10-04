@@ -21,6 +21,34 @@ pub struct GetKLinesParams {
     pub limit: Option<u64>,
 }
 
+impl GetKLinesParams {
+    pub fn new(category: Category, symbol: impl Into<String>, interval: Interval) -> Self {
+        Self {
+            category,
+            symbol: symbol.into(),
+            interval,
+            start: None,
+            end: None,
+            limit: None,
+        }
+    }
+
+    pub fn with_start(mut self, v: Timestamp) -> Self {
+        self.start = Some(v);
+        self
+    }
+
+    pub fn with_end(mut self, v: Timestamp) -> Self {
+        self.end = Some(v);
+        self
+    }
+
+    pub fn with_limit(mut self, v: u64) -> Self {
+        self.limit = Some(v);
+        self
+    }
+}
+
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(tag = "category")]
 pub enum KLine {
@@ -65,6 +93,32 @@ pub struct GetTickersParams {
     pub symbol: Option<String>,
     pub base_coin: Option<String>,
     pub exp_date: Option<String>,
+}
+
+impl GetTickersParams {
+    pub fn new(category: Category) -> Self {
+        Self {
+            category,
+            symbol: None,
+            base_coin: None,
+            exp_date: None,
+        }
+    }
+
+    pub fn with_symbol(mut self, v: impl Into<String>) -> Self {
+        self.symbol = Some(v.into());
+        self
+    }
+
+    pub fn with_base_coin(mut self, v: impl Into<String>) -> Self {
+        self.base_coin = Some(v.into());
+        self
+    }
+
+    pub fn with_exp_date(mut self, v: impl Into<String>) -> Self {
+        self.exp_date = Some(v.into());
+        self
+    }
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -250,6 +304,21 @@ pub struct GetOrderbookParams {
     pub limit: Option<u64>,
 }
 
+impl GetOrderbookParams {
+    pub fn new(category: Category, symbol: impl Into<String>) -> Self {
+        Self {
+            category,
+            symbol: symbol.into(),
+            limit: None,
+        }
+    }
+
+    pub fn with_limit(mut self, v: u64) -> Self {
+        self.limit = Some(v);
+        self
+    }
+}
+
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct Orderbook {
     /// Symbol name
@@ -298,6 +367,38 @@ pub struct GetTradesParams {
     /// spot: `[1, 60]`, default: 60
     /// others: `[1, 1000]`, default: 500
     pub limit: Option<u64>,
+}
+
+impl GetTradesParams {
+    pub fn new(category: Category) -> Self {
+        Self {
+            category,
+            symbol: None,
+            base_coin: None,
+            option_type: None,
+            limit: None,
+        }
+    }
+
+    pub fn with_symbol(mut self, v: impl Into<String>) -> Self {
+        self.symbol = Some(v.into());
+        self
+    }
+
+    pub fn with_base_coin(mut self, v: impl Into<String>) -> Self {
+        self.base_coin = Some(v.into());
+        self
+    }
+
+    pub fn with_option_type(mut self, v: OptionType) -> Self {
+        self.option_type = Some(v);
+        self
+    }
+
+    pub fn with_limit(mut self, v: u64) -> Self {
+        self.limit = Some(v);
+        self
+    }
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -390,6 +491,44 @@ pub struct GetInstrumentsInfoParams {
     pub base_coin: Option<String>,
     pub limit: Option<i64>,
     pub cursor: Option<String>,
+}
+
+impl GetInstrumentsInfoParams {
+    pub fn new(category: Category) -> Self {
+        Self {
+            category,
+            symbol: None,
+            status: None,
+            base_coin: None,
+            limit: None,
+            cursor: None,
+        }
+    }
+
+    pub fn with_symbol(mut self, v: impl Into<String>) -> Self {
+        self.symbol = Some(v.into());
+        self
+    }
+
+    pub fn with_status(mut self, v: Status) -> Self {
+        self.status = Some(v);
+        self
+    }
+
+    pub fn with_base_coin(mut self, v: impl Into<String>) -> Self {
+        self.base_coin = Some(v.into());
+        self
+    }
+
+    pub fn with_limit(mut self, v: i64) -> Self {
+        self.limit = Some(v);
+        self
+    }
+
+    pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
+        self.cursor = Some(v.into());
+        self
+    }
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -607,6 +746,33 @@ pub struct GetFundingRateHistoryParams {
     pub limit: Option<u64>,
 }
 
+impl GetFundingRateHistoryParams {
+    pub fn new(category: Category, symbol: impl Into<String>) -> Self {
+        Self {
+            category,
+            symbol: symbol.into(),
+            start_time: None,
+            end_time: None,
+            limit: None,
+        }
+    }
+
+    pub fn with_start_time(mut self, v: Timestamp) -> Self {
+        self.start_time = Some(v);
+        self
+    }
+
+    pub fn with_end_time(mut self, v: Timestamp) -> Self {
+        self.end_time = Some(v);
+        self
+    }
+
+    pub fn with_limit(mut self, v: u64) -> Self {
+        self.limit = Some(v);
+        self
+    }
+}
+
 /// Response for [`Client::get_funding_rate_history`](crate::http::Client::get_funding_rate_history).
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(tag = "category")]
@@ -642,6 +808,40 @@ pub struct GetOpenInterestParams {
     /// Max 200. Default 50.
     pub limit: Option<u64>,
     pub cursor: Option<String>,
+}
+
+impl GetOpenInterestParams {
+    pub fn new(category: Category, symbol: impl Into<String>, interval_time: IntervalTime) -> Self {
+        Self {
+            category,
+            symbol: symbol.into(),
+            interval_time,
+            start_time: None,
+            end_time: None,
+            limit: None,
+            cursor: None,
+        }
+    }
+
+    pub fn with_start_time(mut self, v: Timestamp) -> Self {
+        self.start_time = Some(v);
+        self
+    }
+
+    pub fn with_end_time(mut self, v: Timestamp) -> Self {
+        self.end_time = Some(v);
+        self
+    }
+
+    pub fn with_limit(mut self, v: u64) -> Self {
+        self.limit = Some(v);
+        self
+    }
+
+    pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
+        self.cursor = Some(v.into());
+        self
+    }
 }
 
 /// Response for [`Client::get_open_interest`](crate::http::Client::get_open_interest).
@@ -680,6 +880,38 @@ pub struct GetHistoricalVolatilityParams {
     pub end_time: Option<Timestamp>,
 }
 
+impl GetHistoricalVolatilityParams {
+    pub fn new(category: Category) -> Self {
+        Self {
+            category,
+            base_coin: None,
+            period: None,
+            start_time: None,
+            end_time: None,
+        }
+    }
+
+    pub fn with_base_coin(mut self, v: impl Into<String>) -> Self {
+        self.base_coin = Some(v.into());
+        self
+    }
+
+    pub fn with_period(mut self, v: u16) -> Self {
+        self.period = Some(v);
+        self
+    }
+
+    pub fn with_start_time(mut self, v: Timestamp) -> Self {
+        self.start_time = Some(v);
+        self
+    }
+
+    pub fn with_end_time(mut self, v: Timestamp) -> Self {
+        self.end_time = Some(v);
+        self
+    }
+}
+
 /// One data point from
 /// [`Client::get_historical_volatility`](crate::http::Client::get_historical_volatility).
 ///
@@ -699,6 +931,17 @@ pub struct HistoricalVolatilityEntry {
 #[derive(Debug, Serialize, Clone, Default)]
 pub struct GetInsuranceParams {
     pub coin: Option<String>,
+}
+
+impl GetInsuranceParams {
+    pub fn new() -> Self {
+        Self { coin: None }
+    }
+
+    pub fn with_coin(mut self, v: impl Into<String>) -> Self {
+        self.coin = Some(v.into());
+        self
+    }
 }
 
 /// Response for [`Client::get_insurance`](crate::http::Client::get_insurance).
@@ -728,6 +971,26 @@ pub struct GetRiskLimitParams {
     pub category: Category,
     pub symbol: Option<String>,
     pub cursor: Option<String>,
+}
+
+impl GetRiskLimitParams {
+    pub fn new(category: Category) -> Self {
+        Self {
+            category,
+            symbol: None,
+            cursor: None,
+        }
+    }
+
+    pub fn with_symbol(mut self, v: impl Into<String>) -> Self {
+        self.symbol = Some(v.into());
+        self
+    }
+
+    pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
+        self.cursor = Some(v.into());
+        self
+    }
 }
 
 /// Response for [`Client::get_risk_limit`](crate::http::Client::get_risk_limit).
@@ -765,6 +1028,38 @@ pub struct GetDeliveryPriceParams {
     /// Max 200. Default 50.
     pub limit: Option<u64>,
     pub cursor: Option<String>,
+}
+
+impl GetDeliveryPriceParams {
+    pub fn new(category: Category) -> Self {
+        Self {
+            category,
+            symbol: None,
+            base_coin: None,
+            limit: None,
+            cursor: None,
+        }
+    }
+
+    pub fn with_symbol(mut self, v: impl Into<String>) -> Self {
+        self.symbol = Some(v.into());
+        self
+    }
+
+    pub fn with_base_coin(mut self, v: impl Into<String>) -> Self {
+        self.base_coin = Some(v.into());
+        self
+    }
+
+    pub fn with_limit(mut self, v: u64) -> Self {
+        self.limit = Some(v);
+        self
+    }
+
+    pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
+        self.cursor = Some(v.into());
+        self
+    }
 }
 
 /// Response for [`Client::get_delivery_price`](crate::http::Client::get_delivery_price).
