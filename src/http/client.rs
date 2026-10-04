@@ -592,23 +592,20 @@ impl Client {
 
     /// Collect all pages of open/closed orders into a single `Vec`.
     /// Repeatedly calls [`get_open_closed_orders`] following `next_page_cursor`
-    /// until the last page is reached.
+    /// until the last page is reached (see [`MAX_PAGES`]).
     #[tracing::instrument(skip(self), err)]
     pub async fn get_open_closed_orders_all(
         &self,
         params: &GetOpenClosedOrdersParams,
     ) -> Result<Vec<Order>, Error> {
-        let mut all = Vec::new();
-        let mut p = params.clone();
-        loop {
-            let page = self.get_open_closed_orders(&p).await?;
-            all.extend(page.result.list);
-            match page.result.next_page_cursor {
-                Some(cursor) => p = p.with_cursor(cursor),
-                None => break,
-            }
-        }
-        Ok(all)
+        collect_pages(|cursor| {
+            let p = match cursor {
+                Some(cursor) => params.clone().with_cursor(cursor),
+                None => params.clone(),
+            };
+            async move { self.get_open_closed_orders(&p).await.map(|r| r.result) }
+        })
+        .await
     }
 
     /// Cancel All Orders.
@@ -659,17 +656,14 @@ impl Client {
         &self,
         params: &GetOrderHistoryParams,
     ) -> Result<Vec<Order>, Error> {
-        let mut all = Vec::new();
-        let mut p = params.clone();
-        loop {
-            let page = self.get_order_history(&p).await?;
-            all.extend(page.result.list);
-            match page.result.next_page_cursor {
-                Some(cursor) => p = p.with_cursor(cursor),
-                None => break,
-            }
-        }
-        Ok(all)
+        collect_pages(|cursor| {
+            let p = match cursor {
+                Some(cursor) => params.clone().with_cursor(cursor),
+                None => params.clone(),
+            };
+            async move { self.get_order_history(&p).await.map(|r| r.result) }
+        })
+        .await
     }
 
     /// Place Batch Orders.
@@ -803,23 +797,20 @@ impl Client {
 
     /// Collect all pages of position info into a single `Vec`.
     /// Repeatedly calls [`get_position_info`] following `next_page_cursor`
-    /// until the last page is reached.
+    /// until the last page is reached (see [`MAX_PAGES`]).
     #[tracing::instrument(skip(self), err)]
     pub async fn get_position_info_all(
         &self,
         params: &GetPositionInfoParams,
     ) -> Result<Vec<Position>, Error> {
-        let mut all = Vec::new();
-        let mut p = params.clone();
-        loop {
-            let page = self.get_position_info(&p).await?;
-            all.extend(page.result.list);
-            match page.result.next_page_cursor {
-                Some(cursor) => p = p.with_cursor(cursor),
-                None => break,
-            }
-        }
-        Ok(all)
+        collect_pages(|cursor| {
+            let p = match cursor {
+                Some(cursor) => params.clone().with_cursor(cursor),
+                None => params.clone(),
+            };
+            async move { self.get_position_info(&p).await.map(|r| r.result) }
+        })
+        .await
     }
 
     /// Set Leverage.
@@ -971,17 +962,14 @@ impl Client {
         &self,
         params: &GetClosedPnlParams,
     ) -> Result<Vec<ClosedPnl>, Error> {
-        let mut all = Vec::new();
-        let mut p = params.clone();
-        loop {
-            let page = self.get_closed_pnl(&p).await?;
-            all.extend(page.result.list);
-            match page.result.next_page_cursor {
-                Some(cursor) => p = p.with_cursor(cursor),
-                None => break,
-            }
-        }
-        Ok(all)
+        collect_pages(|cursor| {
+            let p = match cursor {
+                Some(cursor) => params.clone().with_cursor(cursor),
+                None => params.clone(),
+            };
+            async move { self.get_closed_pnl(&p).await.map(|r| r.result) }
+        })
+        .await
     }
 
     /// Get Execution List.
@@ -1007,17 +995,14 @@ impl Client {
         &self,
         params: &GetExecutionListParams,
     ) -> Result<Vec<ExecutionEntry>, Error> {
-        let mut all = Vec::new();
-        let mut p = params.clone();
-        loop {
-            let page = self.get_execution_list(&p).await?;
-            all.extend(page.result.list);
-            match page.result.next_page_cursor {
-                Some(cursor) => p = p.with_cursor(cursor),
-                None => break,
-            }
-        }
-        Ok(all)
+        collect_pages(|cursor| {
+            let p = match cursor {
+                Some(cursor) => params.clone().with_cursor(cursor),
+                None => params.clone(),
+            };
+            async move { self.get_execution_list(&p).await.map(|r| r.result) }
+        })
+        .await
     }
 }
 
@@ -1058,23 +1043,20 @@ impl Client {
 
     /// Collect all pages of transaction log entries into a single `Vec`.
     /// Repeatedly calls [`get_transaction_log`] following `next_page_cursor`
-    /// until the last page is reached.
+    /// until the last page is reached (see [`MAX_PAGES`]).
     #[tracing::instrument(skip(self), err)]
     pub async fn get_transaction_log_all(
         &self,
         params: &GetTransactionLogParams,
     ) -> Result<Vec<TransactionLog>, Error> {
-        let mut all = Vec::new();
-        let mut p = params.clone();
-        loop {
-            let page = self.get_transaction_log(&p).await?;
-            all.extend(page.result.list);
-            match page.result.next_page_cursor {
-                Some(cursor) => p = p.with_cursor(cursor),
-                None => break,
-            }
-        }
-        Ok(all)
+        collect_pages(|cursor| {
+            let p = match cursor {
+                Some(cursor) => params.clone().with_cursor(cursor),
+                None => params.clone(),
+            };
+            async move { self.get_transaction_log(&p).await.map(|r| r.result) }
+        })
+        .await
     }
 
     /// Query the account information, like margin mode, account mode, etc.
@@ -1184,17 +1166,14 @@ impl Client {
         &self,
         params: &GetBorrowHistoryParams,
     ) -> Result<Vec<BorrowHistoryEntry>, Error> {
-        let mut all = Vec::new();
-        let mut p = params.clone();
-        loop {
-            let page = self.get_borrow_history(&p).await?;
-            all.extend(page.result.list);
-            match page.result.next_page_cursor {
-                Some(cursor) => p = p.with_cursor(cursor),
-                None => break,
-            }
-        }
-        Ok(all)
+        collect_pages(|cursor| {
+            let p = match cursor {
+                Some(cursor) => params.clone().with_cursor(cursor),
+                None => params.clone(),
+            };
+            async move { self.get_borrow_history(&p).await.map(|r| r.result) }
+        })
+        .await
     }
 
     /// Get Collateral Info.
@@ -1994,6 +1973,34 @@ impl Client {
     }
 }
 
+/// Upper bound on the number of pages fetched by the `*_all` methods.
+pub const MAX_PAGES: usize = 1000;
+
+/// Follow `next_page_cursor` until the last page and concatenate the lists.
+///
+/// `fetch` receives `None` for the first page and the cursor of the next page
+/// afterwards. Stops when there is no cursor, when a page is empty or when the
+/// server repeats the previous cursor (guards against endless loops), and
+/// fails with [`Error::TooManyPages`] after [`MAX_PAGES`] pages.
+async fn collect_pages<T, F, Fut>(mut fetch: F) -> Result<Vec<T>, Error>
+where
+    F: FnMut(Option<String>) -> Fut,
+    Fut: std::future::Future<Output = Result<CursorPagination<T>, Error>>,
+{
+    let mut all = Vec::new();
+    let mut cursor: Option<String> = None;
+    for _ in 0..MAX_PAGES {
+        let page = fetch(cursor.clone()).await?;
+        let empty = page.list.is_empty();
+        all.extend(page.list);
+        match page.next_page_cursor {
+            Some(next) if !empty && cursor.as_ref() != Some(&next) => cursor = Some(next),
+            _ => return Ok(all),
+        }
+    }
+    Err(Error::TooManyPages { max: MAX_PAGES })
+}
+
 /// Turn a raw HTTP response into a [`Response`] or an [`Error`].
 ///
 /// A non-2xx status is reported as [`Error::Api`] when the body is a Bybit
@@ -2123,6 +2130,75 @@ mod tests {
     fn truncate_respects_char_boundaries() {
         assert_eq!(truncate("abc", 10), "abc");
         assert_eq!(truncate("ab\u{00e9}c", 3), "ab");
+    }
+
+    fn page(list: Vec<u32>, cursor: Option<&str>) -> CursorPagination<u32> {
+        CursorPagination {
+            category: None,
+            next_page_cursor: cursor.map(String::from),
+            list,
+        }
+    }
+
+    /// Serves `pages` in order and records the cursors it was asked for.
+    async fn collect_from(
+        pages: Vec<CursorPagination<u32>>,
+    ) -> (Result<Vec<u32>, Error>, Vec<Option<String>>) {
+        let mut pages = pages.into_iter();
+        let mut requested = Vec::new();
+        let result = collect_pages(|cursor| {
+            requested.push(cursor);
+            let page = pages.next().expect("unexpected extra request");
+            async move { Ok(page) }
+        })
+        .await;
+        (result, requested)
+    }
+
+    #[tokio::test]
+    async fn collect_pages_follows_cursor_until_none() {
+        let (result, requested) = collect_from(vec![
+            page(vec![1, 2], Some("a")),
+            page(vec![3], Some("b")),
+            page(vec![4], None),
+        ])
+        .await;
+
+        assert_eq!(result.unwrap(), vec![1, 2, 3, 4]);
+        assert_eq!(requested, vec![None, Some("a".into()), Some("b".into())]);
+    }
+
+    #[tokio::test]
+    async fn collect_pages_stops_on_repeated_cursor() {
+        let (result, _) =
+            collect_from(vec![page(vec![1], Some("a")), page(vec![2], Some("a"))]).await;
+
+        assert_eq!(result.unwrap(), vec![1, 2]);
+    }
+
+    #[tokio::test]
+    async fn collect_pages_stops_on_empty_page_with_cursor() {
+        let (result, _) =
+            collect_from(vec![page(vec![1], Some("a")), page(vec![], Some("b"))]).await;
+
+        assert_eq!(result.unwrap(), vec![1]);
+    }
+
+    #[tokio::test]
+    async fn collect_pages_fails_after_max_pages() {
+        let mut n = 0;
+        let result = collect_pages(|_| {
+            n += 1;
+            let cursor = n.to_string();
+            async move { Ok(page(vec![1], Some(&cursor))) }
+        })
+        .await;
+
+        assert!(matches!(
+            result,
+            Err(Error::TooManyPages { max: MAX_PAGES })
+        ));
+        assert_eq!(n, MAX_PAGES);
     }
 
     #[tokio::test]

@@ -30,6 +30,10 @@ pub enum Error {
     },
     Reqwest(reqwest::Error),
     SerdeJson(serde_json::Error),
+    /// A `*_all` pagination helper fetched `max` pages without reaching the end.
+    TooManyPages {
+        max: usize,
+    },
     SerdeUrlEncoded(serde_urlencoded::ser::Error),
     SerdePathToError(serde_path_to_error::Error<serde_json::Error>),
 }
@@ -56,6 +60,9 @@ impl std::fmt::Display for Error {
                 "rate limit can never be satisfied: request cost {cost}, bucket burst {burst}"
             ),
             Error::Reqwest(error) => write!(f, "reqwest error: {error}"),
+            Error::TooManyPages { max } => {
+                write!(f, "pagination did not finish after {max} pages")
+            }
             Error::SerdeJson(error) => write!(f, "serde_json error: {error}"),
             Error::SerdeUrlEncoded(error) => write!(f, "serde_urlencoded error: {error}"),
             Error::SerdePathToError(error) => write!(
