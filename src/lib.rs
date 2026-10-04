@@ -26,12 +26,12 @@
 //!
 //! ```no_run
 //! use bybit::{
-//!     BASE_URL_API_MAINNET_1, Category,
+//!     Category, Environment,
 //!     http::{Client, Config, GetTickersParams},
 //! };
 //!
 //! # async fn run() -> Result<(), bybit::Error> {
-//! let client = Client::new(Config::new(BASE_URL_API_MAINNET_1))?;
+//! let client = Client::new(Config::for_env(Environment::Mainnet))?;
 //! let params = GetTickersParams {
 //!     category: Category::Linear,
 //!     symbol: Some(String::from("BTCUSDT")),
@@ -50,12 +50,12 @@
 //!
 //! ```no_run
 //! use bybit::{
-//!     AccountType, BASE_URL_API_DEMO,
+//!     AccountType, Environment,
 //!     http::{Client, Config, GetWalletBalanceParams},
 //! };
 //!
 //! # async fn run() -> Result<(), bybit::Error> {
-//! let client = Client::new(Config::new(BASE_URL_API_DEMO).credentials("API_KEY", "API_SECRET"))?;
+//! let client = Client::new(Config::for_env(Environment::Demo).credentials("API_KEY", "API_SECRET"))?;
 //! client.sync_time().await?;
 //! let params = GetWalletBalanceParams {
 //!     account_type: AccountType::UNIFIED,
@@ -74,13 +74,13 @@
 //!
 //! ```no_run
 //! use bybit::{
-//!     BASE_URL_STREAM_MAINNET_1, Path, Topic,
+//!     Category, Environment, Topic,
 //!     ws::{self, OutgoingMessage},
 //! };
 //!
 //! # async fn run() -> Result<(), bybit::ws::Error> {
-//! let url = format!("{BASE_URL_STREAM_MAINNET_1}{}", Path::PublicLinear);
-//! let (handle, mut events) = ws::Stream::new(ws::Config::new(url));
+//! let config = ws::Config::public(Environment::Mainnet, Category::Linear);
+//! let (handle, mut events) = ws::Stream::new(config);
 //! handle.connect().await?;
 //!
 //! while let Some(event) = events.recv().await {
@@ -118,6 +118,7 @@ mod account_state;
 mod common;
 mod crypto;
 mod enums;
+mod environment;
 mod error;
 mod orderbook_state;
 mod serde;
@@ -130,8 +131,11 @@ pub use account_state::*;
 pub use common::*;
 pub use crypto::*;
 pub use enums::*;
+pub use environment::Environment;
 pub use error::*;
 pub use orderbook_state::*;
+// The BASE_URL_* constants are deprecated in favour of `Environment`.
+#[allow(deprecated)]
 pub use url::{
     BASE_URL_API_DEMO, BASE_URL_API_MAINNET_1, BASE_URL_API_MAINNET_2, BASE_URL_API_MAINNET_3,
     BASE_URL_API_MAINNET_4, BASE_URL_API_MAINNET_5, BASE_URL_API_MAINNET_6, BASE_URL_API_TESTNET,

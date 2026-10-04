@@ -8,7 +8,7 @@ use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::{
-    AccountType, BASE_URL_API_DEMO,
+    AccountType, Environment,
     http::{Client, Config, GetWalletBalanceParams},
 };
 
@@ -23,9 +23,9 @@ async fn main() -> anyhow::Result<()> {
     let api_secret =
         std::env::var("API_SECRET").expect("environment variable API_SECRET is required");
 
-    let base_url = BASE_URL_API_DEMO;
+    let env = Environment::Demo;
 
-    let cfg = Config::new(base_url).credentials(api_key, api_secret);
+    let cfg = Config::for_env(env).credentials(api_key, api_secret);
     let client = Client::new(cfg)?;
 
     let params = GetWalletBalanceParams::new(AccountType::UNIFIED);

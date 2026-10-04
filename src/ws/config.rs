@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+use crate::{Category, Environment};
+
 pub const DEFAULT_PING_INTERVAL: Duration = Duration::from_secs(20);
 pub const DEFAULT_PONG_TIMEOUT: Duration = Duration::from_secs(10);
 pub const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
@@ -65,6 +67,17 @@ impl Config {
             url: url.into(),
             ..Default::default()
         }
+    }
+
+    /// Config for the public stream of `category` in `env`.
+    pub fn public(env: Environment, category: Category) -> Self {
+        Self::new(env.public_stream_url(category))
+    }
+
+    /// Config for the private stream (orders, positions, executions,
+    /// wallet) in `env`.
+    pub fn private(env: Environment) -> Self {
+        Self::new(env.private_stream_url())
     }
 
     pub fn command_queue_size(mut self, n: usize) -> Self {

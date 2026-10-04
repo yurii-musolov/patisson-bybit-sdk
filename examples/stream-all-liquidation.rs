@@ -11,7 +11,7 @@ use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::{
-    BASE_URL_STREAM_MAINNET_1, Path, Topic,
+    Category, Environment, Topic,
     ws::{self, OutgoingMessage},
 };
 
@@ -22,7 +22,6 @@ async fn main() -> anyhow::Result<()> {
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
-    let url = format!("{}{}", BASE_URL_STREAM_MAINNET_1, Path::PublicLinear);
     let symbol = String::from("BTCUSDT");
     let args = vec![Topic::AllLiquidation(symbol)];
 
@@ -35,7 +34,7 @@ async fn main() -> anyhow::Result<()> {
         args,
     };
 
-    let cfg = ws::Config::new(url);
+    let cfg = ws::Config::public(Environment::Mainnet, Category::Linear);
     let (handle, mut events) = ws::Stream::new(cfg);
 
     tokio::spawn(async move {

@@ -1,29 +1,42 @@
 use std::fmt;
 
 // Mainnet.
+#[deprecated(since = "0.3.0", note = "use `Environment`")]
 pub const BASE_URL_API_MAINNET_1: &str = "https://api.bybit.com";
+#[deprecated(since = "0.3.0", note = "use `Environment`")]
 pub const BASE_URL_API_MAINNET_2: &str = "https://api.bytick.com";
 /// For Netherland users.
+#[deprecated(since = "0.3.0", note = "use `Environment`")]
 pub const BASE_URL_API_MAINNET_3: &str = "https://api.bybit.nl";
 /// For Hong Kong users.
+#[deprecated(since = "0.3.0", note = "use `Environment`")]
 pub const BASE_URL_API_MAINNET_4: &str = "https://api.byhkbit.com";
 /// For Turkey users.
+#[deprecated(since = "0.3.0", note = "use `Environment`")]
 pub const BASE_URL_API_MAINNET_5: &str = "https://api.bybit-tr.com";
 /// For Kazakhstan users.
+#[deprecated(since = "0.3.0", note = "use `Environment`")]
 pub const BASE_URL_API_MAINNET_6: &str = "https://api.bybit.kz";
 
+#[deprecated(since = "0.3.0", note = "use `Environment`")]
 pub const BASE_URL_STREAM_MAINNET_1: &str = "wss://stream.bybit.com";
 /// For Turkey users.
+#[deprecated(since = "0.3.0", note = "use `Environment`")]
 pub const BASE_URL_STREAM_MAINNET_2: &str = "wss://stream.bybit-tr.com";
 /// For Kazakhstan users.
+#[deprecated(since = "0.3.0", note = "use `Environment`")]
 pub const BASE_URL_STREAM_MAINNET_3: &str = "wss://stream.bybit.kz";
 
 // Testnet.
+#[deprecated(since = "0.3.0", note = "use `Environment`")]
 pub const BASE_URL_API_TESTNET: &str = "https://api-testnet.bybit.com";
+#[deprecated(since = "0.3.0", note = "use `Environment`")]
 pub const BASE_URL_STREAM_TESTNET: &str = "wss://stream-testnet.bybit.com";
 
 // Demo trading.
+#[deprecated(since = "0.3.0", note = "use `Environment`")]
 pub const BASE_URL_API_DEMO: &str = "https://api-demo.bybit.com";
+#[deprecated(since = "0.3.0", note = "use `Environment`")]
 pub const BASE_URL_STREAM_DEMO: &str = "wss://stream-demo.bybit.com";
 
 // The following HTTP header keys must be used for authentication:

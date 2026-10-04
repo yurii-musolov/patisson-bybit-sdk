@@ -8,7 +8,7 @@ use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::{
-    BASE_URL_API_MAINNET_1,
+    Environment,
     http::{Client, Config},
 };
 
@@ -19,9 +19,9 @@ async fn main() -> anyhow::Result<()> {
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default subscriber failed");
 
-    let base_url = BASE_URL_API_MAINNET_1;
+    let env = Environment::Mainnet;
 
-    let cfg = Config::new(base_url);
+    let cfg = Config::for_env(env);
     let client = Client::new(cfg)?;
     let response = client.get_server_time().await?;
     info!(?response);

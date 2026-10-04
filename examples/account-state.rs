@@ -15,8 +15,7 @@ use tracing::{Level, info, warn};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::{
-    AccountState, AccountType, BASE_URL_API_DEMO, BASE_URL_STREAM_DEMO, Category, Error, Path,
-    Topic,
+    AccountState, AccountType, Category, Environment, Error, Topic,
     http::{
         Client, Config, GetOpenClosedOrdersParams, GetPositionInfoParams, GetWalletBalanceParams,
     },
@@ -40,15 +39,14 @@ async fn main() -> anyhow::Result<()> {
         std::env::var("API_SECRET").expect("environment variable API_SECRET is required");
 
     let client = Client::new(
-        Config::new(BASE_URL_API_DEMO)
+        Config::for_env(Environment::Demo)
             .credentials(api_key.clone(), api_secret.clone())
             .recv_window(RECV_WINDOW),
     )?;
     let offset_ms = client.sync_time().await?;
     info!(offset_ms, "server time synchronized");
 
-    let url = format!("{}{}", BASE_URL_STREAM_DEMO, Path::Private);
-    let (handle, mut events) = ws::Stream::new(ws::Config::new(url));
+    let (handle, mut events) = ws::Stream::new(ws::Config::private(Environment::Demo));
     handle.connect().await?;
 
     let mut state = AccountState::new();

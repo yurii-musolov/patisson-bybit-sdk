@@ -8,8 +8,7 @@ use tracing::{Level, info, warn};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::{
-    ApplyOutcome, BASE_URL_API_MAINNET_1, BASE_URL_STREAM_MAINNET_1, Category, DepthLevel,
-    OrderBookState, Path, Topic,
+    ApplyOutcome, Category, DepthLevel, Environment, OrderBookState, Topic,
     http::{Client, Config, GetOrderbookParams},
     ws::{self, IncomingMessage, OutgoingMessage},
 };
@@ -30,11 +29,10 @@ async fn main() -> anyhow::Result<()> {
         depth,
     };
 
-    let cfg = Config::new(BASE_URL_API_MAINNET_1);
+    let cfg = Config::for_env(Environment::Mainnet);
     let rest = Client::new(cfg)?;
 
-    let url = format!("{}{}", BASE_URL_STREAM_MAINNET_1, Path::PublicLinear);
-    let cfg = ws::Config::new(url);
+    let cfg = ws::Config::public(Environment::Mainnet, Category::Linear);
     let (handle, mut events) = ws::Stream::new(cfg);
 
     let subscribe = OutgoingMessage::Subscribe {
