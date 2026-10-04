@@ -60,9 +60,23 @@ pub enum ApplyOutcome {
 /// and inspect the book with [`bids`](Self::bids), [`asks`](Self::asks),
 /// [`best_bid`](Self::best_bid) and [`best_ask`](Self::best_ask) once
 /// [`is_synced`](Self::is_synced) is `true`.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct OrderBookState {
     inner: Inner,
+    /// Maximum number of diffs kept while waiting for a snapshot.
+    max_buffered: usize,
+}
+
+/// Default for [`OrderBookState::with_max_buffered`].
+pub const DEFAULT_MAX_BUFFERED_DIFFS: usize = 1000;
+
+impl Default for OrderBookState {
+    fn default() -> Self {
+        Self {
+            inner: Inner::default(),
+            max_buffered: DEFAULT_MAX_BUFFERED_DIFFS,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -95,6 +109,15 @@ impl OrderBookState {
         Self::default()
     }
 
+    /// Create an empty state machine that keeps at most `max_buffered` diffs
+    /// while waiting for a snapshot; the oldest ones are discarded first.
+    pub fn with_max_buffered(max_buffered: usize) -> Self {
+        Self {
+            inner: Inner::default(),
+            max_buffered,
+        }
+    }
+
     /// Feed a REST depth snapshot ([`Client::get_orderbook`](crate::http::Client::get_orderbook)).
     pub fn apply_snapshot(&mut self, snapshot: Orderbook) -> ApplyOutcome {
         self.set_snapshot(snapshot.update_id, snapshot.bids, snapshot.asks)
@@ -110,6 +133,9 @@ impl OrderBookState {
         match &mut self.inner {
             Inner::Empty { buffered } => {
                 buffered.insert(diff.update_id, diff);
+                while buffered.len() > self.max_buffered {
+                    buffered.pop_first();
+                }
                 ApplyOutcome::Buffered
             }
             Inner::Synced {
@@ -441,5 +467,36 @@ mod tests {
         };
         assert_eq!(book.apply(delta_msg), ApplyOutcome::Applied);
         assert_eq!(book.best_bid(), Some((dec!(100), dec!(1.5))));
+    }
+
+    #[test]
+    fn buffer_keeps_only_the_newest_diffs() {
+        let mut book = OrderBookState::with_max_buffered(3);
+        for id in 1..=10 {
+            let outcome =
+                book.apply_diff(diff(id, vec![level(dec!(100), Decimal::from(id))], vec![]));
+            assert_eq!(outcome, ApplyOutcome::Buffered);
+        }
+
+        // Diffs 8..=10 survived and bridge on top of snapshot 7.
+        let outcome = book.apply_snapshot(snapshot(7, vec![level(dec!(100), dec!(7))], vec![]));
+
+        assert_eq!(outcome, ApplyOutcome::Synced);
+        assert_eq!(book.last_update_id(), Some(10));
+        assert_eq!(book.best_bid(), Some((dec!(100), dec!(10))));
+    }
+
+    #[test]
+    fn evicted_diffs_do_not_bridge_an_older_snapshot() {
+        let mut book = OrderBookState::with_max_buffered(3);
+        for id in 3..=10 {
+            book.apply_diff(diff(id, vec![level(dec!(100), Decimal::from(id))], vec![]));
+        }
+
+        // Diffs 3..=7 were evicted, so snapshot 2 cannot be bridged.
+        let outcome = book.apply_snapshot(snapshot(2, vec![level(dec!(100), dec!(2))], vec![]));
+
+        assert_eq!(outcome, ApplyOutcome::Synced);
+        assert_eq!(book.last_update_id(), Some(2));
     }
 }
