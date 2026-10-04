@@ -4,7 +4,6 @@
 //! cargo run --example kline
 //! ```
 
-use tokio;
 use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 

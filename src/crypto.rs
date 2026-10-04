@@ -151,7 +151,7 @@ mod tests {
         let json = r#"{"category":"option"}"#;
         let expected = "1b9b318f05208c9113f2612b2a6d76ca29427e6d8148937c03d6505f8c00804c";
 
-        let (signature, timestamp) = signer.sign(&json);
+        let (signature, timestamp) = signer.sign(json);
 
         assert_eq!(signature, expected);
         assert_eq!(timestamp.len(), 13);

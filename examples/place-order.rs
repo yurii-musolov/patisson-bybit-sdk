@@ -7,7 +7,6 @@
 use core::panic;
 
 use rust_decimal::dec;
-use tokio;
 use tracing::{Level, info};
 use tracing_subscriber::FmtSubscriber;
 
@@ -47,7 +46,7 @@ async fn main() -> anyhow::Result<()> {
     // -------------------------------------------------------------------------
 
     let params = GetPositionInfoParams {
-        category: category.clone(),
+        category,
         symbol: Some(symbol.clone()),
         base_coin: None,
         settle_coin: None,
@@ -67,7 +66,7 @@ async fn main() -> anyhow::Result<()> {
     // -------------------------------------------------------------------------
 
     let params = GetTickersParams {
-        category: category.clone(),
+        category,
         symbol: Some(symbol.clone()),
         base_coin: None,
         exp_date: None,
@@ -80,20 +79,19 @@ async fn main() -> anyhow::Result<()> {
     // -------------------------------------------------------------------------
 
     let order_type = OrderType::Limit;
-    let mut request =
-        PlaceOrderRequest::new(category.clone(), symbol.clone(), side, order_type, qty);
+    let mut request = PlaceOrderRequest::new(category, symbol.clone(), side, order_type, qty);
     request.position_idx = Some(position_idx);
-    request.price = Some(price.clone());
+    request.price = Some(price);
     request.time_in_force = Some(TimeInForce::PostOnly);
     request.tpsl_mode = Some(TpslMode::Partial);
     request.tp_order_type = Some(OrderType::Limit);
     request.sl_order_type = Some(OrderType::Limit);
     request.tp_trigger_by = Some(TriggerBy::LastPrice);
     request.sl_trigger_by = Some(TriggerBy::LastPrice);
-    request.tp_limit_price = Some(price.clone() + dec!(110));
-    request.take_profit = Some(price.clone() + dec!(100));
-    request.stop_loss = Some(price.clone() - dec!(100));
-    request.sl_limit_price = Some(price.clone() - dec!(110));
+    request.tp_limit_price = Some(price + dec!(110));
+    request.take_profit = Some(price + dec!(100));
+    request.stop_loss = Some(price - dec!(100));
+    request.sl_limit_price = Some(price - dec!(110));
     let response = client.place_order(&request).await?;
     info!(?response);
 

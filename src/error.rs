@@ -75,7 +75,25 @@ impl std::fmt::Display for Error {
     }
 }
 
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Error::InvalidHeaderValue(error) => Some(error),
+            Error::Io(error) => Some(error),
+            Error::Reqwest(error) => Some(error),
+            Error::SerdeJson(error) => Some(error),
+            Error::SerdeUrlEncoded(error) => Some(error),
+            Error::SerdePathToError(error) => Some(error),
+            Error::Api { .. }
+            | Error::Http { .. }
+            | Error::MissingCredentials
+            | Error::Msg(_)
+            | Error::RateLimited { .. }
+            | Error::RateLimitUnsatisfiable { .. }
+            | Error::TooManyPages { .. } => None,
+        }
+    }
+}
 
 impl From<std::io::Error> for Error {
     fn from(err: std::io::Error) -> Self {

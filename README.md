@@ -22,7 +22,7 @@ patisson-bybit-sdk = "=0.2.3"
 
 ### Maintenance Policy
 
-This package is developed only in the author’s free time.
+This package is developed only in the author's free time.
 
 Releases are best-effort and not planned in advance.
 
@@ -37,64 +37,79 @@ The scope of the package is intentionally limited to the most commonly used func
 
 ## Examples
 
+See [`examples/`](examples) for runnable programs.
+
 ### Get tickers
 
 ```rust
-use bybit::v5::{ BASE_URL_API_MAINNET_1, Category, http::{ Client, Config, GetTickersParams } };
-
-let cfg = Config {
-    base_url: BASE_URL_API_MAINNET_1.to_owned(),
-    api_key: None,
-    api_secret: None,
-    recv_window: 5000, // Milliseconds.
-    referer: None,
+use bybit::{
+    BASE_URL_API_MAINNET_1, Category,
+    http::{Client, Config, GetTickersParams},
 };
-let client = Client::new(cfg);
+
+let cfg = Config::new(BASE_URL_API_MAINNET_1);
+let client = Client::new(cfg)?;
 let params = GetTickersParams {
     category: Category::Linear,
     symbol: Some(String::from("BTCUSDT")),
     base_coin: None, // If category=option, symbol or baseCoin must be passed.
     exp_date: None,
 };
-let response = client.get_tickers(params).await?;
+let response = client.get_tickers(&params).await?;
 println!("{response:#?}");
 ```
+
+### Private endpoints, timeouts and rate limiting
+
+```rust
+use std::time::Duration;
+
+use bybit::{
+    BASE_URL_API_DEMO,
+    http::{Client, Config, RateLimiterConfig},
+};
+
+let cfg = Config::new(BASE_URL_API_DEMO)
+    .credentials(api_key, api_secret)
+    .recv_window(5_000) // Milliseconds.
+    .timeout(Some(Duration::from_secs(10)))
+    .rate_limiter(RateLimiterConfig::bybit_base_tier_defaults());
+let client = Client::new(cfg)?;
+```
+
+Calling a private endpoint on a client without credentials returns
+`Error::MissingCredentials`.
 
 ### Subscribe to public channel 'ticker'
 
 ```rust
 use bybit::{
-    BASE_URL_STREAM_MAINNET_1, Interval, OutgoingMessage, Path, Topic, ws,
+    BASE_URL_STREAM_MAINNET_1, Path, Topic,
+    ws::{self, OutgoingMessage},
 };
 
 let url = format!("{}{}", BASE_URL_STREAM_MAINNET_1, Path::PublicLinear);
 let args = vec![Topic::Ticker(String::from("BTCUSDT"))];
 
-let sub = OutgoingMessage::Subscribe {
-    req_id: Some(String::from("req-0001")),
-    args: args.clone(),
-};
-let unsub = OutgoingMessage::Unsubscribe {
-    req_id: Some(String::from("req-0002")),
-    args,
-};
-
-let cfg = ws::Config::new(url);
-let (handle, mut events) = ws::Stream::new(cfg);
-
-tokio::spawn(async move {
-    let _ = handle.connect().await?;
-    let _ = handle.send_command(sub).await?;
-    sleep(Duration::from_secs(20)).await?;
-    let _ = handle.send_command(unsub).await?;
-    sleep(Duration::from_secs(2)).await?;
-    let _ = handle.disconnect().await?;
-});
+let (handle, mut events) = ws::Stream::new(ws::Config::new(url));
+handle.connect().await?;
 
 while let Some(event) = events.recv().await {
-    info!(?event);
-    if matches!(event, ws::Event::Disconnected { reason: _ }) {
-        break;
+    match event {
+        // Sent after the first connection and after every reconnect:
+        // subscriptions are not restored automatically.
+        ws::Event::Connected => {
+            let sub = OutgoingMessage::Subscribe {
+                req_id: None,
+                args: args.clone(),
+            };
+            handle.send_command(sub).await?;
+        }
+        ws::Event::Message(msg) => println!("{msg:?}"),
+        // Data events were dropped because the event queue was full.
+        ws::Event::Lagged { dropped } => eprintln!("lagged: {dropped} events dropped"),
+        ws::Event::Disconnected { .. } => break,
+        _ => {}
     }
 }
 ```
@@ -103,49 +118,44 @@ while let Some(event) = events.recv().await {
 
 ```rust
 use bybit::{
-    BASE_URL_STREAM_DEMO, Path, Topic, ws::{ create_outgoing_message_auth, OutgoingMessage },
+    BASE_URL_STREAM_DEMO, Path, SensitiveString, Topic,
+    ws::{self, OutgoingMessage, create_outgoing_message_auth},
 };
-
-use Topic::{ExecutionAllCategory, OrderAllCategory, PositionAllCategory, Wallet};
 
 let api_key = SensitiveString::from("XXXXXXXX");
 let api_secret = SensitiveString::from("XXXXXXXXXXXXXXXX");
 
 let url = format!("{}{}", BASE_URL_STREAM_DEMO, Path::Private);
 let args = vec![
-    ExecutionAllCategory,
-    OrderAllCategory,
-    PositionAllCategory,
-    Wallet,
+    Topic::ExecutionAllCategory,
+    Topic::OrderAllCategory,
+    Topic::PositionAllCategory,
+    Topic::Wallet,
 ];
-let auth =
-    create_outgoing_message_auth(api_key, api_secret, Some(String::from("req-0001")), 5_000);
-let sub = OutgoingMessage::Subscribe {
-    req_id: Some(String::from("req-0002")),
-    args: args.clone(),
-};
-let unsub = OutgoingMessage::Unsubscribe {
-    req_id: Some(String::from("req-0003")),
-    args,
-};
 
-let cfg = ws::Config::new(url);
-let (handle, mut events) = ws::spawn(cfg);
-
-tokio::spawn(async move {
-    let _ = handle.connect().await;
-    let _ = handle.send_command(auth).await;
-    let _ = handle.send_command(sub).await;
-    sleep(Duration::from_hours(24)).await;
-    let _ = handle.send_command(unsub).await;
-    sleep(Duration::from_secs(2)).await;
-    let _ = handle.disconnect().await;
-});
+let (handle, mut events) = ws::Stream::new(ws::Config::new(url));
+handle.connect().await?;
 
 while let Some(event) = events.recv().await {
-    info!(?event);
-    if matches!(event, ws::Event::Disconnected { reason: _ }) {
-        break;
+    match event {
+        // Authenticate and subscribe again after every (re)connect.
+        ws::Event::Connected => {
+            let auth = create_outgoing_message_auth(
+                api_key.clone(),
+                api_secret.clone(),
+                None,
+                5_000, // Milliseconds.
+            );
+            let sub = OutgoingMessage::Subscribe {
+                req_id: None,
+                args: args.clone(),
+            };
+            handle.send_command(auth).await?;
+            handle.send_command(sub).await?;
+        }
+        ws::Event::Message(msg) => println!("{msg:?}"),
+        ws::Event::Disconnected { .. } => break,
+        _ => {}
     }
 }
 ```

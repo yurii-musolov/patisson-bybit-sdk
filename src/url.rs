@@ -37,9 +37,9 @@ pub const HEADER_X_BAPI_SIGN: &str = "X-BAPI-SIGN";
 pub const HEADER_X_REFERER: &str = "X-Referer";
 /// The header for specify how long an HTTP request is valid (unit in millisecond and default value is 5,000). It is also used to prevent replay attacks..
 pub const HEADER_X_BAPI_RECV_WINDOW: &str = "X-BAPI-RECV-WINDOW";
-/// Your remaining requests for current endpoint.
-pub const HEADER_X_BAPI_LIMIT: &str = "X-Bapi-Limit";
 /// Your current limit for current endpoint.
+pub const HEADER_X_BAPI_LIMIT: &str = "X-Bapi-Limit";
+/// Your remaining requests for current endpoint.
 pub const HEADER_X_BAPI_LIMIT_STATUS: &str = "X-Bapi-Limit-Status";
 /// The timestamp indicating when your request limit resets if you have exceeded your rate_limit. Otherwise, this is just the current timestamp (it may not exactly match timeNow).
 pub const HEADER_X_BAPI_LIMIT_RESET_TIMESTAMP: &str = "X-Bapi-Limit-Reset-Timestamp";

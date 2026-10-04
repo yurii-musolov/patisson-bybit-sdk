@@ -1224,25 +1224,7 @@ impl Serialize for Topic {
     where
         S: Serializer,
     {
-        let s = match self {
-            Self::Orderbook { symbol, depth } => format!("orderbook.{depth}.{symbol}"),
-            Self::Trade(symbol) => format!("publicTrade.{symbol}"),
-            Self::Ticker(symbol) => format!("tickers.{symbol}"),
-            Self::Kline { symbol, interval } => format!("kline.{interval}.{symbol}"),
-            Self::AllLiquidation(symbol) => format!("allLiquidation.{symbol}"),
-            Self::Position(category) => format!("position.{category}"),
-            Self::PositionAllCategory => "position".to_string(),
-            Self::Execution(category) => format!("execution.{category}"),
-            Self::ExecutionAllCategory => "execution".to_string(),
-            Self::FastExecution(category) => format!("execution.fast.{category}"),
-            Self::FastExecutionAllCategory => "execution.fast".to_string(),
-            Self::Order(category) => format!("order.{category}"),
-            Self::OrderAllCategory => "order".to_string(),
-            Self::Wallet => "wallet".to_string(),
-            Self::Greek => "greek".to_string(),
-            Self::Dcp(function) => format!("dcp.{function}"),
-        };
-        serializer.serialize_str(&s)
+        serializer.collect_str(self)
     }
 }
 
@@ -1251,7 +1233,8 @@ impl<'de> Deserialize<'de> for Topic {
     where
         D: Deserializer<'de>,
     {
-        let s: &str = Deserialize::deserialize(deserializer)?;
+        let s: std::borrow::Cow<'de, str> = Deserialize::deserialize(deserializer)?;
+        let s = s.as_ref();
         if let Some((kind, args)) = s.split_once('.') {
             match kind {
                 "orderbook" => {
@@ -1416,7 +1399,7 @@ mod tests {
 
     #[test]
     fn serialize_category() {
-        let cases = vec![
+        let cases = [
             (Category::Inverse, r#""inverse""#),
             (Category::Linear, r#""linear""#),
             (Category::Option, r#""option""#),
@@ -1430,7 +1413,7 @@ mod tests {
 
     #[test]
     fn deserialize_category() {
-        let cases = vec![
+        let cases = [
             (r#""inverse""#, Category::Inverse),
             (r#""linear""#, Category::Linear),
             (r#""option""#, Category::Option),
@@ -1486,6 +1469,13 @@ mod tests {
             let message: Interval = deserialize_json(json).unwrap();
             assert_eq!(message, *expected);
         });
+    }
+
+    #[test]
+    fn deserialize_topic_with_escaped_characters() {
+        let topic: Topic = serde_json::from_str(r#""tickers.BTC\u0055SDT""#).unwrap();
+
+        assert_eq!(topic, Topic::Ticker(String::from("BTCUSDT")));
     }
 
     #[test]

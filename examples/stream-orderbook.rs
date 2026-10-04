@@ -4,7 +4,6 @@
 //! cargo run --example stream-orderbook
 //! ```
 
-use tokio;
 use tracing::{Level, info, warn};
 use tracing_subscriber::FmtSubscriber;
 
