@@ -52,24 +52,24 @@ impl GetPositionInfoParams {
         }
     }
 
-    pub fn with_symbol(mut self, v: String) -> Self {
-        self.symbol = Some(v);
+    pub fn with_symbol(mut self, v: impl Into<String>) -> Self {
+        self.symbol = Some(v.into());
         self
     }
-    pub fn with_base_coin(mut self, v: String) -> Self {
-        self.base_coin = Some(v);
+    pub fn with_base_coin(mut self, v: impl Into<String>) -> Self {
+        self.base_coin = Some(v.into());
         self
     }
-    pub fn with_settle_coin(mut self, v: String) -> Self {
-        self.settle_coin = Some(v);
+    pub fn with_settle_coin(mut self, v: impl Into<String>) -> Self {
+        self.settle_coin = Some(v.into());
         self
     }
     pub fn with_limit(mut self, v: u64) -> Self {
         self.limit = Some(v);
         self
     }
-    pub fn with_cursor(mut self, v: String) -> Self {
-        self.cursor = Some(v);
+    pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
+        self.cursor = Some(v.into());
         self
     }
 }
@@ -287,7 +287,8 @@ pub struct SetLeverageRequest {
 }
 
 impl SetLeverageRequest {
-    pub fn new(category: Category, symbol: String, leverage: Decimal) -> Self {
+    pub fn new(category: Category, symbol: impl Into<String>, leverage: Decimal) -> Self {
+        let symbol: String = symbol.into();
         Self {
             category,
             symbol,
@@ -348,7 +349,8 @@ pub struct SetTradingStopRequest {
 }
 
 impl SetTradingStopRequest {
-    pub fn new(category: Category, symbol: String, position_idx: PositionIdx) -> Self {
+    pub fn new(category: Category, symbol: impl Into<String>, position_idx: PositionIdx) -> Self {
+        let symbol: String = symbol.into();
         Self {
             category,
             symbol,
@@ -500,9 +502,9 @@ impl SwitchPositionModeRequest {
         }
     }
 
-    pub fn with_coin(mut self, v: String) -> Self {
+    pub fn with_coin(mut self, v: impl Into<String>) -> Self {
         self.symbol = None;
-        self.coin = Some(v);
+        self.coin = Some(v.into());
         self
     }
 }
@@ -522,7 +524,8 @@ pub struct SetAutoAddMarginRequest {
 }
 
 impl SetAutoAddMarginRequest {
-    pub fn new(category: Category, symbol: String, enabled: bool) -> Self {
+    pub fn new(category: Category, symbol: impl Into<String>, enabled: bool) -> Self {
+        let symbol: String = symbol.into();
         Self {
             category,
             symbol,
@@ -551,7 +554,8 @@ pub struct SetRiskLimitRequest {
 }
 
 impl SetRiskLimitRequest {
-    pub fn new(category: Category, symbol: String, risk_id: i64) -> Self {
+    pub fn new(category: Category, symbol: impl Into<String>, risk_id: i64) -> Self {
+        let symbol: String = symbol.into();
         Self {
             category,
             symbol,
@@ -609,8 +613,8 @@ impl GetClosedPnlParams {
         }
     }
 
-    pub fn with_symbol(mut self, v: String) -> Self {
-        self.symbol = Some(v);
+    pub fn with_symbol(mut self, v: impl Into<String>) -> Self {
+        self.symbol = Some(v.into());
         self
     }
     pub fn with_start_time(mut self, v: Timestamp) -> Self {
@@ -625,8 +629,8 @@ impl GetClosedPnlParams {
         self.limit = Some(v);
         self
     }
-    pub fn with_cursor(mut self, v: String) -> Self {
-        self.cursor = Some(v);
+    pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
+        self.cursor = Some(v.into());
         self
     }
 }
@@ -704,20 +708,20 @@ impl GetExecutionListParams {
         }
     }
 
-    pub fn with_symbol(mut self, v: String) -> Self {
-        self.symbol = Some(v);
+    pub fn with_symbol(mut self, v: impl Into<String>) -> Self {
+        self.symbol = Some(v.into());
         self
     }
-    pub fn with_order_id(mut self, v: String) -> Self {
-        self.order_id = Some(v);
+    pub fn with_order_id(mut self, v: impl Into<String>) -> Self {
+        self.order_id = Some(v.into());
         self
     }
-    pub fn with_order_link_id(mut self, v: String) -> Self {
-        self.order_link_id = Some(v);
+    pub fn with_order_link_id(mut self, v: impl Into<String>) -> Self {
+        self.order_link_id = Some(v.into());
         self
     }
-    pub fn with_base_coin(mut self, v: String) -> Self {
-        self.base_coin = Some(v);
+    pub fn with_base_coin(mut self, v: impl Into<String>) -> Self {
+        self.base_coin = Some(v.into());
         self
     }
     pub fn with_start_time(mut self, v: Timestamp) -> Self {
@@ -736,8 +740,8 @@ impl GetExecutionListParams {
         self.limit = Some(v);
         self
     }
-    pub fn with_cursor(mut self, v: String) -> Self {
-        self.cursor = Some(v);
+    pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
+        self.cursor = Some(v.into());
         self
     }
 }

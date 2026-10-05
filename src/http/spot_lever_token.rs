@@ -21,8 +21,8 @@ impl GetLeverageTokenInfoParams {
         Self { lt_coin: None }
     }
 
-    pub fn with_lt_coin(mut self, v: String) -> Self {
-        self.lt_coin = Some(v);
+    pub fn with_lt_coin(mut self, v: impl Into<String>) -> Self {
+        self.lt_coin = Some(v.into());
         self
     }
 }
@@ -79,7 +79,8 @@ pub struct GetLeverageTokenMarketParams {
 }
 
 impl GetLeverageTokenMarketParams {
-    pub fn new(lt_coin: String) -> Self {
+    pub fn new(lt_coin: impl Into<String>) -> Self {
+        let lt_coin: String = lt_coin.into();
         Self { lt_coin }
     }
 }
@@ -117,7 +118,8 @@ pub struct PurchaseLeverageTokenRequest {
 }
 
 impl PurchaseLeverageTokenRequest {
-    pub fn new(lt_coin: String, lt_amount: Decimal) -> Self {
+    pub fn new(lt_coin: impl Into<String>, lt_amount: Decimal) -> Self {
+        let lt_coin: String = lt_coin.into();
         Self {
             lt_coin,
             lt_amount,
@@ -125,8 +127,8 @@ impl PurchaseLeverageTokenRequest {
         }
     }
 
-    pub fn with_serial_no(mut self, v: String) -> Self {
-        self.serial_no = Some(v);
+    pub fn with_serial_no(mut self, v: impl Into<String>) -> Self {
+        self.serial_no = Some(v.into());
         self
     }
 }
@@ -165,7 +167,8 @@ pub struct RedeemLeverageTokenRequest {
 }
 
 impl RedeemLeverageTokenRequest {
-    pub fn new(lt_coin: String, quantity: Decimal) -> Self {
+    pub fn new(lt_coin: impl Into<String>, quantity: Decimal) -> Self {
+        let lt_coin: String = lt_coin.into();
         Self {
             lt_coin,
             quantity,
@@ -173,8 +176,8 @@ impl RedeemLeverageTokenRequest {
         }
     }
 
-    pub fn with_serial_no(mut self, v: String) -> Self {
-        self.serial_no = Some(v);
+    pub fn with_serial_no(mut self, v: impl Into<String>) -> Self {
+        self.serial_no = Some(v.into());
         self
     }
 }
@@ -234,12 +237,12 @@ impl GetLeverageTokenOrderRecordsParams {
         }
     }
 
-    pub fn with_lt_coin(mut self, v: String) -> Self {
-        self.lt_coin = Some(v);
+    pub fn with_lt_coin(mut self, v: impl Into<String>) -> Self {
+        self.lt_coin = Some(v.into());
         self
     }
-    pub fn with_order_id(mut self, v: String) -> Self {
-        self.order_id = Some(v);
+    pub fn with_order_id(mut self, v: impl Into<String>) -> Self {
+        self.order_id = Some(v.into());
         self
     }
     pub fn with_start_time(mut self, v: Timestamp) -> Self {
@@ -258,8 +261,8 @@ impl GetLeverageTokenOrderRecordsParams {
         self.lt_order_type = Some(v);
         self
     }
-    pub fn with_serial_no(mut self, v: String) -> Self {
-        self.serial_no = Some(v);
+    pub fn with_serial_no(mut self, v: impl Into<String>) -> Self {
+        self.serial_no = Some(v.into());
         self
     }
 }

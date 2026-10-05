@@ -280,24 +280,24 @@ impl GetTransactionLogParams {
         self.category = Some(v);
         self
     }
-    pub fn with_currency(mut self, v: String) -> Self {
-        self.currency = Some(v);
+    pub fn with_currency(mut self, v: impl Into<String>) -> Self {
+        self.currency = Some(v.into());
         self
     }
-    pub fn with_base_coin(mut self, v: String) -> Self {
-        self.base_coin = Some(v);
+    pub fn with_base_coin(mut self, v: impl Into<String>) -> Self {
+        self.base_coin = Some(v.into());
         self
     }
-    pub fn with_settle_coin(mut self, v: String) -> Self {
-        self.settle_coin = Some(v);
+    pub fn with_settle_coin(mut self, v: impl Into<String>) -> Self {
+        self.settle_coin = Some(v.into());
         self
     }
-    pub fn with_type(mut self, v: String) -> Self {
-        self.r#type = Some(v);
+    pub fn with_type(mut self, v: impl Into<String>) -> Self {
+        self.r#type = Some(v.into());
         self
     }
-    pub fn with_trans_sub_type(mut self, v: String) -> Self {
-        self.trans_sub_type = Some(v);
+    pub fn with_trans_sub_type(mut self, v: impl Into<String>) -> Self {
+        self.trans_sub_type = Some(v.into());
         self
     }
     pub fn with_start_time(mut self, v: Timestamp) -> Self {
@@ -312,8 +312,8 @@ impl GetTransactionLogParams {
         self.limit = Some(v);
         self
     }
-    pub fn with_cursor(mut self, v: String) -> Self {
-        self.cursor = Some(v);
+    pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
+        self.cursor = Some(v.into());
         self
     }
 }
@@ -512,8 +512,8 @@ impl GetBorrowHistoryParams {
         }
     }
 
-    pub fn with_currency(mut self, v: String) -> Self {
-        self.currency = Some(v);
+    pub fn with_currency(mut self, v: impl Into<String>) -> Self {
+        self.currency = Some(v.into());
         self
     }
     pub fn with_start_time(mut self, v: Timestamp) -> Self {
@@ -528,8 +528,8 @@ impl GetBorrowHistoryParams {
         self.limit = Some(v);
         self
     }
-    pub fn with_cursor(mut self, v: String) -> Self {
-        self.cursor = Some(v);
+    pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
+        self.cursor = Some(v.into());
         self
     }
 }
@@ -582,8 +582,8 @@ impl GetCollateralInfoParams {
         Self { currency: None }
     }
 
-    pub fn with_currency(mut self, v: String) -> Self {
-        self.currency = Some(v);
+    pub fn with_currency(mut self, v: impl Into<String>) -> Self {
+        self.currency = Some(v.into());
         self
     }
 }

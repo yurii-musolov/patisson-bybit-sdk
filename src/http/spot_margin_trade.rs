@@ -61,8 +61,8 @@ impl SetSpotMarginLeverageRequest {
         }
     }
 
-    pub fn with_currency(mut self, v: String) -> Self {
-        self.currency = Some(v);
+    pub fn with_currency(mut self, v: impl Into<String>) -> Self {
+        self.currency = Some(v.into());
         self
     }
 }

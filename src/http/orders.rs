@@ -80,24 +80,24 @@ impl GetOpenClosedOrdersParams {
         }
     }
 
-    pub fn with_symbol(mut self, v: String) -> Self {
-        self.symbol = Some(v);
+    pub fn with_symbol(mut self, v: impl Into<String>) -> Self {
+        self.symbol = Some(v.into());
         self
     }
-    pub fn with_base_coin(mut self, v: String) -> Self {
-        self.base_coin = Some(v);
+    pub fn with_base_coin(mut self, v: impl Into<String>) -> Self {
+        self.base_coin = Some(v.into());
         self
     }
-    pub fn with_settle_coin(mut self, v: String) -> Self {
-        self.settle_coin = Some(v);
+    pub fn with_settle_coin(mut self, v: impl Into<String>) -> Self {
+        self.settle_coin = Some(v.into());
         self
     }
-    pub fn with_order_id(mut self, v: String) -> Self {
-        self.order_id = Some(v);
+    pub fn with_order_id(mut self, v: impl Into<String>) -> Self {
+        self.order_id = Some(v.into());
         self
     }
-    pub fn with_order_link_id(mut self, v: String) -> Self {
-        self.order_link_id = Some(v);
+    pub fn with_order_link_id(mut self, v: impl Into<String>) -> Self {
+        self.order_link_id = Some(v.into());
         self
     }
     pub fn with_open_only(mut self, v: i32) -> Self {
@@ -112,8 +112,8 @@ impl GetOpenClosedOrdersParams {
         self.limit = Some(v);
         self
     }
-    pub fn with_cursor(mut self, v: String) -> Self {
-        self.cursor = Some(v);
+    pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
+        self.cursor = Some(v.into());
         self
     }
 }
@@ -553,11 +553,12 @@ pub struct PlaceOrderRequest {
 impl PlaceOrderRequest {
     pub fn new(
         category: Category,
-        symbol: String,
+        symbol: impl Into<String>,
         side: Side,
         order_type: OrderType,
         qty: Decimal,
     ) -> Self {
+        let symbol: String = symbol.into();
         Self {
             category,
             symbol,
@@ -599,8 +600,8 @@ impl PlaceOrderRequest {
         self.is_leverage = Some(v);
         self
     }
-    pub fn with_market_unit(mut self, v: String) -> Self {
-        self.market_unit = Some(v);
+    pub fn with_market_unit(mut self, v: impl Into<String>) -> Self {
+        self.market_unit = Some(v.into());
         self
     }
     pub fn with_slippage_tolerance_type(mut self, v: Decimal) -> Self {
@@ -619,8 +620,8 @@ impl PlaceOrderRequest {
         self.trigger_direction = Some(v);
         self
     }
-    pub fn with_order_filter(mut self, v: String) -> Self {
-        self.order_filter = Some(v);
+    pub fn with_order_filter(mut self, v: impl Into<String>) -> Self {
+        self.order_filter = Some(v.into());
         self
     }
     pub fn with_trigger_price(mut self, v: Decimal) -> Self {
@@ -643,8 +644,8 @@ impl PlaceOrderRequest {
         self.position_idx = Some(v);
         self
     }
-    pub fn with_order_link_id(mut self, v: String) -> Self {
-        self.order_link_id = Some(v);
+    pub fn with_order_link_id(mut self, v: impl Into<String>) -> Self {
+        self.order_link_id = Some(v.into());
         self
     }
     pub fn with_take_profit(mut self, v: Decimal) -> Self {
@@ -699,12 +700,12 @@ impl PlaceOrderRequest {
         self.sl_order_type = Some(v);
         self
     }
-    pub fn with_bbo_side_type(mut self, v: String) -> Self {
-        self.bbo_side_type = Some(v);
+    pub fn with_bbo_side_type(mut self, v: impl Into<String>) -> Self {
+        self.bbo_side_type = Some(v.into());
         self
     }
-    pub fn with_bbo_level(mut self, v: String) -> Self {
-        self.bbo_level = Some(v);
+    pub fn with_bbo_level(mut self, v: impl Into<String>) -> Self {
+        self.bbo_level = Some(v.into());
         self
     }
 }
@@ -734,7 +735,8 @@ pub struct AmendOrderRequest {
 }
 
 impl AmendOrderRequest {
-    pub fn new(category: Category, symbol: String) -> Self {
+    pub fn new(category: Category, symbol: impl Into<String>) -> Self {
+        let symbol: String = symbol.into();
         Self {
             category,
             symbol,
@@ -745,12 +747,12 @@ impl AmendOrderRequest {
         }
     }
 
-    pub fn with_order_id(mut self, v: String) -> Self {
-        self.order_id = Some(v);
+    pub fn with_order_id(mut self, v: impl Into<String>) -> Self {
+        self.order_id = Some(v.into());
         self
     }
-    pub fn with_order_link_id(mut self, v: String) -> Self {
-        self.order_link_id = Some(v);
+    pub fn with_order_link_id(mut self, v: impl Into<String>) -> Self {
+        self.order_link_id = Some(v.into());
         self
     }
     pub fn with_qty(mut self, v: Decimal) -> Self {
@@ -794,7 +796,8 @@ pub struct CancelOrderRequest {
 }
 
 impl CancelOrderRequest {
-    pub fn new(category: Category, symbol: String) -> Self {
+    pub fn new(category: Category, symbol: impl Into<String>) -> Self {
+        let symbol: String = symbol.into();
         Self {
             category,
             symbol,
@@ -804,12 +807,12 @@ impl CancelOrderRequest {
         }
     }
 
-    pub fn with_order_id(mut self, v: String) -> Self {
-        self.order_id = Some(v);
+    pub fn with_order_id(mut self, v: impl Into<String>) -> Self {
+        self.order_id = Some(v.into());
         self
     }
-    pub fn with_order_link_id(mut self, v: String) -> Self {
-        self.order_link_id = Some(v);
+    pub fn with_order_link_id(mut self, v: impl Into<String>) -> Self {
+        self.order_link_id = Some(v.into());
         self
     }
     pub fn with_order_filter(mut self, v: OrderFilter) -> Self {
@@ -859,16 +862,16 @@ impl CancelAllOrdersRequest {
         }
     }
 
-    pub fn with_symbol(mut self, v: String) -> Self {
-        self.symbol = Some(v);
+    pub fn with_symbol(mut self, v: impl Into<String>) -> Self {
+        self.symbol = Some(v.into());
         self
     }
-    pub fn with_base_coin(mut self, v: String) -> Self {
-        self.base_coin = Some(v);
+    pub fn with_base_coin(mut self, v: impl Into<String>) -> Self {
+        self.base_coin = Some(v.into());
         self
     }
-    pub fn with_settle_coin(mut self, v: String) -> Self {
-        self.settle_coin = Some(v);
+    pub fn with_settle_coin(mut self, v: impl Into<String>) -> Self {
+        self.settle_coin = Some(v.into());
         self
     }
     pub fn with_order_filter(mut self, v: OrderFilter) -> Self {
@@ -935,24 +938,24 @@ impl GetOrderHistoryParams {
         }
     }
 
-    pub fn with_symbol(mut self, v: String) -> Self {
-        self.symbol = Some(v);
+    pub fn with_symbol(mut self, v: impl Into<String>) -> Self {
+        self.symbol = Some(v.into());
         self
     }
-    pub fn with_base_coin(mut self, v: String) -> Self {
-        self.base_coin = Some(v);
+    pub fn with_base_coin(mut self, v: impl Into<String>) -> Self {
+        self.base_coin = Some(v.into());
         self
     }
-    pub fn with_settle_coin(mut self, v: String) -> Self {
-        self.settle_coin = Some(v);
+    pub fn with_settle_coin(mut self, v: impl Into<String>) -> Self {
+        self.settle_coin = Some(v.into());
         self
     }
-    pub fn with_order_id(mut self, v: String) -> Self {
-        self.order_id = Some(v);
+    pub fn with_order_id(mut self, v: impl Into<String>) -> Self {
+        self.order_id = Some(v.into());
         self
     }
-    pub fn with_order_link_id(mut self, v: String) -> Self {
-        self.order_link_id = Some(v);
+    pub fn with_order_link_id(mut self, v: impl Into<String>) -> Self {
+        self.order_link_id = Some(v.into());
         self
     }
     pub fn with_order_filter(mut self, v: OrderFilter) -> Self {
@@ -975,8 +978,8 @@ impl GetOrderHistoryParams {
         self.limit = Some(v);
         self
     }
-    pub fn with_cursor(mut self, v: String) -> Self {
-        self.cursor = Some(v);
+    pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
+        self.cursor = Some(v.into());
         self
     }
 }
