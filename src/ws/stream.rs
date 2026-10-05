@@ -563,6 +563,24 @@ impl Stream {
                     .await;
                 }
             }
+            // The order entry stream replies to `auth` in its own format;
+            // 20001 means "already authenticated".
+            IncomingMessage::TradeReply(reply) if session.awaiting_auth && reply.op == "auth" => {
+                session.awaiting_auth = false;
+                if reply.ret_code == 0 || reply.ret_code == 20001 {
+                    info!("stream authenticated");
+                    session.ready = true;
+                    self.emit_lifecycle(Event::Authenticated).await;
+                    let topics = self.topics.clone();
+                    self.send_topics(sink, session, true, &topics).await?;
+                } else {
+                    warn!(ret_code = reply.ret_code, ret_msg = %reply.ret_msg, "stream authentication failed");
+                    self.emit_lifecycle(Event::AuthFailed {
+                        ret_msg: Some(reply.ret_msg.clone()),
+                    })
+                    .await;
+                }
+            }
             IncomingMessage::Command(CommandMsg::Subscribe {
                 req_id: Some(req_id),
                 success,

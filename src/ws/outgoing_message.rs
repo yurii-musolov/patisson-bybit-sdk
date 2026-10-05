@@ -1,6 +1,13 @@
 use serde::Serialize;
 
-use crate::{SensitiveString, Timestamp, Topic, create_stream_signature, timestamp};
+use crate::{
+    SensitiveString, Timestamp, Topic, create_stream_signature,
+    http::{
+        AmendOrderBatchRequest, AmendOrderRequest, CancelOrderBatchRequest, CancelOrderRequest,
+        PlaceOrderBatchRequest, PlaceOrderRequest,
+    },
+    timestamp,
+};
 
 /// Messages sent to a Bybit stream.
 #[derive(Serialize, Debug)]
@@ -47,6 +54,86 @@ pub enum OutgoingMessage {
         #[serde(skip_serializing_if = "Option::is_none")]
         req_id: Option<String>,
     },
+    /// Create an order on the order entry stream (`/v5/trade`).
+    #[serde(rename = "order.create")]
+    OrderCreate {
+        /// Unique id (at most 36 characters) echoed in the reply.
+        #[serde(rename = "reqId")]
+        req_id: String,
+        /// Timestamp and validity of the request.
+        header: TradeHeader,
+        /// Exactly one request.
+        args: Vec<PlaceOrderRequest>,
+    },
+    /// Amend an order on the order entry stream.
+    #[serde(rename = "order.amend")]
+    OrderAmend {
+        /// Unique id (at most 36 characters) echoed in the reply.
+        #[serde(rename = "reqId")]
+        req_id: String,
+        /// Timestamp and validity of the request.
+        header: TradeHeader,
+        /// Exactly one request.
+        args: Vec<AmendOrderRequest>,
+    },
+    /// Cancel an order on the order entry stream.
+    #[serde(rename = "order.cancel")]
+    OrderCancel {
+        /// Unique id (at most 36 characters) echoed in the reply.
+        #[serde(rename = "reqId")]
+        req_id: String,
+        /// Timestamp and validity of the request.
+        header: TradeHeader,
+        /// Exactly one request.
+        args: Vec<CancelOrderRequest>,
+    },
+    /// Create orders in a batch on the order entry stream.
+    #[serde(rename = "order.create-batch")]
+    OrderCreateBatch {
+        /// Unique id (at most 36 characters) echoed in the reply.
+        #[serde(rename = "reqId")]
+        req_id: String,
+        /// Timestamp and validity of the request.
+        header: TradeHeader,
+        /// Exactly one batch.
+        args: Vec<PlaceOrderBatchRequest>,
+    },
+    /// Amend orders in a batch on the order entry stream.
+    #[serde(rename = "order.amend-batch")]
+    OrderAmendBatch {
+        /// Unique id (at most 36 characters) echoed in the reply.
+        #[serde(rename = "reqId")]
+        req_id: String,
+        /// Timestamp and validity of the request.
+        header: TradeHeader,
+        /// Exactly one batch.
+        args: Vec<AmendOrderBatchRequest>,
+    },
+    /// Cancel orders in a batch on the order entry stream.
+    #[serde(rename = "order.cancel-batch")]
+    OrderCancelBatch {
+        /// Unique id (at most 36 characters) echoed in the reply.
+        #[serde(rename = "reqId")]
+        req_id: String,
+        /// Timestamp and validity of the request.
+        header: TradeHeader,
+        /// Exactly one batch.
+        args: Vec<CancelOrderBatchRequest>,
+    },
+}
+
+/// `header` of an order entry request.
+#[derive(Serialize, Debug, Clone, PartialEq)]
+pub struct TradeHeader {
+    /// Request time, milliseconds (use the server clock).
+    #[serde(rename = "X-BAPI-TIMESTAMP")]
+    pub timestamp: String,
+    /// How long the request stays valid, milliseconds.
+    #[serde(rename = "X-BAPI-RECV-WINDOW")]
+    pub recv_window: String,
+    /// Broker referer.
+    #[serde(rename = "Referer", skip_serializing_if = "Option::is_none")]
+    pub referer: Option<String>,
 }
 
 /// `auth` message for a private stream, valid for `recv_window` ms from now

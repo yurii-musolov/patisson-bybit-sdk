@@ -8,6 +8,8 @@ pub const DEFAULT_PING_INTERVAL: Duration = Duration::from_secs(20);
 pub const DEFAULT_PONG_TIMEOUT: Duration = Duration::from_secs(10);
 /// Default timeout of the TCP/TLS/WebSocket handshake.
 pub const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+/// Default time [`TradeClient`](crate::ws::TradeClient) waits for a reply.
+pub const DEFAULT_REQUEST_TIMEOUT: Duration = Duration::from_secs(10);
 /// Default validity of the stream `auth` message, milliseconds.
 pub const DEFAULT_AUTH_RECV_WINDOW: Timestamp = 5_000;
 
@@ -56,13 +58,19 @@ pub struct Config {
     /// API secret for private streams (see [`Config::api_key`]).
     pub api_secret: Option<SensitiveString>,
 
-    /// How long the `auth` message stays valid, milliseconds.
+    /// How long the `auth` message (and, for
+    /// [`TradeClient`](crate::ws::TradeClient), each order entry request)
+    /// stays valid, milliseconds.
     pub auth_recv_window: Timestamp,
 
     /// Clock used for the `auth` expiry; share
     /// [`http::Client::clock`](crate::http::Client::clock) to use the offset
     /// measured by `sync_time`.
     pub server_clock: ServerClock,
+
+    /// How long [`TradeClient`](crate::ws::TradeClient) waits for the reply
+    /// to an order entry request.
+    pub request_timeout: Duration,
 }
 
 impl Default for Config {
@@ -82,6 +90,7 @@ impl Default for Config {
             api_secret: None,
             auth_recv_window: DEFAULT_AUTH_RECV_WINDOW,
             server_clock: ServerClock::new(),
+            request_timeout: DEFAULT_REQUEST_TIMEOUT,
         }
     }
 }
@@ -98,6 +107,15 @@ impl Config {
     /// Config for the public stream of `category` in `env`.
     pub fn public(env: Environment, category: Category) -> Self {
         Self::new(env.public_stream_url(category))
+    }
+
+    /// Config for the order entry stream of `env`, used by
+    /// [`TradeClient`](crate::ws::TradeClient). Fails where Bybit offers no
+    /// order entry stream (see [`Environment::trade_stream_url`]).
+    pub fn trade(env: Environment) -> Result<Self, crate::ws::Error> {
+        env.trade_stream_url().map(Self::new).ok_or_else(|| {
+            crate::ws::Error::InvalidUrl(format!("{env:?} has no order entry stream"))
+        })
     }
 
     /// Config for the private stream (orders, positions, executions,
@@ -178,6 +196,12 @@ impl Config {
     /// Validity of the `auth` message, milliseconds.
     pub fn auth_recv_window(mut self, recv_window: Timestamp) -> Self {
         self.auth_recv_window = recv_window;
+        self
+    }
+
+    /// How long [`TradeClient`](crate::ws::TradeClient) waits for a reply.
+    pub fn request_timeout(mut self, d: Duration) -> Self {
+        self.request_timeout = d;
         self
     }
 

@@ -90,6 +90,16 @@ impl Environment {
         format!("{}{}", self.private_stream_base(), Path::Private)
     }
 
+    /// URL of the order entry stream (`/v5/trade`), or `None` where Bybit
+    /// does not offer it: demo trading, and sites without a documented
+    /// order entry stream (Georgia, Indonesia).
+    pub fn trade_stream_url(&self) -> Option<String> {
+        match self {
+            Self::Demo | Self::Georgia | Self::Indonesia => None,
+            _ => Some(format!("{}{}", self.private_stream_base(), Path::Trade)),
+        }
+    }
+
     fn public_stream_base(&self) -> &'static str {
         match self {
             // Demo trading serves private streams only.
@@ -177,6 +187,16 @@ mod tests {
                 "wss://stream.example.com/v5/private",
             ),
         ];
+
+        assert_eq!(
+            Environment::Mainnet.trade_stream_url().as_deref(),
+            Some("wss://stream.bybit.com/v5/trade")
+        );
+        assert_eq!(
+            Environment::Testnet.trade_stream_url().as_deref(),
+            Some("wss://stream-testnet.bybit.com/v5/trade")
+        );
+        assert_eq!(Environment::Demo.trade_stream_url(), None);
 
         for (env, api, public, private) in cases {
             assert_eq!(env.api_url(), api, "{env:?}");

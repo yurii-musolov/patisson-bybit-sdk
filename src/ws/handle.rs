@@ -6,7 +6,7 @@ use crate::{
 };
 
 /// Sends commands to a running [`Stream`](crate::ws::Stream); cheap to clone.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Handle {
     cmd_tx: mpsc::Sender<Command>,
 }
