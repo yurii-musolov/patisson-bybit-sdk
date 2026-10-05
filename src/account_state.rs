@@ -51,6 +51,7 @@ pub struct AccountScope {
 }
 
 impl AccountScope {
+    /// An empty scope; add categories and the wallet with the builder methods.
     pub fn new() -> Self {
         Self::default()
     }
@@ -96,7 +97,9 @@ pub const MAX_CLOSED_ORDERS: usize = 10_000;
 /// Identifies an order. Order ids are unique only within a category.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct OrderKey {
+    /// Product type.
     pub category: Category,
+    /// Bybit order id.
     pub order_id: String,
 }
 
@@ -104,8 +107,11 @@ pub struct OrderKey {
 /// in hedge mode.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PositionKey {
+    /// Product type.
     pub category: Category,
+    /// Symbol, e.g. `BTCUSDT`.
     pub symbol: String,
+    /// One-way (`OneWay`) or one side of hedge mode (`Buy`/`Sell`).
     pub position_idx: PositionIdx,
 }
 
@@ -119,7 +125,12 @@ pub enum Change {
     OrderUpdated(OrderKey),
     /// An order reached a final status and was removed. `order` is its final
     /// state.
-    OrderClosed { key: OrderKey, order: Box<Order> },
+    OrderClosed {
+        /// Key of the closed order.
+        key: OrderKey,
+        /// Final state of the order.
+        order: Box<Order>,
+    },
     /// A position was created or changed (including closing to size 0).
     PositionUpdated(PositionKey),
     /// The balance of an account type was replaced.
@@ -138,6 +149,7 @@ pub struct AccountState {
 }
 
 impl AccountState {
+    /// An empty state; fill it with [`set_orders`](Self::set_orders) and friends or use [`load`](Self::load).
     pub fn new() -> Self {
         Self::default()
     }
@@ -362,14 +374,17 @@ impl AccountState {
 
     // -- Queries ------------------------------------------------------------
 
+    /// Balance of `account_type`, if loaded or received.
     pub fn wallet(&self, account_type: AccountType) -> Option<&WalletBalance> {
         self.wallets.get(&account_type)
     }
 
+    /// All known wallet balances.
     pub fn wallets(&self) -> impl Iterator<Item = &WalletBalance> {
         self.wallets.values()
     }
 
+    /// Open order by id.
     pub fn order(&self, category: Category, order_id: &str) -> Option<&Order> {
         self.orders.get(&OrderKey {
             category,
@@ -377,6 +392,7 @@ impl AccountState {
         })
     }
 
+    /// Open order by the client-assigned `orderLinkId`.
     pub fn order_by_link_id(&self, category: Category, order_link_id: &str) -> Option<&Order> {
         self.orders.iter().find_map(|(key, order)| {
             (key.category == category && order.order_link_id.as_deref() == Some(order_link_id))
@@ -401,6 +417,7 @@ impl AccountState {
             .map(|(_, order)| order)
     }
 
+    /// Position by symbol and position index (`OneWay`, or `Buy`/`Sell` in hedge mode).
     pub fn position(
         &self,
         category: Category,

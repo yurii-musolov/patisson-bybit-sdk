@@ -2,6 +2,11 @@
 //!
 //! Ref: <https://bybit-exchange.github.io/docs/v5/enum>
 
+// Data model mirroring the Bybit V5 API (request parameters, responses,
+// stream messages): field and variant docs are added module by module; see
+// https://bybit-exchange.github.io/docs/v5/intro for the meaning of each field.
+#![allow(missing_docs)]
+
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_repr::*;
 use std::fmt;

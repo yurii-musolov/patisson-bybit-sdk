@@ -25,11 +25,14 @@ pub struct BucketLimit {
 /// endpoint has one limit regardless of category.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct RateLimitKey {
+    /// Endpoint.
     pub path: Path,
+    /// Category, for endpoints whose limit depends on it.
     pub category: Option<Category>,
 }
 
 impl RateLimitKey {
+    /// Key of a category-independent endpoint.
     pub const fn new(path: Path) -> Self {
         Self {
             path,
@@ -37,6 +40,7 @@ impl RateLimitKey {
         }
     }
 
+    /// Key of an endpoint whose limit depends on the category.
     pub const fn with_category(path: Path, category: Category) -> Self {
         Self {
             path,
@@ -197,6 +201,7 @@ impl RateLimiterConfig {
         }
     }
 
+    /// Set the limit of one bucket.
     pub fn with_override(mut self, key: RateLimitKey, limit: BucketLimit) -> Self {
         self.overrides.insert(key, limit);
         self

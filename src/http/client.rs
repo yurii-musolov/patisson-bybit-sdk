@@ -60,9 +60,13 @@ pub const DEFAULT_RECV_WINDOW: Timestamp = 5000;
 /// Maximum number of bytes of a non-2xx response body kept in [`Error::Http`].
 const MAX_ERROR_BODY_LEN: usize = 1024;
 
+/// Configuration of a [`Client`]; start with [`Config::new`] or [`Config::for_env`].
 pub struct Config {
+    /// REST base URL, e.g. `https://api.bybit.com`.
     pub base_url: String,
+    /// API key for private endpoints (see [`Config::credentials`]).
     pub api_key: Option<SensitiveString>,
+    /// API secret for private endpoints (see [`Config::credentials`]).
     pub api_secret: Option<SensitiveString>,
     /// Milliseconds.
     pub recv_window: Timestamp,
@@ -128,33 +132,38 @@ impl Config {
         self
     }
 
+    /// Broker referer header (`X-Referer`).
     pub fn referer(mut self, referer: impl Into<String>) -> Self {
         self.referer = Some(referer.into());
         self
     }
 
+    /// Enable the local rate limiter.
     pub fn rate_limiter(mut self, rate_limiter: RateLimiterConfig) -> Self {
         self.rate_limiter = Some(rate_limiter);
         self
     }
 
+    /// Total timeout of one request; `None` disables it.
     pub fn timeout(mut self, timeout: Option<Duration>) -> Self {
         self.timeout = timeout;
         self
     }
 
+    /// Timeout of establishing a connection; `None` disables it.
     pub fn connect_timeout(mut self, connect_timeout: Option<Duration>) -> Self {
         self.connect_timeout = connect_timeout;
         self
     }
 
-    /// See [`Config::proxy`].
+    /// HTTP(S) proxy for REST requests, e.g. `http://127.0.0.1:8080`.
     pub fn proxy(mut self, url: impl Into<String>) -> Self {
         self.proxy = Some(url.into());
         self
     }
 
-    /// See [`Config::resync_time_on_timestamp_error`].
+    /// Re-synchronize the clock and retry once when Bybit rejects a
+    /// request timestamp (`retCode` 10002). Enabled by default.
     pub fn resync_time_on_timestamp_error(mut self, enabled: bool) -> Self {
         self.resync_time_on_timestamp_error = enabled;
         self
@@ -179,6 +188,7 @@ pub struct Client {
 }
 
 impl Client {
+    /// Create a client. Fails if a header value (API key, referer) is invalid, `api_secret` is set without `api_key`, or the proxy URL is invalid.
     pub fn new(cfg: Config) -> Result<Self, Error> {
         let mut headers = HeaderMap::new();
 
@@ -311,6 +321,7 @@ fn estimate_time_offset(sent_at: Timestamp, received_at: Timestamp, server_ms: T
 
 // Market.
 impl Client {
+    /// Get Bybit Server Time. See also [`Client::sync_time`].
     #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_server_time(&self) -> Result<Response<ServerTime>, Error> {
         let url = format!("{}{}", self.base_url, Path::MarketServerTime);
@@ -321,6 +332,10 @@ impl Client {
         Ok(response)
     }
 
+    /// Get Kline.
+    /// Query the kline data. Charts are returned in groups based on the requested interval.
+    ///
+    /// Covers: Spot / USDT contract / USDC contract / Inverse contract
     #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_kline(&self, params: &GetKLinesParams) -> Result<Response<KLine>, Error> {
         let url = format!("{}{}", self.base_url, Path::MarketKline);
@@ -414,6 +429,8 @@ impl Client {
         Ok(response)
     }
 
+    /// Get Instruments Info.
+    /// Query the specifications of online trading pairs.
     #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_instruments_info(
         &self,
@@ -427,6 +444,8 @@ impl Client {
         Ok(response)
     }
 
+    /// Get Recent Public Trades.
+    /// Query recent public trading data.
     #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_public_recent_trading_history(
         &self,
