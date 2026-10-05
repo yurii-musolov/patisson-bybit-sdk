@@ -2,12 +2,16 @@ use std::time::Duration;
 
 use crate::{Category, Environment, SensitiveString, ServerClock, Timestamp};
 
+/// Default interval of the application-level heartbeat ping.
 pub const DEFAULT_PING_INTERVAL: Duration = Duration::from_secs(20);
+/// Default time to wait for the heartbeat reply before reconnecting.
 pub const DEFAULT_PONG_TIMEOUT: Duration = Duration::from_secs(10);
+/// Default timeout of the TCP/TLS/WebSocket handshake.
 pub const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 /// Default validity of the stream `auth` message, milliseconds.
 pub const DEFAULT_AUTH_RECV_WINDOW: Timestamp = 5_000;
 
+/// Configuration of a [`Stream`](crate::ws::Stream); start with [`Config::public`], [`Config::private`] or [`Config::new`].
 #[derive(Debug, Clone)]
 pub struct Config {
     /// WebSocket server URL
@@ -83,6 +87,7 @@ impl Default for Config {
 }
 
 impl Config {
+    /// Config for a stream URL, e.g. `wss://stream.bybit.com/v5/public/linear`, with default settings.
     pub fn new(url: impl Into<String>) -> Self {
         Self {
             url: url.into(),
@@ -101,46 +106,58 @@ impl Config {
         Self::new(env.private_stream_url())
     }
 
+    /// Maximum number of pending commands; further commands wait
+    /// (or fail with `QueueFull` for `try_*`).
     pub fn command_queue_size(mut self, n: usize) -> Self {
         self.command_queue_size = n;
         self
     }
 
+    /// Maximum number of buffered events; data events beyond it are dropped
+    /// and reported by [`Event::Lagged`](crate::ws::Event::Lagged).
     pub fn event_queue_size(mut self, n: usize) -> Self {
         self.event_queue_size = n;
         self
     }
 
+    /// Maximum consecutive reconnect attempts without a successful
+    /// connection; 0 disables reconnecting.
     pub fn max_reconnect_attempts(mut self, n: u32) -> Self {
         self.max_reconnect_attempts = n;
         self
     }
 
+    /// Delay before the first reconnect attempt; it doubles per attempt.
     pub fn reconnect_base_delay(mut self, d: Duration) -> Self {
         self.reconnect_base_delay = d;
         self
     }
 
+    /// Upper bound of the reconnect delay.
     pub fn reconnect_max_delay(mut self, d: Duration) -> Self {
         self.reconnect_max_delay = d;
         self
     }
 
+    /// How long to wait for the close handshake on disconnect.
     pub fn close_timeout(mut self, d: Duration) -> Self {
         self.close_timeout = d;
         self
     }
 
+    /// Timeout of the TCP/TLS/WebSocket handshake.
     pub fn connect_timeout(mut self, d: Duration) -> Self {
         self.connect_timeout = d;
         self
     }
 
+    /// Heartbeat interval; `None` disables the heartbeat.
     pub fn ping_interval(mut self, d: Option<Duration>) -> Self {
         self.ping_interval = d;
         self
     }
 
+    /// How long to wait for the heartbeat reply before reconnecting.
     pub fn pong_timeout(mut self, d: Duration) -> Self {
         self.pong_timeout = d;
         self

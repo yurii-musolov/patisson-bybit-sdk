@@ -108,6 +108,8 @@
 //! There are no stability guarantees yet: treat every version change as
 //! breaking and pin an exact version (`patisson-bybit-sdk = "=x.y.z"`).
 
+#![warn(missing_docs)]
+
 #[cfg(not(any(feature = "rustls", feature = "native-tls")))]
 compile_error!("enable a TLS backend: the `rustls` (default) or the `native-tls` feature");
 
@@ -122,8 +124,10 @@ mod orderbook_state;
 mod serde;
 mod url;
 
+/// REST API: [`http::Client`], its [`http::Config`], request parameters and responses.
 pub mod http;
 pub mod ret_code;
+/// WebSocket streams: [`ws::Stream`], [`ws::Handle`], [`ws::Config`] and the messages.
 pub mod ws;
 
 pub use account_state::*;

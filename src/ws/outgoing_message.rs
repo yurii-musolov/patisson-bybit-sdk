@@ -2,34 +2,48 @@ use serde::Serialize;
 
 use crate::{SensitiveString, Timestamp, Topic, create_stream_signature, timestamp};
 
+/// Messages sent to a Bybit stream.
 #[derive(Serialize, Debug)]
 #[serde(tag = "op")]
 pub enum OutgoingMessage {
+    /// Subscribe to topics.
     #[serde(rename = "subscribe")]
     Subscribe {
+        /// Client id echoed in the reply.
         #[serde(skip_serializing_if = "Option::is_none")]
         req_id: Option<String>,
+        /// Topics.
         args: Vec<Topic>,
     },
+    /// Unsubscribe from topics.
     #[serde(rename = "unsubscribe")]
     Unsubscribe {
+        /// Client id echoed in the reply.
         #[serde(skip_serializing_if = "Option::is_none")]
         req_id: Option<String>,
+        /// Topics.
         args: Vec<Topic>,
     },
+    /// Authenticate a private stream (see [`create_outgoing_message_auth_at`]).
     #[serde(rename = "auth")]
     Auth {
+        /// Client id echoed in the reply.
         #[serde(skip_serializing_if = "Option::is_none")]
         req_id: Option<String>,
+        /// `(api_key, expires, signature)`.
         args: (String, Timestamp, String),
     },
+    /// Application-level heartbeat.
     #[serde(rename = "ping")]
     Ping {
+        /// Client id echoed in the reply.
         #[serde(skip_serializing_if = "Option::is_none")]
         req_id: Option<String>,
     },
+    /// Reply to a server ping.
     #[serde(rename = "pong")]
     Pong {
+        /// Client id echoed in the reply.
         #[serde(skip_serializing_if = "Option::is_none")]
         req_id: Option<String>,
     },

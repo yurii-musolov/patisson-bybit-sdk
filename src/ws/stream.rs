@@ -70,6 +70,7 @@ struct Session {
 }
 
 impl Stream {
+    /// Spawn the driver on the current Tokio runtime; returns the command handle and the event receiver. The driver does not connect until [`Handle::connect`].
     #[allow(clippy::new_ret_no_self)]
     pub fn new(config: Config) -> (Handle, mpsc::Receiver<Event>) {
         let (cmd_tx, cmd_rx) = mpsc::channel::<Command>(config.command_queue_size);

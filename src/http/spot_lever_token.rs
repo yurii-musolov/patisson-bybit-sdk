@@ -1,3 +1,8 @@
+// Data model mirroring the Bybit V5 API (request parameters, responses,
+// stream messages): field and variant docs are added module by module; see
+// https://bybit-exchange.github.io/docs/v5/intro for the meaning of each field.
+#![allow(missing_docs)]
+
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_aux::prelude::deserialize_number_from_string as number;

@@ -1,8 +1,10 @@
 use std::fmt;
 
 // Mainnet.
+/// Mainnet REST.
 #[deprecated(since = "0.3.0", note = "use `Environment`")]
 pub const BASE_URL_API_MAINNET_1: &str = "https://api.bybit.com";
+/// Alternative mainnet REST domain.
 #[deprecated(since = "0.3.0", note = "use `Environment`")]
 pub const BASE_URL_API_MAINNET_2: &str = "https://api.bytick.com";
 /// For Netherland users.
@@ -18,6 +20,7 @@ pub const BASE_URL_API_MAINNET_5: &str = "https://api.bybit-tr.com";
 #[deprecated(since = "0.3.0", note = "use `Environment`")]
 pub const BASE_URL_API_MAINNET_6: &str = "https://api.bybit.kz";
 
+/// Mainnet WebSocket.
 #[deprecated(since = "0.3.0", note = "use `Environment`")]
 pub const BASE_URL_STREAM_MAINNET_1: &str = "wss://stream.bybit.com";
 /// For Turkey users.
@@ -28,14 +31,18 @@ pub const BASE_URL_STREAM_MAINNET_2: &str = "wss://stream.bybit-tr.com";
 pub const BASE_URL_STREAM_MAINNET_3: &str = "wss://stream.bybit.kz";
 
 // Testnet.
+/// Testnet REST.
 #[deprecated(since = "0.3.0", note = "use `Environment`")]
 pub const BASE_URL_API_TESTNET: &str = "https://api-testnet.bybit.com";
+/// Testnet WebSocket.
 #[deprecated(since = "0.3.0", note = "use `Environment`")]
 pub const BASE_URL_STREAM_TESTNET: &str = "wss://stream-testnet.bybit.com";
 
 // Demo trading.
+/// Demo trading REST.
 #[deprecated(since = "0.3.0", note = "use `Environment`")]
 pub const BASE_URL_API_DEMO: &str = "https://api-demo.bybit.com";
+/// Demo trading WebSocket (private streams only).
 #[deprecated(since = "0.3.0", note = "use `Environment`")]
 pub const BASE_URL_STREAM_DEMO: &str = "wss://stream-demo.bybit.com";
 
@@ -60,103 +67,185 @@ pub const HEADER_RET_CODE: &str = "ret_code";
 pub const HEADER_TRACE_ID: &str = "traceid";
 pub const HEADER_TIME_NOW: &str = "timenow";
 
+/// Path of a Bybit REST endpoint or WebSocket stream, appended to the
+/// base URL of an [`Environment`](crate::Environment).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Path {
     // Candlestick, orderbook, ticker, platform transaction data, underlying financial rules, risk control rules
+    /// `/v5/market/time`
     MarketServerTime,
+    /// `/v5/market/kline`
     MarketKline,
+    /// `/v5/market/mark-price-kline`
     MarketMarkPriceKline,
+    /// `/v5/market/index-price-kline`
     MarketIndexPriceKline,
+    /// `/v5/market/premium-index-price-kline`
     MarketPremiumIndexPriceKline,
+    /// `/v5/market/orderbook`
     MarketOrderbook,
+    /// `/v5/market/tickers`
     MarketTickers,
+    /// `/v5/market/funding/history`
     MarketFundingHistory,
+    /// `/v5/market/recent-trade`
     MarketRecentTrade,
+    /// `/v5/market/open-interest`
     MarketOpenInterest,
+    /// `/v5/market/historical-volatility`
     MarketHistoricalVolatility,
+    /// `/v5/market/insurance`
     MarketInsurance,
+    /// `/v5/market/instruments-info`
     MarketInstrumentsInfo,
+    /// `/v5/market/risk-limit`
     MarketRiskLimit,
+    /// `/v5/market/delivery-price`
     MarketDeliveryPrice,
 
     // Order management
+    /// `/v5/order/create`
     TradeOrderCreate,
+    /// `/v5/order/amend`
     TradeOrderAmend,
+    /// `/v5/order/cancel`
     TradeOrderCancel,
+    /// `/v5/order/realtime`
     TradeOrderRealtime,
+    /// `/v5/order/cancel-all`
     TradeOrderCancelAll,
+    /// `/v5/order/history`
     TradeOrderHistory,
+    /// `/v5/order/create-batch`
     TradeOrderCreateBatch,
+    /// `/v5/order/amend-batch`
     TradeOrderAmendBatch,
+    /// `/v5/order/cancel-batch`
     TradeOrderCancelBatch,
+    /// `/v5/order/spot-borrow-check`
     TradeOrderSpotBorrowCheck,
 
     // Position management
+    /// `/v5/position/list`
     PositionList,
+    /// `/v5/position/set-leverage`
     PositionSetLeverage,
+    /// `/v5/position/set-risk-limit`
     PositionSetRiskLimit,
+    /// `/v5/position/trading-stop`
     PositionTradingStop,
+    /// `/v5/position/switch-isolated`
     PositionSwitchIsolated,
+    /// `/v5/position/switch-mode`
     PositionSwitchMode,
+    /// `/v5/position/set-auto-add-margin`
     PositionSetAutoAddMargin,
+    /// `/v5/position/closed-pnl`
     PositionClosedPnl,
+    /// `/v5/execution/list`
     ExecutionList,
 
     // Single account operations only - unified funding account, rates, etc.
+    /// `/v5/account/wallet-balance`
     AccountWalletBalance,
+    /// `/v5/account/upgrade-to-uta`
     AccountUpgradeToUta,
+    /// `/v5/account/borrow-history`
     AccountBorrowHistory,
+    /// `/v5/account/collateral-info`
     AccountCollateralInfo,
+    /// `/v5/asset/coin-greeks`
     AssetCoinGreeks,
+    /// `/v5/account/info`
     AccountInfo,
+    /// `/v5/account/transaction-log`
     AccountTransactionLog,
+    /// `/v5/account/set-margin-mode`
     AccountSetMarginMode,
+    /// `/v5/account/demo-apply-money`
     AccountSetMarginModeDemoApplyMoney,
+    /// `/v5/account/fee-rate`
     AccountFeeRate,
 
     // Operations across multiple accounts - asset management, fund management, etc.
+    /// `/v5/asset/delivery-record`
     AssetDeliveryRecord,
+    /// `/v5/asset/settlement-record`
     AssetSettlementRecord,
+    /// `/v5/asset/transfer/inter-transfer`
     AssetTransferInterTransfer,
+    /// `/v5/asset/transfer/query-inter-transfer-list`
     AssetTransferQueryInterTransferList,
+    /// `/v5/asset/transfer/save-transfer-sub-member`
     AssetTransferSaveTransferSubMember,
+    /// `/v5/asset/transfer/universal-transfer`
     AssetTransferUniversalTransfer,
+    /// `/v5/asset/transfer/query-universal-transfer-list`
     AssetTransferQueryUniversalTransferList,
+    /// `/v5/asset/transfer/query-transfer-coin-list`
     AssetTransferQueryTransferCoinList,
+    /// `/v5/asset/transfer/query-sub-member-list`
     AssetTransferQuerySubMemberList,
+    /// `/v5/asset/transfer/query-account-coin-balance`
     AssetTransferQueryAccountCoinBalance,
+    /// `/v5/asset/transfer/query-asset-info`
     AssetTransferQueryAssetInfo,
+    /// `/v5/asset/deposit/query-allowed-list`
     AssetDepositQueryAllowedList,
+    /// `/v5/asset/deposit/query-record`
     AssetDepositQueryRecord,
+    /// `/v5/asset/deposit/query-sub-member-record`
     AssetDepositQuerySubMemberRecord,
+    /// `/v5/asset/withdraw/query-record`
     AssetWithdrawQueryRecord,
+    /// `/v5/asset/withdraw/withdrawable-amount`
     AssetWithdrawWithdrawableAmount,
+    /// `/v5/asset/coin/query-info`
     AssetCoinQueryInfo,
+    /// `/v5/asset/withdraw/create`
     AssetWithdrawCreate,
+    /// `/v5/asset/withdraw/cancel`
     AssetWithdrawCancel,
+    /// `/v5/asset/deposit/query-address`
     AssetDepositQueryAddress,
+    /// `/v5/asset/deposit/query-sub-member-address`
     AssetDepositQuerySubMemberAddress,
+    /// `/v5/asset/exchange/order-record`
     AssetExchangeOrderRecord,
 
+    /// `/v5/user/query-api`
     UserQueryApi,
 
     // Obtain quotes from Leveraged Tokens on Spot, and to exercise purchase and redeem functions
+    /// `/v5/spot-lever-token/info`
     SpotLeverTokenInfo,
+    /// `/v5/spot-lever-token/reference`
     SpotLeverTokenReference,
+    /// `/v5/spot-lever-token/purchase`
     SpotLeverTokenPurchase,
+    /// `/v5/spot-lever-token/redeem`
     SpotLeverTokenRedeem,
+    /// `/v5/spot-lever-token/order-record`
     SpotLeverTokenOrderRecord,
 
     // Manage Margin Trading on Spot
+    /// `/v5/spot-margin-trade/switch-mode`
     SpotMarginTradeSwitchMode,
+    /// `/v5/spot-margin-trade/set-leverage`
     SpotMarginTradeSetLeverage,
 
     // Stream paths.
+    /// `/v5/public/spot`
     PublicSpot,
+    /// `/v5/public/linear`
     PublicLinear,
+    /// `/v5/public/inverse`
     PublicInverse,
+    /// `/v5/public/option`
     PublicOption,
+    /// `/v5/private`
     Private,
+    /// `/v5/trade`
     Trade,
 }
 

@@ -1,42 +1,59 @@
 use crate::ret_code;
 
+/// Errors returned by [`http::Client`](crate::http::Client).
 #[derive(Debug)]
 pub enum Error {
+    /// Bybit answered with a non-zero `retCode` (see [`ret_code`](crate::ret_code)).
     Api {
+        /// Bybit `retCode`.
         code: i64,
+        /// Bybit `retMsg`.
         msg: String,
     },
     /// A non-2xx HTTP response whose body is not a Bybit error envelope
     /// (e.g. an HTML page from a CDN or gateway). `body` may be truncated.
     Http {
+        /// HTTP status code.
         status: u16,
+        /// Response body, truncated to 1 KiB.
         body: String,
     },
+    /// A header value (API key, signature, referer) is not a valid HTTP header.
     InvalidHeaderValue(reqwest::header::InvalidHeaderValue),
+    /// I/O error.
     Io(std::io::Error),
     /// A private endpoint was called on a client created without
     /// `api_key`/`api_secret`.
     MissingCredentials,
+    /// Other error with a message.
     Msg(String),
     /// The local rate limiter rejected the request before it was sent.
     /// `retry_after_ms` is the estimated wait until capacity is available.
     RateLimited {
+        /// Estimated wait until the bucket has capacity, milliseconds.
         retry_after_ms: u64,
     },
     /// The local rate limiter can never let this request through: its cost
     /// exceeds the bucket's burst, or the bucket does not refill. Retrying
     /// will not help; adjust [`RateLimiterConfig`](crate::http::RateLimiterConfig).
     RateLimitUnsatisfiable {
+        /// Cost of the request (e.g. number of orders in a batch).
         cost: u32,
+        /// Burst capacity of the bucket.
         burst: u32,
     },
+    /// Transport error (connection, timeout, TLS, ...).
     Reqwest(reqwest::Error),
+    /// JSON (de)serialization error.
     SerdeJson(serde_json::Error),
     /// A `*_all` pagination helper fetched `max` pages without reaching the end.
     TooManyPages {
+        /// The page limit, [`MAX_PAGES`](crate::http::MAX_PAGES).
         max: usize,
     },
+    /// Query string serialization error.
     SerdeUrlEncoded(serde_urlencoded::ser::Error),
+    /// JSON deserialization error with the path of the offending field.
     SerdePathToError(serde_path_to_error::Error<serde_json::Error>),
 }
 

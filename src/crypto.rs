@@ -4,6 +4,7 @@ use std::fmt;
 
 use crate::Timestamp;
 
+/// A secret (API key or secret) whose `Debug` and `Display` print `REDACTED`.
 #[derive(Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct SensitiveString(String);
 
@@ -45,6 +46,7 @@ impl AsRef<str> for SensitiveString {
 }
 
 impl SensitiveString {
+    /// The secret value.
     pub fn expose(&self) -> &str {
         &self.0
     }
@@ -74,6 +76,7 @@ pub fn hmac_sha256(key: impl AsRef<[u8]>, message: impl AsRef<[u8]>) -> String {
 
 type Timer = fn() -> Timestamp;
 
+/// Signs REST requests (`X-BAPI-SIGN`) with HMAC-SHA256.
 #[derive(Debug)]
 pub struct Signer {
     api_key: SensitiveString,
@@ -123,6 +126,7 @@ pub fn timestamp() -> Timestamp {
     std::time::UNIX_EPOCH.elapsed().unwrap().as_millis() as Timestamp
 }
 
+/// Signature of the WebSocket `auth` message valid until `expires` (milliseconds).
 pub fn create_stream_signature(expires: Timestamp, api_secret: SensitiveString) -> String {
     let api_secret = api_secret.expose();
     let message = format!("GET/realtime{expires}");

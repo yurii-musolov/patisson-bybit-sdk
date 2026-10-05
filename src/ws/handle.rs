@@ -5,36 +5,44 @@ use crate::{
     ws::{self, Command, OutgoingMessage},
 };
 
+/// Sends commands to a running [`Stream`](crate::ws::Stream); cheap to clone.
 #[derive(Clone)]
 pub struct Handle {
     cmd_tx: mpsc::Sender<Command>,
 }
 
 impl Handle {
+    /// Wrap the command sender of a driver; normally obtained from [`Stream::new`](crate::ws::Stream::new).
     pub fn new(cmd_tx: mpsc::Sender<Command>) -> Self {
         Self { cmd_tx }
     }
 
+    /// Open the connection (no-op if already connected).
     pub async fn connect(&self) -> Result<(), ws::Error> {
         self.send(Command::Connect).await
     }
 
+    /// Like [`Handle::connect`], but fails with [`Error::QueueFull`](crate::ws::Error::QueueFull) instead of waiting.
     pub fn try_connect(&self) -> Result<(), ws::Error> {
         self.try_send(Command::Connect)
     }
 
+    /// Close the connection; the driver stays alive and can connect again.
     pub async fn disconnect(&self) -> Result<(), ws::Error> {
         self.send(Command::Disconnect).await
     }
 
+    /// Like [`Handle::disconnect`], but fails with [`Error::QueueFull`](crate::ws::Error::QueueFull) instead of waiting.
     pub fn try_disconnect(&self) -> Result<(), ws::Error> {
         self.try_send(Command::Disconnect)
     }
 
+    /// Send a raw message on the current connection (not restored after a reconnect).
     pub async fn send_command(&self, msg: OutgoingMessage) -> Result<(), ws::Error> {
         self.send(Command::Send(msg)).await
     }
 
+    /// Like [`Handle::send_command`], but fails with [`Error::QueueFull`](crate::ws::Error::QueueFull) instead of waiting.
     pub fn try_send_command(&self, msg: OutgoingMessage) -> Result<(), ws::Error> {
         self.try_send(Command::Send(msg))
     }
@@ -44,6 +52,7 @@ impl Handle {
         self.send(Command::Subscribe(topics)).await
     }
 
+    /// Like [`Handle::subscribe`], but fails with [`Error::QueueFull`](crate::ws::Error::QueueFull) instead of waiting.
     pub fn try_subscribe(&self, topics: Vec<Topic>) -> Result<(), ws::Error> {
         self.try_send(Command::Subscribe(topics))
     }
@@ -53,6 +62,7 @@ impl Handle {
         self.send(Command::Unsubscribe(topics)).await
     }
 
+    /// Like [`Handle::unsubscribe`], but fails with [`Error::QueueFull`](crate::ws::Error::QueueFull) instead of waiting.
     pub fn try_unsubscribe(&self, topics: Vec<Topic>) -> Result<(), ws::Error> {
         self.try_send(Command::Unsubscribe(topics))
     }

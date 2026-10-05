@@ -30,6 +30,7 @@ impl ServerClock {
         self.offset_ms.load(Ordering::Relaxed)
     }
 
+    /// Set the offset (server clock minus local clock), milliseconds.
     pub fn set_offset(&self, offset_ms: i64) {
         self.offset_ms.store(offset_ms, Ordering::Relaxed);
     }
