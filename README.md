@@ -173,6 +173,35 @@ while let Some(event) = events.recv().await {
 }
 ```
 
+### Order entry over WebSocket
+
+`ws::TradeClient` places, amends and cancels orders over the order entry
+stream (`/v5/trade`), matching replies to requests. It is not available on
+demo trading (use testnet or mainnet). A reply only means Bybit accepted the
+request; the order stream confirms the status. Requests in flight when the
+connection drops fail with `ws::Error::ConnectionLost` and are not resent.
+
+```rust
+use bybit::{
+    Category, Environment, OrderType, Side,
+    http::PlaceOrderRequest,
+    ws::{self, TradeClient},
+};
+use rust_decimal::dec;
+
+let config = ws::Config::trade(Environment::Testnet)?
+    .credentials(api_key, api_secret)
+    .server_clock(client.clock());
+let (trade, mut events) = TradeClient::new(config)?;
+trade.connect().await?;
+// Requests are accepted after ws::Event::Authenticated.
+
+let mut order = PlaceOrderRequest::new(Category::Linear, "BTCUSDT", Side::Buy, OrderType::Limit, dec!(0.001));
+order.price = Some(dec!(10000));
+let reply = trade.place_order(&order).await?;
+println!("order id: {}", reply.data.order_id);
+```
+
 ### Local account state
 
 `AccountState` keeps open orders, positions and wallet balances from REST

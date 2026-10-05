@@ -29,6 +29,8 @@ use serde_aux::prelude::{
 #[serde(untagged)]
 pub enum IncomingMessage {
     Command(CommandMsg),
+    /// Reply of the order entry stream (`/v5/trade`): `auth`, `order.*`.
+    TradeReply(Box<TradeReply>),
     // TickerMsg is 584 bytes (TickerDeltaMsg alone is 528 bytes — 24 optional Decimals × 16 bytes
     // each, plus TickerSnapshotMsg at 448 bytes). Without Box the entire IncomingMessage enum
     // would be 584 bytes on every allocation, including the tiny Command/Trade/Topic variants that
@@ -50,6 +52,9 @@ struct Envelope<'a> {
     topic: Option<Cow<'a, str>>,
     #[serde(borrow, default, rename = "type")]
     kind: Option<Cow<'a, str>>,
+    /// Present only in replies of the order entry stream.
+    #[serde(default, rename = "retCode")]
+    ret_code: Option<i64>,
 }
 
 /// Fields shared by public stream messages. Deserializing into this plain
@@ -86,7 +91,12 @@ impl IncomingMessage {
     pub fn from_json(json: &str) -> Result<Self, serde_path_to_error::Error<serde_json::Error>> {
         let envelope: Envelope = deserialize_json(json)?;
 
-        if envelope.op.is_some() {
+        if let Some(op) = &envelope.op {
+            // The order entry stream replies with `retCode`/`retMsg`; its
+            // heartbeat replies are still parsed as `CommandMsg`.
+            if envelope.ret_code.is_some() && op != "pong" && op != "ping" {
+                return deserialize_json(json).map(|reply| Self::TradeReply(Box::new(reply)));
+            }
             return deserialize_json(json).map(Self::Command);
         }
         let Some(topic) = envelope.topic else {
@@ -206,29 +216,70 @@ impl IncomingMessage {
     }
 
     pub fn is_pong(&self) -> bool {
-        matches!(
-            self,
-            IncomingMessage::Command(CommandMsg::Pong {
-                req_id: _,
-                ret_msg: _,
-                conn_id: _,
-                args: _,
-                success: _,
-            })
-        )
+        matches!(self, IncomingMessage::Command(CommandMsg::Pong { .. }))
     }
     pub fn is_ping(&self) -> bool {
-        matches!(
-            self,
-            IncomingMessage::Command(CommandMsg::Ping {
-                req_id: _,
-                ret_msg: _,
-                conn_id: _,
-                args: _,
-                success: _,
-            })
-        )
+        matches!(self, IncomingMessage::Command(CommandMsg::Ping { .. }))
     }
+}
+
+/// Reply of the order entry stream (`/v5/trade`).
+///
+/// Usually consumed by [`TradeClient`](crate::ws::TradeClient), which matches
+/// replies to requests by `req_id`.
+#[derive(PartialEq, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TradeReply {
+    /// `reqId` of the request, if it had one.
+    #[serde(default)]
+    pub req_id: Option<String>,
+    /// 0 on success (see [`ret_code`](crate::ret_code)).
+    pub ret_code: i64,
+    /// Error message, `OK` on success.
+    #[serde(default)]
+    pub ret_msg: String,
+    /// `auth`, `order.create`, `order.amend`, `order.cancel` or a `*-batch` op.
+    pub op: String,
+    /// Business data: the same as `result` of the REST endpoint.
+    #[serde(default)]
+    pub data: Option<serde_json::Value>,
+    /// Per-item results of batch requests.
+    #[serde(default)]
+    pub ret_ext_info: Option<serde_json::Value>,
+    /// Rate limit headers of this op.
+    #[serde(default)]
+    pub header: Option<TradeReplyHeader>,
+    /// Connection id.
+    #[serde(default)]
+    pub conn_id: Option<String>,
+}
+
+/// `header` of a [`TradeReply`]: the rate limit status of the op.
+#[derive(PartialEq, Deserialize, Debug, Clone)]
+pub struct TradeReplyHeader {
+    /// `X-Bapi-Limit`: the limit of this op.
+    #[serde(rename = "X-Bapi-Limit", default, deserialize_with = "option_number")]
+    pub limit: Option<u64>,
+    /// `X-Bapi-Limit-Status`: remaining requests in the current window.
+    #[serde(
+        rename = "X-Bapi-Limit-Status",
+        default,
+        deserialize_with = "option_number"
+    )]
+    pub limit_status: Option<u64>,
+    /// `X-Bapi-Limit-Reset-Timestamp`, milliseconds.
+    #[serde(
+        rename = "X-Bapi-Limit-Reset-Timestamp",
+        default,
+        deserialize_with = "option_number"
+    )]
+    pub limit_reset_timestamp: Option<Timestamp>,
+    /// Trace id, useful when contacting Bybit support.
+    #[serde(rename = "Traceid", default)]
+    pub trace_id: Option<String>,
+    /// Server time, milliseconds.
+    #[serde(rename = "Timenow", default, deserialize_with = "option_number")]
+    pub time_now: Option<Timestamp>,
 }
 
 #[derive(PartialEq, Deserialize, Debug)]
@@ -261,25 +312,36 @@ pub enum CommandMsg {
         conn_id: String,
         success: bool,
     },
+    /// Heartbeat reply. Its shape differs per stream (option and spread
+    /// public streams send neither `conn_id` nor `success`), so every field
+    /// is optional.
     #[serde(rename = "pong")]
     Pong {
-        #[serde(default, deserialize_with = "empty_string_as_none")]
+        #[serde(default, alias = "reqId", deserialize_with = "empty_string_as_none")]
         req_id: Option<String>,
         #[serde(default, deserialize_with = "empty_string_as_none")]
         ret_msg: Option<String>,
-        conn_id: String,
+        #[serde(default, alias = "connId")]
+        conn_id: Option<String>,
+        #[serde(default)]
         args: Option<Vec<String>>,
+        #[serde(default)]
         success: Option<bool>,
     },
+    /// Heartbeat reply of spot and linear/inverse public streams
+    /// (`"op": "ping", "ret_msg": "pong"`).
     #[serde(rename = "ping")]
     Ping {
-        #[serde(default, deserialize_with = "empty_string_as_none")]
+        #[serde(default, alias = "reqId", deserialize_with = "empty_string_as_none")]
         req_id: Option<String>,
         #[serde(default, deserialize_with = "empty_string_as_none")]
         ret_msg: Option<String>,
-        conn_id: String,
+        #[serde(default, alias = "connId")]
+        conn_id: Option<String>,
+        #[serde(default)]
         args: Option<Vec<String>>,
-        success: bool,
+        #[serde(default)]
+        success: Option<bool>,
     },
 }
 
@@ -2521,5 +2583,55 @@ mod tests {
             panic!("not an execution: {message:?}");
         };
         assert_eq!(msg.data[0].extra_fees, None);
+    }
+
+    #[test]
+    fn heartbeat_replies_of_every_stream_are_recognized() {
+        let replies = [
+            // Spot, linear and inverse public streams.
+            r#"{"success":true,"ret_msg":"pong","conn_id":"0970e817","op":"ping"}"#,
+            // Option and spread public streams: no conn_id, no success.
+            r#"{"args":["1672916271846"],"op":"pong"}"#,
+            // Private streams.
+            r#"{"req_id":"test","op":"pong","args":["1675418560633"],"conn_id":"cfcb4ocs"}"#,
+            // Order entry stream.
+            r#"{"reqId":"1","retCode":0,"retMsg":"OK","op":"pong","connId":"cnt5leec"}"#,
+        ];
+
+        for json in replies {
+            let message = IncomingMessage::from_json(json).unwrap();
+            assert!(message.is_ping() || message.is_pong(), "{json}");
+        }
+    }
+
+    #[test]
+    fn order_entry_replies_are_trade_replies() {
+        let auth = r#"{"retCode":0,"retMsg":"OK","op":"auth","connId":"cnt5leec0hvan15eukcg-2t"}"#;
+        let order = r#"{
+            "reqId":"test-005","retCode":0,"retMsg":"OK","op":"order.create",
+            "data":{"orderId":"a4c1718e-fe53-4659-a118-1f6ecce04ad9","orderLinkId":""},
+            "retExtInfo":{},
+            "header":{"X-Bapi-Limit":"10","X-Bapi-Limit-Status":"9",
+                      "X-Bapi-Limit-Reset-Timestamp":"1711001595208",
+                      "Traceid":"38b7977b430f9bd228f4b19724794dfd","Timenow":"1711001595209"},
+            "connId":"cnt5leec0hvan15eukcg-2v"
+        }"#;
+
+        let IncomingMessage::TradeReply(auth) = IncomingMessage::from_json(auth).unwrap() else {
+            panic!("auth reply is not a TradeReply");
+        };
+        assert_eq!((auth.op.as_str(), auth.ret_code), ("auth", 0));
+
+        let IncomingMessage::TradeReply(order) = IncomingMessage::from_json(order).unwrap() else {
+            panic!("order reply is not a TradeReply");
+        };
+        assert_eq!(order.req_id.as_deref(), Some("test-005"));
+        assert_eq!(
+            order.data.unwrap()["orderId"],
+            "a4c1718e-fe53-4659-a118-1f6ecce04ad9"
+        );
+        let header = order.header.unwrap();
+        assert_eq!((header.limit, header.limit_status), (Some(10), Some(9)));
+        assert_eq!(header.time_now, Some(1711001595209));
     }
 }
