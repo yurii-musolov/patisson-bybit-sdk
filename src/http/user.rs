@@ -1,12 +1,8 @@
-// Data model mirroring the Bybit V5 API (request parameters, responses,
-// stream messages): field and variant docs are added module by module; see
-// https://bybit-exchange.github.io/docs/v5/intro for the meaning of each field.
-#![allow(missing_docs)]
-
 use serde::Deserialize;
 
 use crate::VipLevel;
 
+/// Result of `GET /v5/user/query-api` ([`Client::get_api_key_information`](crate::http::Client::get_api_key_information)).
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct APIKeyInformation {
@@ -60,6 +56,7 @@ pub struct APIKeyInformation {
     pub kyc_region: String,
 }
 
+/// Part of the response of `/v5/user/query-api`.
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "PascalCase")]
 pub struct APIKeyPermissions {

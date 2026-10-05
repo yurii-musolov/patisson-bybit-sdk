@@ -1,8 +1,3 @@
-// Data model mirroring the Bybit V5 API (request parameters, responses,
-// stream messages): field and variant docs are added module by module; see
-// https://bybit-exchange.github.io/docs/v5/intro for the meaning of each field.
-#![allow(missing_docs)]
-
 use std::collections::HashMap;
 
 use rust_decimal::{Decimal, serde::str_option::deserialize as option_decimal};
@@ -17,6 +12,7 @@ use crate::{
     ws::WalletMsg,
 };
 
+/// Query parameters of `GET /v5/account/wallet-balance` ([`Client::get_wallet_balance`](crate::http::Client::get_wallet_balance)).
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct GetWalletBalanceParams {
@@ -33,6 +29,7 @@ pub struct GetWalletBalanceParams {
 }
 
 impl GetWalletBalanceParams {
+    /// Create with the required fields; set the optional ones with the `with_*` methods.
     pub fn new(account_type: AccountType) -> Self {
         Self {
             account_type,
@@ -40,12 +37,14 @@ impl GetWalletBalanceParams {
         }
     }
 
+    /// Set `coin`: coin name, uppercase only If not passed, it returns non-zero asset info You can pass multiple coins to query, separated by comma. USDT,USDC.
     pub fn with_coin(mut self, v: impl Into<String>) -> Self {
         self.coin = Some(v.into());
         self
     }
 }
 
+/// Item of the list returned by `GET /v5/account/wallet-balance` ([`Client::get_wallet_balance`](crate::http::Client::get_wallet_balance)).
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct WalletBalance {
@@ -87,6 +86,7 @@ pub struct WalletBalance {
     pub total_maintenance_margin: Decimal,
     /// Account maintenance margin (USD) calculated by mark price: ∑ Asset Total Maintenance Margin Base Coin calculated by mark price
     pub total_maintenance_margin_by_mp: Decimal,
+    /// Coin name, uppercase only If not passed, it returns non-zero asset info You can pass multiple coins to query, separated by comma. USDT,USDC.
     #[serde(deserialize_with = "hash_map")]
     pub coin: HashMap<String, WalletCoin>,
 }
@@ -121,6 +121,7 @@ impl From<WalletMsg> for WalletBalance {
     }
 }
 
+/// Part of the response of `/v5/account/wallet-balance`.
 #[derive(Debug, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct WalletCoin {
@@ -180,6 +181,7 @@ impl Unique<String> for WalletCoin {
     }
 }
 
+/// Result of `GET /v5/account/info` ([`Client::get_account_info`](crate::http::Client::get_account_info)).
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountInfo {
@@ -196,6 +198,7 @@ pub struct AccountInfo {
     pub updated_time: Timestamp,
 }
 
+/// Disconnection Cancellation Protection settings of one product.
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct DCPConfiguration {
@@ -203,6 +206,7 @@ pub struct DCPConfiguration {
     pub dcp_infos: Vec<DCPInfo>,
 }
 
+/// Disconnection Cancellation Protection (DCP) settings of the account.
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct DCPInfo {
@@ -216,6 +220,7 @@ pub struct DCPInfo {
     pub time_window: Second,
 }
 
+/// Query parameters of `GET /v5/account/transaction-log` ([`Client::get_transaction_log`](crate::http::Client::get_transaction_log)).
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetTransactionLogParams {
@@ -261,6 +266,7 @@ pub struct GetTransactionLogParams {
 }
 
 impl GetTransactionLogParams {
+    /// Create with the required fields; set the optional ones with the `with_*` methods.
     pub fn new() -> Self {
         Self {
             account_type: None,
@@ -277,46 +283,57 @@ impl GetTransactionLogParams {
         }
     }
 
+    /// Set `account_type`: account Type. UNIFIED.
     pub fn with_account_type(mut self, v: AccountType) -> Self {
         self.account_type = Some(v);
         self
     }
+    /// Set `category`: product type spot,linear,option,inverse.
     pub fn with_category(mut self, v: Category) -> Self {
         self.category = Some(v);
         self
     }
+    /// Set `currency`: currency, uppercase only.
     pub fn with_currency(mut self, v: impl Into<String>) -> Self {
         self.currency = Some(v.into());
         self
     }
+    /// Set `base_coin`: baseCoin, uppercase only. e.g., BTC of BTCPERP.
     pub fn with_base_coin(mut self, v: impl Into<String>) -> Self {
         self.base_coin = Some(v.into());
         self
     }
+    /// Set `settle_coin`: not documented. Settle coin linear: either symbol or settleCoin is required. symbol has a higher priority.
     pub fn with_settle_coin(mut self, v: impl Into<String>) -> Self {
         self.settle_coin = Some(v.into());
         self
     }
+    /// Set `type`: types of transaction logs.
     pub fn with_type(mut self, v: impl Into<String>) -> Self {
         self.r#type = Some(v.into());
         self
     }
+    /// Set `trans_sub_type`: movePosition, used to filter trans logs of Move Position only.
     pub fn with_trans_sub_type(mut self, v: impl Into<String>) -> Self {
         self.trans_sub_type = Some(v.into());
         self
     }
+    /// Set `start_time`: the start timestamp (ms) startTime and endTime are not passed, return 24 hours by default Only startTime is passed, return range between startTime and startTime+24 hours Only endTime is passed, return range between endTime-24 hours and ...
     pub fn with_start_time(mut self, v: Timestamp) -> Self {
         self.start_time = Some(v);
         self
     }
+    /// Set `end_time`: the end timestamp (ms).
     pub fn with_end_time(mut self, v: Timestamp) -> Self {
         self.end_time = Some(v);
         self
     }
+    /// Set `limit`: limit for data size per page. [1, 50]. Default: 20.
     pub fn with_limit(mut self, v: u64) -> Self {
         self.limit = Some(v);
         self
     }
+    /// Set `cursor`: cursor. Use the nextPageCursor token from the response to retrieve the next page of the result set.
     pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
         self.cursor = Some(v.into());
         self
@@ -329,6 +346,7 @@ impl Default for GetTransactionLogParams {
     }
 }
 
+/// Item of the list returned by `GET /v5/account/transaction-log` ([`Client::get_transaction_log`](crate::http::Client::get_transaction_log)).
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct TransactionLog {
@@ -396,13 +414,16 @@ pub struct TransactionLog {
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct GetFeeRateParams {
+    /// Product type. spot, linear, inverse, option. Passing linear or inverse returns the same result - fee rates for all contracts (both linear and inverse).
     pub category: Category,
+    /// Symbol name, like BTCUSDT, uppercase only. Valid for linear, inverse, spot.
     pub symbol: Option<String>,
     /// Only for `category = option`. Base coin, e.g. `"BTC"`.
     pub base_coin: Option<String>,
 }
 
 impl GetFeeRateParams {
+    /// Create with the required fields; set the optional ones with the `with_*` methods.
     pub fn new(category: Category) -> Self {
         Self {
             category,
@@ -411,17 +432,20 @@ impl GetFeeRateParams {
         }
     }
 
+    /// Set `symbol`: symbol name, like BTCUSDT, uppercase only. Valid for linear, inverse, spot.
     pub fn with_symbol(mut self, v: impl Into<String>) -> Self {
         self.symbol = Some(v.into());
         self
     }
 
+    /// Set `base_coin`: only for `category = option`. Base coin, e.g. `"BTC"`.
     pub fn with_base_coin(mut self, v: impl Into<String>) -> Self {
         self.base_coin = Some(v.into());
         self
     }
 }
 
+/// Item of the list returned by `GET /v5/account/fee-rate` ([`Client::get_fee_rate`](crate::http::Client::get_fee_rate)).
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct FeeRateEntry {
@@ -431,7 +455,9 @@ pub struct FeeRateEntry {
     /// Base coin. Option only.
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub base_coin: Option<String>,
+    /// Taker fee rate.
     pub taker_fee_rate: Decimal,
+    /// Maker fee rate.
     pub maker_fee_rate: Decimal,
 }
 
@@ -441,10 +467,12 @@ pub struct FeeRateEntry {
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SetMarginModeRequest {
+    /// ISOLATED_MARGIN, REGULAR_MARGIN (i.e. Cross margin), PORTFOLIO_MARGIN.
     pub set_margin_mode: MarginMode,
 }
 
 impl SetMarginModeRequest {
+    /// Create with the required fields; set the optional ones with the `with_*` methods.
     pub fn new(set_margin_mode: MarginMode) -> Self {
         Self { set_margin_mode }
     }
@@ -456,13 +484,17 @@ impl SetMarginModeRequest {
 /// explaining why the switch was rejected.
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct SetMarginModeResponse {
+    /// Object. If requested successfully, it is an empty array.
     pub reasons: Vec<MarginModeFailureReason>,
 }
 
+/// Part of the response of `/v5/account/set-margin-mode`.
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct MarginModeFailureReason {
+    /// Fail reason code.
     pub reason_code: String,
+    /// Fail reason msg.
     pub reason_msg: String,
 }
 
@@ -472,14 +504,17 @@ pub struct MarginModeFailureReason {
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct UpgradeToUtaResult {
+    /// Upgrade status. FAIL, PROCESS, SUCCESS.
     pub unified_update_status: UnifiedUpdateStatus,
     /// `None` unless `unified_update_status` is `Fail`.
     pub unified_update_msg: Option<UnifiedUpdateMsg>,
 }
 
+/// Part of the response of `/v5/account/upgrade-to-uta`.
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct UnifiedUpdateMsg {
+    /// Error message array. Only FAIL will have this field.
     pub msg: Vec<String>,
 }
 
@@ -507,6 +542,7 @@ pub struct GetBorrowHistoryParams {
 }
 
 impl GetBorrowHistoryParams {
+    /// Create with the required fields; set the optional ones with the `with_*` methods.
     pub fn new() -> Self {
         Self {
             currency: None,
@@ -517,22 +553,27 @@ impl GetBorrowHistoryParams {
         }
     }
 
+    /// Set `currency`: currency, uppercase only.
     pub fn with_currency(mut self, v: impl Into<String>) -> Self {
         self.currency = Some(v.into());
         self
     }
+    /// Set `start_time`: the start timestamp (ms). Combined with end_time, cannot exceed 30 days.
     pub fn with_start_time(mut self, v: Timestamp) -> Self {
         self.start_time = Some(v);
         self
     }
+    /// Set `end_time`: the end timestamp (ms). Combined with start_time, cannot exceed 30 days.
     pub fn with_end_time(mut self, v: Timestamp) -> Self {
         self.end_time = Some(v);
         self
     }
+    /// Set `limit`: limit for data size per page. [1, 50]. Default: 20.
     pub fn with_limit(mut self, v: u64) -> Self {
         self.limit = Some(v);
         self
     }
+    /// Set `cursor`: cursor. Use the nextPageCursor token from the response to retrieve the next page of the result set.
     pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
         self.cursor = Some(v.into());
         self
@@ -545,6 +586,7 @@ impl Default for GetBorrowHistoryParams {
     }
 }
 
+/// Item of the list returned by `GET /v5/account/borrow-history` ([`Client::get_borrow_history`](crate::http::Client::get_borrow_history)).
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct BorrowHistoryEntry {
@@ -583,10 +625,12 @@ pub struct GetCollateralInfoParams {
 }
 
 impl GetCollateralInfoParams {
+    /// Create with the required fields; set the optional ones with the `with_*` methods.
     pub fn new() -> Self {
         Self { currency: None }
     }
 
+    /// Set `currency`: asset currency of all current collateral, uppercase only.
     pub fn with_currency(mut self, v: impl Into<String>) -> Self {
         self.currency = Some(v.into());
         self
@@ -599,6 +643,7 @@ impl Default for GetCollateralInfoParams {
     }
 }
 
+/// Item of the list returned by `GET /v5/account/collateral-info` ([`Client::get_collateral_info`](crate::http::Client::get_collateral_info)).
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct CollateralInfoEntry {

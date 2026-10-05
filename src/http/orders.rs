@@ -1,8 +1,3 @@
-// Data model mirroring the Bybit V5 API (request parameters, responses,
-// stream messages): field and variant docs are added module by module; see
-// https://bybit-exchange.github.io/docs/v5/intro for the meaning of each field.
-#![allow(missing_docs)]
-
 use rust_decimal::{Decimal, serde::str_option::deserialize as option_decimal};
 use serde::{Deserialize, Serialize};
 use serde_aux::prelude::deserialize_number_from_string as number;
@@ -16,6 +11,7 @@ use crate::{
     ws::OrderMsg,
 };
 
+/// Query parameters of `GET /v5/order/realtime` ([`Client::get_open_closed_orders`](crate::http::Client::get_open_closed_orders)).
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetOpenClosedOrdersParams {
@@ -70,6 +66,7 @@ pub struct GetOpenClosedOrdersParams {
 }
 
 impl GetOpenClosedOrdersParams {
+    /// Create with the required fields; set the optional ones with the `with_*` methods.
     pub fn new(category: Category) -> Self {
         Self {
             category,
@@ -85,44 +82,54 @@ impl GetOpenClosedOrdersParams {
         }
     }
 
+    /// Set `symbol`: symbol name, like BTCUSDT, uppercase only. For linear, either symbol, baseCoin, settleCoin is required.
     pub fn with_symbol(mut self, v: impl Into<String>) -> Self {
         self.symbol = Some(v.into());
         self
     }
+    /// Set `base_coin`: base coin, uppercase only Supports linear, inverse & option option: it returns all option open orders by default.
     pub fn with_base_coin(mut self, v: impl Into<String>) -> Self {
         self.base_coin = Some(v.into());
         self
     }
+    /// Set `settle_coin`: settle coin, uppercase only linear: either symbol, baseCoin or settleCoin is required spot: not supported option: USDT or USDC.
     pub fn with_settle_coin(mut self, v: impl Into<String>) -> Self {
         self.settle_coin = Some(v.into());
         self
     }
+    /// Set `order_id`: order ID.
     pub fn with_order_id(mut self, v: impl Into<String>) -> Self {
         self.order_id = Some(v.into());
         self
     }
+    /// Set `order_link_id`: user customized order ID.
     pub fn with_order_link_id(mut self, v: impl Into<String>) -> Self {
         self.order_link_id = Some(v.into());
         self
     }
+    /// Set `open_only`: 0(default): UTA2.0, UTA1.0, classic account query open status orders (e.g., New, PartiallyFilled) only 1: UTA2.0, UTA1.0(except inverse) 2: UTA1.0(inverse), classic account Query a maximum of recent 500 closed status records are kept under ...
     pub fn with_open_only(mut self, v: i32) -> Self {
         self.open_only = Some(v);
         self
     }
+    /// Set `order_filter`: order: active order, StopOrder: conditional order for Futures and Spot, tpslOrder: spot TP/SL order, OcoOrder: Spot oco order, BidirectionalTpslOrder: Spot bidirectional TPSL order - classic account spot: return Order active order by ...
     pub fn with_order_filter(mut self, v: OrderFilter) -> Self {
         self.order_filter = Some(v);
         self
     }
+    /// Set `limit`: limit for data size per page. [1, 50]. Default: 20.
     pub fn with_limit(mut self, v: i32) -> Self {
         self.limit = Some(v);
         self
     }
+    /// Set `cursor`: cursor. Use the nextPageCursor token from the response to retrieve the next page of the result set.
     pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
         self.cursor = Some(v.into());
         self
     }
 }
 
+/// Part of the request of `/v5/order/cancel`.
 #[derive(Debug, Clone, Serialize)]
 pub enum OrderFilter {
     /// active order,
@@ -140,6 +147,7 @@ pub enum OrderFilter {
     BidirectionalTpslOrder,
 }
 
+/// Item of the list returned by `GET /v5/order/realtime` ([`Client::get_open_closed_orders`](crate::http::Client::get_open_closed_orders), [`Client::get_order_history`](crate::http::Client::get_order_history)).
 #[derive(Debug, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Order {
@@ -264,12 +272,15 @@ pub struct Order {
 }
 
 impl Order {
+    /// The order is still active (see [`OrderStatus::is_open`](crate::OrderStatus::is_open)).
     pub fn is_open_status(&self) -> bool {
         self.order_status.is_open()
     }
+    /// The order reached a final status.
     pub fn is_closed_status(&self) -> bool {
         self.order_status.is_closed()
     }
+    /// Apply an `order` stream update; `leavesQty`/`leavesValue` keep their value when the update omits them.
     pub fn update(&mut self, msg: OrderMsg) {
         self.order_id = msg.order_id;
         self.order_link_id = msg.order_link_id;
@@ -383,6 +394,7 @@ impl From<OrderMsg> for Order {
     }
 }
 
+/// Request body of `POST /v5/order/create` ([`Client::place_order`](crate::http::Client::place_order)).
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaceOrderRequest {
@@ -556,6 +568,7 @@ pub struct PlaceOrderRequest {
 }
 
 impl PlaceOrderRequest {
+    /// Create with the required fields; set the optional ones with the `with_*` methods.
     pub fn new(
         category: Category,
         symbol: impl Into<String>,
@@ -601,120 +614,149 @@ impl PlaceOrderRequest {
         }
     }
 
+    /// Set `is_leverage`: 0(default): false, spot trading 1: true, margin trading, make sure you turn on margin trading, and set the relevant currency as collateral.
     pub fn with_is_leverage(mut self, v: i64) -> Self {
         self.is_leverage = Some(v);
         self
     }
+    /// Set `market_unit`: select the unit for qty when create Spot market orders for UTA account baseCoin: for example, buy BTCUSDT, then "qty" unit is BTC quoteCoin: for example, sell BTCUSDT, then "qty" unit is USDT.
     pub fn with_market_unit(mut self, v: impl Into<String>) -> Self {
         self.market_unit = Some(v.into());
         self
     }
+    /// Set `slippage_tolerance_type`: slippage tolerance Type for market order, TickSize, Percent take profit, stoploss, conditional orders are not supported TickSize: the highest price of Buy order = ask1 + slippageTolerance x tickSize;.
     pub fn with_slippage_tolerance_type(mut self, v: Decimal) -> Self {
         self.slippage_tolerance_type = Some(v);
         self
     }
+    /// Set `slippage_tolerance`: slippage tolerance value TickSize: range is [1, 10000], integer only Percent: range is [0.01, 10], up to 2 decimals.
     pub fn with_slippage_tolerance(mut self, v: Decimal) -> Self {
         self.slippage_tolerance = Some(v);
         self
     }
+    /// Set `price`: order price Market order will ignore this field Please check the min price and price precision from instrument info endpoint If you have position, price needs to be better than liquidation price.
     pub fn with_price(mut self, v: Decimal) -> Self {
         self.price = Some(v);
         self
     }
+    /// Set `trigger_direction`: conditional order param. Used to identify the expected direction of the conditional order. 1: triggered when market price rises to triggerPrice 2: triggered when market price falls to triggerPrice Valid for linear & inverse.
     pub fn with_trigger_direction(mut self, v: TriggerDirection) -> Self {
         self.trigger_direction = Some(v);
         self
     }
+    /// Set `order_filter`: if it is not passed, Order by default. Order tpslOrder: Spot TP/SL order, the assets are occupied even before the order is triggered StopOrder: Spot conditional order, the assets will not be occupied until the price of the underlying asset ...
     pub fn with_order_filter(mut self, v: impl Into<String>) -> Self {
         self.order_filter = Some(v.into());
         self
     }
+    /// Set `trigger_price`: for Perps & Futures, it is the conditional order trigger price.
     pub fn with_trigger_price(mut self, v: Decimal) -> Self {
         self.trigger_price = Some(v);
         self
     }
+    /// Set `trigger_by`: trigger price type, Conditional order param for Perps & Futures. LastPrice IndexPrice MarkPrice Valid for linear & inverse.
     pub fn with_trigger_by(mut self, v: TriggerBy) -> Self {
         self.trigger_by = Some(v);
         self
     }
+    /// Set `order_iv`: implied volatility. option only. Pass the real value, e.g for 10%, 0.1 should be passed. orderIv has a higher priority when price is passed as well.
     pub fn with_order_iv(mut self, v: Decimal) -> Self {
         self.order_iv = Some(v);
         self
     }
+    /// Set `time_in_force`: time in force Market order will always use IOC If not passed, GTC is used by default.
     pub fn with_time_in_force(mut self, v: TimeInForce) -> Self {
         self.time_in_force = Some(v);
         self
     }
+    /// Set `position_idx`: used to identify positions in different position modes. Under hedge-mode, this param is required 0: one-way mode 1: hedge-mode Buy side 2: hedge-mode Sell side.
     pub fn with_position_idx(mut self, v: PositionIdx) -> Self {
         self.position_idx = Some(v);
         self
     }
+    /// Set `order_link_id`: user customised order ID. A max of 36 characters. Combinations of numbers, letters (upper and lower cases), dashes, and underscores are supported.
     pub fn with_order_link_id(mut self, v: impl Into<String>) -> Self {
         self.order_link_id = Some(v.into());
         self
     }
+    /// Set `take_profit`: take profit price UTA: Spot Limit order supports take profit, stop loss or limit take profit, limit stop loss when creating an order.
     pub fn with_take_profit(mut self, v: Decimal) -> Self {
         self.take_profit = Some(v);
         self
     }
+    /// Set `stop_loss`: stop loss price UTA: Spot Limit order supports take profit, stop loss or limit take profit, limit stop loss when creating an order.
     pub fn with_stop_loss(mut self, v: Decimal) -> Self {
         self.stop_loss = Some(v);
         self
     }
+    /// Set `tp_trigger_by`: the price type to trigger take profit. MarkPrice, IndexPrice, default: LastPrice. Valid for linear & inverse.
     pub fn with_tp_trigger_by(mut self, v: TriggerBy) -> Self {
         self.tp_trigger_by = Some(v);
         self
     }
+    /// Set `sl_trigger_by`: the price type to trigger stop loss. MarkPrice, IndexPrice, default: LastPrice. Valid for linear & inverse.
     pub fn with_sl_trigger_by(mut self, v: TriggerBy) -> Self {
         self.sl_trigger_by = Some(v);
         self
     }
+    /// Set `reduce_only`: what is a reduce-only order? true means your position can only reduce in size if this order is triggered.
     pub fn with_reduce_only(mut self, v: bool) -> Self {
         self.reduce_only = Some(v);
         self
     }
+    /// Set `close_on_trigger`: what is a close on trigger order? For a closing order. It can only reduce your position, not increase it.
     pub fn with_close_on_trigger(mut self, v: bool) -> Self {
         self.close_on_trigger = Some(v);
         self
     }
+    /// Set `smp_type`: smp execution type. What is SMP?
     pub fn with_smp_type(mut self, v: SmpType) -> Self {
         self.smp_type = Some(v);
         self
     }
+    /// Set `mmp`: market maker protection. option only. true means set the order as a market maker protection order. What is mmp?
     pub fn with_mmp(mut self, v: bool) -> Self {
         self.mmp = Some(v);
         self
     }
+    /// Set `tpsl_mode`: tP/SL mode Full: entire position for TP/SL. Then, tpOrderType or slOrderType must be Market Partial: partial position tp/sl (as there is no size option, so it will create tp/sl orders with the qty you actually fill).
     pub fn with_tpsl_mode(mut self, v: TpslMode) -> Self {
         self.tpsl_mode = Some(v);
         self
     }
+    /// Set `tp_limit_price`: the limit order price when take profit price is triggered linear & inverse: only works when tpslMode=Partial and tpOrderType=Limit Spot(UTA): it is required when the order has takeProfit and "tpOrderType"=Limit.
     pub fn with_tp_limit_price(mut self, v: Decimal) -> Self {
         self.tp_limit_price = Some(v);
         self
     }
+    /// Set `sl_limit_price`: the limit order price when stop loss price is triggered linear & inverse: only works when tpslMode=Partial and slOrderType=Limit Spot(UTA): it is required when the order has stopLoss and "slOrderType"=Limit.
     pub fn with_sl_limit_price(mut self, v: Decimal) -> Self {
         self.sl_limit_price = Some(v);
         self
     }
+    /// Set `tp_order_type`: the order type when take profit is triggered linear & inverse: Market(default), Limit. For tpslMode=Full, it only supports tpOrderType=Market Spot(UTA): Market: when you set "takeProfit", Limit: when you set "takeProfit" and "tpLimitPrice".
     pub fn with_tp_order_type(mut self, v: OrderType) -> Self {
         self.tp_order_type = Some(v);
         self
     }
+    /// Set `sl_order_type`: the order type when stop loss is triggered linear & inverse: Market(default), Limit. For tpslMode=Full, it only supports slOrderType=Market Spot(UTA): Market: when you set "stopLoss", Limit: when you set "stopLoss" and "slLimitPrice".
     pub fn with_sl_order_type(mut self, v: OrderType) -> Self {
         self.sl_order_type = Some(v);
         self
     }
+    /// Set `bbo_side_type`: queue: use the order price on the orderbook in the same direction as the side Counterparty: use the order price on the orderbook in the opposite direction as the side Valid for linear & inverse.
     pub fn with_bbo_side_type(mut self, v: impl Into<String>) -> Self {
         self.bbo_side_type = Some(v.into());
         self
     }
+    /// Set `bbo_level`: 1,2,3,4,5 Valid for linear & inverse.
     pub fn with_bbo_level(mut self, v: impl Into<String>) -> Self {
         self.bbo_level = Some(v.into());
         self
     }
 }
 
+/// Result of `POST /v5/order/create` ([`Client::place_order`](crate::http::Client::place_order)).
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaceOrderResponse {
@@ -724,22 +766,30 @@ pub struct PlaceOrderResponse {
     pub order_link_id: String,
 }
 
+/// Request body of `POST /v5/order/amend` ([`Client::amend_order`](crate::http::Client::amend_order)).
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AmendOrderRequest {
+    /// Product type linear, inverse, spot, option.
     pub category: Category,
+    /// Symbol name, like BTCUSDT, uppercase only.
     pub symbol: String,
+    /// Order ID. Either orderId or orderLinkId is required.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub order_id: Option<String>,
+    /// User customised order ID. Either orderId or orderLinkId is required.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub order_link_id: Option<String>,
+    /// Order quantity after modification. Do not pass it if not modify the qty.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub qty: Option<Decimal>,
+    /// Order price after modification. Do not pass it if not modify the price.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub price: Option<Decimal>,
 }
 
 impl AmendOrderRequest {
+    /// Create with the required fields; set the optional ones with the `with_*` methods.
     pub fn new(category: Category, symbol: impl Into<String>) -> Self {
         let symbol: String = symbol.into();
         Self {
@@ -752,24 +802,29 @@ impl AmendOrderRequest {
         }
     }
 
+    /// Set `order_id`: order ID. Either orderId or orderLinkId is required.
     pub fn with_order_id(mut self, v: impl Into<String>) -> Self {
         self.order_id = Some(v.into());
         self
     }
+    /// Set `order_link_id`: user customised order ID. Either orderId or orderLinkId is required.
     pub fn with_order_link_id(mut self, v: impl Into<String>) -> Self {
         self.order_link_id = Some(v.into());
         self
     }
+    /// Set `qty`: order quantity after modification. Do not pass it if not modify the qty.
     pub fn with_qty(mut self, v: Decimal) -> Self {
         self.qty = Some(v);
         self
     }
+    /// Set `price`: order price after modification. Do not pass it if not modify the price.
     pub fn with_price(mut self, v: Decimal) -> Self {
         self.price = Some(v);
         self
     }
 }
 
+/// Result of `POST /v5/order/amend` ([`Client::amend_order`](crate::http::Client::amend_order)).
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AmendOrderResponse {
@@ -780,6 +835,7 @@ pub struct AmendOrderResponse {
     pub order_link_id: Option<String>,
 }
 
+/// Request body of `POST /v5/order/cancel` ([`Client::cancel_order`](crate::http::Client::cancel_order)).
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CancelOrderRequest {
@@ -801,6 +857,7 @@ pub struct CancelOrderRequest {
 }
 
 impl CancelOrderRequest {
+    /// Create with the required fields; set the optional ones with the `with_*` methods.
     pub fn new(category: Category, symbol: impl Into<String>) -> Self {
         let symbol: String = symbol.into();
         Self {
@@ -812,20 +869,24 @@ impl CancelOrderRequest {
         }
     }
 
+    /// Set `order_id`: order ID. Either orderId or orderLinkId is required.
     pub fn with_order_id(mut self, v: impl Into<String>) -> Self {
         self.order_id = Some(v.into());
         self
     }
+    /// Set `order_link_id`: user customised order ID. Either orderId or orderLinkId is required.
     pub fn with_order_link_id(mut self, v: impl Into<String>) -> Self {
         self.order_link_id = Some(v.into());
         self
     }
+    /// Set `order_filter`: spot trading only Order, tpslOrder, StopOrder If not passed, Order by default.
     pub fn with_order_filter(mut self, v: OrderFilter) -> Self {
         self.order_filter = Some(v);
         self
     }
 }
 
+/// Result of `POST /v5/order/cancel` ([`Client::cancel_order`](crate::http::Client::cancel_order)).
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct CancelOrderResponse {
@@ -838,16 +899,22 @@ pub struct CancelOrderResponse {
 
 // ── Cancel All Orders ────────────────────────────────────────────────────────
 
+/// Request body of `POST /v5/order/cancel-all` ([`Client::cancel_all_orders`](crate::http::Client::cancel_all_orders)).
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CancelAllOrdersRequest {
+    /// Product type. linear, inverse, spot, option.
     pub category: Category,
+    /// Symbol name, like BTCUSDT, uppercase only linear & inverse: Required if not passing baseCoin or settleCoin.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub symbol: Option<String>,
+    /// Base coin, uppercase only. linear & inverse: If cancel all by baseCoin, it will cancel all of the corresponding category's orders. Required if not passing symbol or settleCoin.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub base_coin: Option<String>,
+    /// Settle coin, uppercase only linear & inverse: Required if not passing symbol or baseCoin option: USDT or USDC Not support spot.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub settle_coin: Option<String>,
+    /// Category= spot, you can pass Order, tpslOrder, StopOrder, OcoOrder, BidirectionalTpslOrder If not passed, Order by default category= linear or inverse, you can pass Order, StopOrder, OpenOrder If not passed, all kinds of orders will be ...
     #[serde(skip_serializing_if = "Option::is_none")]
     pub order_filter: Option<OrderFilter>,
     /// For futures only: TakeProfit, StopLoss, TrailingStop
@@ -856,6 +923,7 @@ pub struct CancelAllOrdersRequest {
 }
 
 impl CancelAllOrdersRequest {
+    /// Create with the required fields; set the optional ones with the `with_*` methods.
     pub fn new(category: Category) -> Self {
         Self {
             category,
@@ -867,22 +935,27 @@ impl CancelAllOrdersRequest {
         }
     }
 
+    /// Set `symbol`: symbol name, like BTCUSDT, uppercase only linear & inverse: Required if not passing baseCoin or settleCoin.
     pub fn with_symbol(mut self, v: impl Into<String>) -> Self {
         self.symbol = Some(v.into());
         self
     }
+    /// Set `base_coin`: base coin, uppercase only. linear & inverse: If cancel all by baseCoin, it will cancel all of the corresponding category's orders. Required if not passing symbol or settleCoin.
     pub fn with_base_coin(mut self, v: impl Into<String>) -> Self {
         self.base_coin = Some(v.into());
         self
     }
+    /// Set `settle_coin`: settle coin, uppercase only linear & inverse: Required if not passing symbol or baseCoin option: USDT or USDC Not support spot.
     pub fn with_settle_coin(mut self, v: impl Into<String>) -> Self {
         self.settle_coin = Some(v.into());
         self
     }
+    /// Set `order_filter`: category= spot, you can pass Order, tpslOrder, StopOrder, OcoOrder, BidirectionalTpslOrder If not passed, Order by default category= linear or inverse, you can pass Order, StopOrder, OpenOrder If not passed, all kinds of orders will be ...
     pub fn with_order_filter(mut self, v: OrderFilter) -> Self {
         self.order_filter = Some(v);
         self
     }
+    /// Set `stop_order_type`: for futures only: TakeProfit, StopLoss, TrailingStop.
     pub fn with_stop_order_type(mut self, v: StopOrderType) -> Self {
         self.stop_order_type = Some(v);
         self
@@ -894,22 +967,31 @@ pub type CancelAllOrdersResponse = List<CancelOrderResponse>;
 
 // ── Order History ────────────────────────────────────────────────────────────
 
+/// Query parameters of `GET /v5/order/history` ([`Client::get_order_history`](crate::http::Client::get_order_history)).
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetOrderHistoryParams {
+    /// Product type linear, inverse, spot, option.
     pub category: Category,
+    /// Symbol name, like BTCUSDT, uppercase only.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub symbol: Option<String>,
+    /// Base coin, uppercase only.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub base_coin: Option<String>,
+    /// Settle coin, uppercase only.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub settle_coin: Option<String>,
+    /// Order ID.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub order_id: Option<String>,
+    /// User customised order ID.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub order_link_id: Option<String>,
+    /// Order: active order StopOrder: conditional order for Futures and Spot tpslOrder: spot TP/SL order OcoOrder: spot OCO orders BidirectionalTpslOrder: Spot bidirectional TPSL order all kinds of orders are returned by default.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub order_filter: Option<OrderFilter>,
+    /// Order status.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub order_status: Option<OrderStatus>,
     /// Start timestamp (ms)
@@ -921,11 +1003,13 @@ pub struct GetOrderHistoryParams {
     /// [1, 50]. Default: 20
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<i32>,
+    /// Cursor. Use the nextPageCursor token from the response to retrieve the next page of the result set.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub cursor: Option<String>,
 }
 
 impl GetOrderHistoryParams {
+    /// Create with the required fields; set the optional ones with the `with_*` methods.
     pub fn new(category: Category) -> Self {
         Self {
             category,
@@ -943,46 +1027,57 @@ impl GetOrderHistoryParams {
         }
     }
 
+    /// Set `symbol`: symbol name, like BTCUSDT, uppercase only.
     pub fn with_symbol(mut self, v: impl Into<String>) -> Self {
         self.symbol = Some(v.into());
         self
     }
+    /// Set `base_coin`: base coin, uppercase only.
     pub fn with_base_coin(mut self, v: impl Into<String>) -> Self {
         self.base_coin = Some(v.into());
         self
     }
+    /// Set `settle_coin`: settle coin, uppercase only.
     pub fn with_settle_coin(mut self, v: impl Into<String>) -> Self {
         self.settle_coin = Some(v.into());
         self
     }
+    /// Set `order_id`: order ID.
     pub fn with_order_id(mut self, v: impl Into<String>) -> Self {
         self.order_id = Some(v.into());
         self
     }
+    /// Set `order_link_id`: user customised order ID.
     pub fn with_order_link_id(mut self, v: impl Into<String>) -> Self {
         self.order_link_id = Some(v.into());
         self
     }
+    /// Set `order_filter`: order: active order StopOrder: conditional order for Futures and Spot tpslOrder: spot TP/SL order OcoOrder: spot OCO orders BidirectionalTpslOrder: Spot bidirectional TPSL order all kinds of orders are returned by default.
     pub fn with_order_filter(mut self, v: OrderFilter) -> Self {
         self.order_filter = Some(v);
         self
     }
+    /// Set `order_status`: order status.
     pub fn with_order_status(mut self, v: OrderStatus) -> Self {
         self.order_status = Some(v);
         self
     }
+    /// Set `start_time`: start timestamp (ms).
     pub fn with_start_time(mut self, v: Timestamp) -> Self {
         self.start_time = Some(v);
         self
     }
+    /// Set `end_time`: end timestamp (ms).
     pub fn with_end_time(mut self, v: Timestamp) -> Self {
         self.end_time = Some(v);
         self
     }
+    /// Set `limit`: [1, 50]. Default: 20.
     pub fn with_limit(mut self, v: i32) -> Self {
         self.limit = Some(v);
         self
     }
+    /// Set `cursor`: cursor. Use the nextPageCursor token from the response to retrieve the next page of the result set.
     pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
         self.cursor = Some(v.into());
         self
@@ -991,51 +1086,68 @@ impl GetOrderHistoryParams {
 
 // ── Batch Orders ─────────────────────────────────────────────────────────────
 
+/// Request body of `POST /v5/order/create-batch` ([`Client::place_orders_batch`](crate::http::Client::place_orders_batch)).
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaceOrderBatchRequest {
+    /// Product type linear, option, spot, inverse.
     pub category: Category,
+    /// Orders to create (at most 20 for linear, 10 otherwise).
     pub request: Vec<PlaceOrderRequest>,
 }
 
 impl PlaceOrderBatchRequest {
+    /// Create with the required fields; set the optional ones with the `with_*` methods.
     pub fn new(category: Category, request: Vec<PlaceOrderRequest>) -> Self {
         Self { category, request }
     }
 }
 
+/// Request body of `POST /v5/order/amend-batch` ([`Client::amend_orders_batch`](crate::http::Client::amend_orders_batch)).
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AmendOrderBatchRequest {
+    /// Product type linear, option, spot, inverse.
     pub category: Category,
+    /// Orders to amend.
     pub request: Vec<AmendOrderRequest>,
 }
 
 impl AmendOrderBatchRequest {
+    /// Create with the required fields; set the optional ones with the `with_*` methods.
     pub fn new(category: Category, request: Vec<AmendOrderRequest>) -> Self {
         Self { category, request }
     }
 }
 
+/// Request body of `POST /v5/order/cancel-batch` ([`Client::cancel_orders_batch`](crate::http::Client::cancel_orders_batch)).
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CancelOrderBatchRequest {
+    /// Product type linear, option, spot, inverse.
     pub category: Category,
+    /// Orders to cancel.
     pub request: Vec<CancelOrderRequest>,
 }
 
 impl CancelOrderBatchRequest {
+    /// Create with the required fields; set the optional ones with the `with_*` methods.
     pub fn new(category: Category, request: Vec<CancelOrderRequest>) -> Self {
         Self { category, request }
     }
 }
 
+/// Item of the list returned by `POST /v5/order/create-batch` ([`Client::place_orders_batch`](crate::http::Client::place_orders_batch)).
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaceOrderBatchResult {
+    /// Product type.
     pub category: Category,
+    /// Symbol name.
     pub symbol: String,
+    /// Order ID.
     pub order_id: String,
+    /// User customised order ID.
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub order_link_id: Option<String>,
     /// Order creation timestamp (ms). Note: Bybit uses the non-standard key "createAt".
@@ -1043,22 +1155,32 @@ pub struct PlaceOrderBatchResult {
     pub create_at: Option<Timestamp>,
 }
 
+/// Item of the list returned by `POST /v5/order/amend-batch` ([`Client::amend_orders_batch`](crate::http::Client::amend_orders_batch)).
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct AmendOrderBatchResult {
+    /// Product type.
     pub category: Category,
+    /// Symbol name.
     pub symbol: String,
+    /// Order ID.
     pub order_id: String,
+    /// User customised order ID.
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub order_link_id: Option<String>,
 }
 
+/// Item of the list returned by `POST /v5/order/cancel-batch` ([`Client::cancel_orders_batch`](crate::http::Client::cancel_orders_batch)).
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct CancelOrderBatchResult {
+    /// Product type.
     pub category: Category,
+    /// Symbol name.
     pub symbol: String,
+    /// Order ID.
     pub order_id: String,
+    /// User customised order ID.
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub order_link_id: Option<String>,
 }
@@ -1070,12 +1192,16 @@ pub struct CancelOrderBatchResult {
 /// Covers: spot only
 #[derive(Debug, Serialize, Clone)]
 pub struct GetSpotBorrowCheckParams {
+    /// Product type spot.
     pub category: Category,
+    /// Symbol name.
     pub symbol: String,
+    /// Transaction side. Buy, Sell.
     pub side: Side,
 }
 
 impl GetSpotBorrowCheckParams {
+    /// Create with the required fields; set the optional ones with the `with_*` methods.
     pub fn new(category: Category, symbol: impl Into<String>, side: Side) -> Self {
         Self {
             category,
@@ -1089,7 +1215,9 @@ impl GetSpotBorrowCheckParams {
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct SpotBorrowCheck {
+    /// Symbol name, like BTCUSDT, uppercase only.
     pub symbol: String,
+    /// Side.
     pub side: Side,
     /// Maximum tradeable quantity with leverage (in base coin).
     pub max_trade_qty: Decimal,
