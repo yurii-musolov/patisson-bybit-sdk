@@ -22,8 +22,6 @@ use bybit::{
     ws::{self, IncomingMessage},
 };
 
-/// Bybit `retCode`: the request timestamp is outside `recv_window`.
-const RET_CODE_TIMESTAMP: i64 = 10002;
 /// Validity of signed requests and of the stream `auth`, milliseconds.
 const RECV_WINDOW: u64 = 5_000;
 
@@ -103,25 +101,11 @@ async fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Load the snapshots; if Bybit rejects the request timestamp (the clock
-/// drifted since the last sync), re-synchronize and try once more.
-async fn load_snapshots(client: &Client, state: &mut AccountState) -> anyhow::Result<()> {
-    match try_load_snapshots(client, state).await {
-        Err(Error::Api { code, .. }) if code == RET_CODE_TIMESTAMP => {
-            let offset_ms = client.sync_time().await?;
-            warn!(
-                offset_ms,
-                "request timestamp rejected, server time re-synchronized"
-            );
-            Ok(try_load_snapshots(client, state).await?)
-        }
-        result => Ok(result?),
-    }
-}
-
 /// Load REST snapshots of USDT perpetual orders and positions and of the
 /// unified wallet into `state`.
-async fn try_load_snapshots(client: &Client, state: &mut AccountState) -> Result<(), Error> {
+/// A rejected request timestamp (the clock drifted since the last sync) is
+/// handled by the client: it re-synchronizes and retries once.
+async fn load_snapshots(client: &Client, state: &mut AccountState) -> Result<(), Error> {
     let category = Category::Linear;
     let settle_coin = String::from("USDT");
 
