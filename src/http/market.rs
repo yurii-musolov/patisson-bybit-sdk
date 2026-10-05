@@ -67,6 +67,34 @@ pub enum KLine {
     Spot { symbol: String, list: Vec<KLineRow> },
 }
 
+/// Result of the mark, index and premium index price kline endpoints: rows
+/// carry prices only (no volume or turnover).
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct PriceKLine {
+    /// Product type.
+    pub category: Category,
+    /// Symbol name.
+    pub symbol: String,
+    /// Klines, newest first.
+    pub list: Vec<PriceKLineRow>,
+}
+
+/// A price-only kline row: `[startTime, open, high, low, close]`.
+#[derive(Debug, Deserialize, PartialEq)]
+pub struct PriceKLineRow {
+    /// Start time of the candle, milliseconds.
+    #[serde(deserialize_with = "number")]
+    pub start_time: Timestamp,
+    /// Open price.
+    pub open_price: Decimal,
+    /// Highest price.
+    pub high_price: Decimal,
+    /// Lowest price.
+    pub low_price: Decimal,
+    /// Close price; the latest price while the candle is open.
+    pub close_price: Decimal,
+}
+
 #[derive(Debug, Deserialize, PartialEq)]
 pub struct KLineRow {
     /// Start time of the candle (ms)
@@ -461,8 +489,8 @@ pub struct OptionTrade {
     pub time: Timestamp,
     /// boolean Whether the trade is block trade
     pub is_block_trade: bool,
-    /// Whether the trade is RPI trade
-    #[serde(rename = "isRPITrade")]
+    /// Whether the trade is an RPI trade (not sent for options: `false`).
+    #[serde(rename = "isRPITrade", default)]
     pub is_rpi_trade: bool,
     /// Mark price
     #[serde(rename = "mP")]

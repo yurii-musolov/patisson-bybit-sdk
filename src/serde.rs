@@ -76,6 +76,38 @@ where
     }
 }
 
+/// `Decimal` that Bybit may send as `""` (e.g. fields of a position
+/// placeholder without a position): `""` -> 0.
+pub fn decimal_or_zero<'de, D>(deserializer: D) -> Result<rust_decimal::Decimal, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s = Cow::<str>::deserialize(deserializer)?;
+    if s.is_empty() {
+        return Ok(rust_decimal::Decimal::ZERO);
+    }
+    s.parse().map_err(de::Error::custom)
+}
+
+/// Millisecond timestamp sent as a string that may be empty: `""` -> 0.
+pub fn timestamp_or_zero<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Repr<'a> {
+        Number(u64),
+        #[serde(borrow)]
+        Str(Cow<'a, str>),
+    }
+    match Repr::deserialize(deserializer)? {
+        Repr::Number(n) => Ok(n),
+        Repr::Str(s) if s.is_empty() => Ok(0),
+        Repr::Str(s) => s.parse().map_err(de::Error::custom),
+    }
+}
+
 pub fn int_to_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>
 where
     D: Deserializer<'de>,

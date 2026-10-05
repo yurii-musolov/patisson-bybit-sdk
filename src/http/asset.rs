@@ -561,7 +561,8 @@ pub struct DepositCoinConfig {
     pub chain: String,
     pub coin_show_name: String,
     pub chain_type: String,
-    pub block_confirm_number: String,
+    #[serde(deserialize_with = "number")]
+    pub block_confirm_number: u32,
     pub min_deposit_amount: Decimal,
 }
 
@@ -1165,17 +1166,20 @@ pub struct CoinChain {
     /// Number of block confirmations required to credit a deposit
     pub confirmation: String,
     /// Fixed withdrawal fee. Empty if withdrawal isn't supported
-    #[serde(default, deserialize_with = "option_decimal")]
+    #[serde(default, deserialize_with = "empty_string_as_none")]
     pub withdraw_fee: Option<Decimal>,
-    pub deposit_min: Decimal,
-    pub withdraw_min: Decimal,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub deposit_min: Option<Decimal>,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub withdraw_min: Option<Decimal>,
     /// Decimal precision for transactions on this chain
     pub min_accuracy: String,
     /// "0": suspended, "1": active
     pub chain_deposit: String,
     /// "0": suspended, "1": active
     pub chain_withdraw: String,
-    pub withdraw_percentage_fee: Decimal,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub withdraw_percentage_fee: Option<Decimal>,
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub contract_address: Option<String>,
     pub safe_confirm_number: String,
@@ -1443,4 +1447,37 @@ pub struct CoinGreeks {
     pub total_gamma: Decimal,
     pub total_vega: Decimal,
     pub total_theta: Decimal,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn coin_chain_with_empty_limits() {
+        // Chains that do not support deposits/withdrawals send "" limits.
+        let json = r#"{"rows":[{"name":"USDT","coin":"USDT","remainAmount":"100","chains":[{
+            "chainType":"X","confirmation":"","withdrawFee":"","depositMin":"","withdrawMin":"",
+            "chain":"X","chainDeposit":"0","chainWithdraw":"0","minAccuracy":"8",
+            "withdrawPercentageFee":"","contractAddress":"","safeConfirmNumber":"","withdrawMax":""
+        }]}]}"#;
+
+        let result: CoinInfoResult = serde_json::from_str(json).unwrap();
+
+        let chain = &result.rows[0].chains[0];
+        assert_eq!(chain.deposit_min, None);
+        assert_eq!(chain.withdraw_fee, None);
+        assert_eq!(chain.contract_address, None);
+    }
+
+    #[test]
+    fn deposit_coin_config_with_numeric_block_confirm_number() {
+        let json = r#"{"configList":[{"coin":"USDT","chain":"ETH","coinShowName":"USDT",
+            "chainType":"ERC20","blockConfirmNumber":1,"minDepositAmount":"0.01"}],
+            "nextPageCursor":""}"#;
+
+        let result: DepositAllowedCoinInfoResult = serde_json::from_str(json).unwrap();
+
+        assert_eq!(result.config_list[0].block_confirm_number, 1);
+    }
 }
