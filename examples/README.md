@@ -4,7 +4,7 @@ This directory contains a number of examples showcasing various capabilities of 
 
 ## Example list
 
-`account-state`, `get-api-key-information`, `get-open-orders`, `get-position-info`, `get-transaction-log`, `instruments-info`, `kline`, `orderbook`, `place-order`, `recent-trading-history`, `server-time`, `stream-all-liquidation`, `stream-orderbook`, `stream-private`, `stream-public`, `ticker`, `wallet`
+`account-state`, `get-api-key-information`, `get-open-orders`, `get-position-info`, `get-transaction-log`, `instruments-info`, `kline`, `orderbook`, `place-order`, `recent-trading-history`, `server-time`, `stream-all-liquidation`, `stream-orderbook`, `stream-private`, `stream-public`, `ticker`, `wallet`, `ws-trade` (testnet keys)
 
 All examples can be executed with:
 

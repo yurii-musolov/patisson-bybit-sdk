@@ -6,10 +6,11 @@ mod messages;
 mod outgoing_message;
 mod state;
 mod stream;
+mod trade;
 
 pub use config::{
     Config, DEFAULT_AUTH_RECV_WINDOW, DEFAULT_CONNECT_TIMEOUT, DEFAULT_PING_INTERVAL,
-    DEFAULT_PONG_TIMEOUT,
+    DEFAULT_PONG_TIMEOUT, DEFAULT_REQUEST_TIMEOUT,
 };
 pub use error::Error;
 pub use handle::Handle;
@@ -17,3 +18,4 @@ pub use incoming_message::*;
 pub use messages::{Command, DisconnectReason, Event};
 pub use outgoing_message::*;
 pub use stream::Stream;
+pub use trade::{TradeClient, TradeResponse};
