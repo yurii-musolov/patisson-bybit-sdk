@@ -15,10 +15,8 @@ use tracing::{Level, info, warn};
 use tracing_subscriber::FmtSubscriber;
 
 use bybit::{
-    AccountState, AccountType, Category, Environment, Error, Topic,
-    http::{
-        Client, Config, GetOpenClosedOrdersParams, GetPositionInfoParams, GetWalletBalanceParams,
-    },
+    AccountScope, AccountState, AccountType, Environment, Topic,
+    http::{Client, Config},
     ws::{self, IncomingMessage},
 };
 
@@ -60,6 +58,11 @@ async fn main() -> anyhow::Result<()> {
         .await?;
     handle.connect().await?;
 
+    // What to load from REST: USDT perpetual orders and positions and the
+    // unified wallet.
+    let scope = AccountScope::new()
+        .linear("USDT")
+        .wallet(AccountType::UNIFIED);
     let mut state = AccountState::new();
 
     while let Some(event) = events.recv().await {
@@ -72,7 +75,7 @@ async fn main() -> anyhow::Result<()> {
                 // drifts, and the next reconnect authenticates with it.
                 let offset_ms = client.sync_time().await?;
                 info!(offset_ms, "server time synchronized");
-                load_snapshots(&client, &mut state).await?;
+                state.reload(&client, &scope).await?;
                 print_summary(&state);
             }
             ws::Event::AuthFailed { ret_msg } => {
@@ -88,7 +91,7 @@ async fn main() -> anyhow::Result<()> {
             // Stream messages were dropped: the local copy may be stale.
             ws::Event::Lagged { dropped } => {
                 warn!(dropped, "events dropped, reloading snapshots");
-                load_snapshots(&client, &mut state).await?;
+                state.reload(&client, &scope).await?;
             }
             ws::Event::Disconnected { reason } => {
                 warn!(?reason, "disconnected");
@@ -96,38 +99,6 @@ async fn main() -> anyhow::Result<()> {
             }
             _ => {}
         }
-    }
-
-    Ok(())
-}
-
-/// Load REST snapshots of USDT perpetual orders and positions and of the
-/// unified wallet into `state`.
-/// A rejected request timestamp (the clock drifted since the last sync) is
-/// handled by the client: it re-synchronizes and retries once.
-async fn load_snapshots(client: &Client, state: &mut AccountState) -> Result<(), Error> {
-    let category = Category::Linear;
-    let settle_coin = String::from("USDT");
-
-    // Server time taken before the requests: anything the stream updated
-    // after this moment is newer than the snapshot. Stream messages carry
-    // server timestamps, so the local clock must not be used here.
-    let snapshot_time = client.server_timestamp();
-
-    let params = GetOpenClosedOrdersParams::new(category).with_settle_coin(settle_coin.clone());
-    let orders = client.get_open_closed_orders_all(&params).await?;
-    state.set_orders(category, orders, snapshot_time);
-
-    let params = GetPositionInfoParams::new(category).with_settle_coin(settle_coin);
-    let positions = client.get_position_info_all(&params).await?;
-    state.set_positions(category, positions, snapshot_time);
-
-    let params = GetWalletBalanceParams {
-        account_type: AccountType::UNIFIED,
-        coin: None,
-    };
-    for balance in client.get_wallet_balance(&params).await?.result.list {
-        state.set_wallet(balance);
     }
 
     Ok(())

@@ -173,6 +173,36 @@ while let Some(event) = events.recv().await {
 }
 ```
 
+### Local account state
+
+`AccountState` keeps open orders, positions and wallet balances from REST
+snapshots and the private stream, ignoring stale updates. Reload the snapshots
+after every authentication and after `Event::Lagged`:
+
+```rust
+use bybit::{AccountScope, AccountState, AccountType, ws};
+
+let scope = AccountScope::new().linear("USDT").wallet(AccountType::UNIFIED);
+let mut state = AccountState::new();
+
+while let Some(event) = events.recv().await {
+    match event {
+        ws::Event::Authenticated | ws::Event::Lagged { .. } => {
+            state.reload(&client, &scope).await?;
+        }
+        ws::Event::Message(ws::IncomingMessage::Topic(msg)) => {
+            for change in state.apply(msg) {
+                println!("{change:?}");
+            }
+        }
+        ws::Event::Disconnected { .. } => break,
+        _ => {}
+    }
+}
+```
+
+See `examples/account-state.rs` for a complete program.
+
 ## License
 
 This project is licensed under the [MIT license](LICENSE).
