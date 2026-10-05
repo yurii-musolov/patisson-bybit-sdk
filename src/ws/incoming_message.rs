@@ -1,8 +1,3 @@
-// Data model mirroring the Bybit V5 API (request parameters, responses,
-// stream messages): field and variant docs are added module by module; see
-// https://bybit-exchange.github.io/docs/v5/intro for the meaning of each field.
-#![allow(missing_docs)]
-
 use std::{borrow::Cow, collections::HashMap};
 
 use crate::{
@@ -25,9 +20,11 @@ use serde_aux::prelude::{
     deserialize_option_number_from_string as option_number,
 };
 
+/// A message from a Bybit stream; parse it with [`IncomingMessage::from_json`].
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(untagged)]
 pub enum IncomingMessage {
+    /// Reply to a command (`subscribe`, `auth`, heartbeat, ...).
     Command(CommandMsg),
     /// Reply of the order entry stream (`/v5/trade`): `auth`, `order.*`.
     TradeReply(Box<TradeReply>),
@@ -35,11 +32,17 @@ pub enum IncomingMessage {
     // each, plus TickerSnapshotMsg at 448 bytes). Without Box the entire IncomingMessage enum
     // would be 584 bytes on every allocation, including the tiny Command/Trade/Topic variants that
     // flow through the mpsc channel far more frequently. Box keeps IncomingMessage at 104 bytes.
+    /// Ticker (`tickers.*`).
     Ticker(Box<TickerMsg>),
+    /// Public trades (`publicTrade.*`).
     Trade(TradeMsg),
+    /// Klines (`kline.*`).
     KLine(KLineMsg),
+    /// Order book (`orderbook.*`).
     Orderbook(OrderbookMsg),
+    /// Liquidations (`allLiquidation.*`).
     AllLiquidation(AllLiquidationMsg),
+    /// Private stream data (orders, positions, executions, wallet, ...).
     Topic(TopicMessage),
 }
 
@@ -215,9 +218,11 @@ impl IncomingMessage {
         }
     }
 
+    /// A heartbeat reply in the `pong` form (private and option/spread public streams).
     pub fn is_pong(&self) -> bool {
         matches!(self, IncomingMessage::Command(CommandMsg::Pong { .. }))
     }
+    /// A heartbeat reply in the `ping` form (spot and linear/inverse public streams).
     pub fn is_ping(&self) -> bool {
         matches!(self, IncomingMessage::Command(CommandMsg::Ping { .. }))
     }
@@ -282,34 +287,50 @@ pub struct TradeReplyHeader {
     pub time_now: Option<Timestamp>,
 }
 
+/// Reply of a public or private stream to a command.
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(tag = "op")]
 pub enum CommandMsg {
+    /// Reply to `subscribe`.
     #[serde(rename = "subscribe")]
     Subscribe {
+        /// `req_id` of the request, if it had one.
         #[serde(default, deserialize_with = "empty_string_as_none")]
         req_id: Option<String>,
+        /// Result message, e.g. an error description.
         #[serde(default, deserialize_with = "empty_string_as_none")]
         ret_msg: Option<String>,
+        /// Connection id.
         conn_id: String,
+        /// Whether the request succeeded.
         success: bool,
     },
+    /// Reply to `unsubscribe`.
     #[serde(rename = "unsubscribe")]
     Unsubscribe {
+        /// `req_id` of the request, if it had one.
         #[serde(default, deserialize_with = "empty_string_as_none")]
         req_id: Option<String>,
+        /// Result message, e.g. an error description.
         #[serde(default, deserialize_with = "empty_string_as_none")]
         ret_msg: Option<String>,
+        /// Connection id.
         conn_id: String,
+        /// Whether the request succeeded.
         success: bool,
     },
+    /// Reply to `auth`.
     #[serde(rename = "auth")]
     Auth {
+        /// `req_id` of the request, if it had one.
         #[serde(default, deserialize_with = "empty_string_as_none")]
         req_id: Option<String>,
+        /// Result message, e.g. an error description.
         #[serde(default, deserialize_with = "empty_string_as_none")]
         ret_msg: Option<String>,
+        /// Connection id.
         conn_id: String,
+        /// Whether the request succeeded.
         success: bool,
     },
     /// Heartbeat reply. Its shape differs per stream (option and spread
@@ -317,14 +338,19 @@ pub enum CommandMsg {
     /// is optional.
     #[serde(rename = "pong")]
     Pong {
+        /// `req_id` of the request, if it had one.
         #[serde(default, alias = "reqId", deserialize_with = "empty_string_as_none")]
         req_id: Option<String>,
+        /// Result message, e.g. an error description.
         #[serde(default, deserialize_with = "empty_string_as_none")]
         ret_msg: Option<String>,
+        /// Connection id.
         #[serde(default, alias = "connId")]
         conn_id: Option<String>,
+        /// Arguments, e.g. the server timestamp of a heartbeat reply.
         #[serde(default)]
         args: Option<Vec<String>>,
+        /// Whether the request succeeded.
         #[serde(default)]
         success: Option<bool>,
     },
@@ -332,14 +358,19 @@ pub enum CommandMsg {
     /// (`"op": "ping", "ret_msg": "pong"`).
     #[serde(rename = "ping")]
     Ping {
+        /// `req_id` of the request, if it had one.
         #[serde(default, alias = "reqId", deserialize_with = "empty_string_as_none")]
         req_id: Option<String>,
+        /// Result message, e.g. an error description.
         #[serde(default, deserialize_with = "empty_string_as_none")]
         ret_msg: Option<String>,
+        /// Connection id.
         #[serde(default, alias = "connId")]
         conn_id: Option<String>,
+        /// Arguments, e.g. the server timestamp of a heartbeat reply.
         #[serde(default)]
         args: Option<Vec<String>>,
+        /// Whether the request succeeded.
         #[serde(default)]
         success: Option<bool>,
     },
@@ -350,118 +381,184 @@ pub enum CommandMsg {
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum TickerMsg {
+    /// Full ticker.
     #[serde(rename = "snapshot")]
     Snapshot {
+        /// Topic of the message.
         topic: Topic,
+        /// Cross sequence.
         #[serde(default, deserialize_with = "option_number")]
         cs: Option<u64>,
+        /// Time the system generated the data, milliseconds.
         ts: Timestamp,
+        /// Message data.
         data: TickerSnapshotMsg,
     },
+    /// Changed fields only.
     #[serde(rename = "delta")]
     Delta {
+        /// Topic of the message.
         topic: Topic,
+        /// Cross sequence.
         #[serde(default, deserialize_with = "option_number")]
         cs: Option<u64>,
+        /// Time the system generated the data, milliseconds.
         ts: Timestamp,
+        /// Message data.
         data: TickerDeltaMsg,
     },
 }
 
+/// Full ticker of a symbol.
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct TickerSnapshotMsg {
+    /// Symbol name.
     pub symbol: String,
+    /// Direction of the last price change.
     pub tick_direction: TickDirection,
+    /// Last traded price.
     pub last_price: Decimal,
+    /// Estimated open price (pre-market contracts).
     #[serde(default, deserialize_with = "option_decimal")]
     pub pre_open_price: Option<Decimal>,
+    /// Estimated open quantity (pre-market contracts).
     #[serde(default, deserialize_with = "option_decimal")]
     pub pre_qty: Option<Decimal>,
+    /// Current phase (pre-market contracts).
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub cur_pre_listing_phase: Option<String>,
+    /// Price 24 hours ago.
     pub prev_price24h: Decimal,
+    /// Price change over 24 hours, as a ratio (0.01 = 1%).
     pub price24h_pcnt: Decimal,
+    /// Highest price in the last 24 hours.
     pub high_price24h: Decimal,
+    /// Lowest price in the last 24 hours.
     pub low_price24h: Decimal,
+    /// Price an hour ago.
     pub prev_price1h: Decimal,
+    /// Mark price.
     pub mark_price: Decimal,
+    /// Index price.
     pub index_price: Decimal,
+    /// Open interest size.
     pub open_interest: Decimal,
+    /// Open interest value.
     pub open_interest_value: Decimal,
+    /// Turnover over 24 hours.
     pub turnover24h: Decimal,
+    /// Volume over 24 hours.
     pub volume24h: Decimal,
+    /// Funding rate.
     pub funding_rate: Decimal,
+    /// Next funding time, milliseconds.
     #[serde(default, deserialize_with = "number")]
     pub next_funding_time: Timestamp,
+    /// Best bid price.
     pub bid1_price: Decimal,
+    /// Best bid size.
     pub bid1_size: Decimal,
+    /// Best ask price.
     pub ask1_price: Decimal,
+    /// Best ask size.
     pub ask1_size: Decimal,
+    /// Delivery time, milliseconds (futures).
     #[serde(default, deserialize_with = "option_number")]
     pub delivery_time: Option<Timestamp>,
+    /// Basis rate (futures).
     #[serde(default, deserialize_with = "option_decimal")]
     pub basis_rate: Option<Decimal>,
+    /// Delivery fee rate (futures).
     #[serde(default, deserialize_with = "option_decimal")]
     pub delivery_fee_rate: Option<Decimal>,
+    /// Predicted delivery price (futures).
     #[serde(default, deserialize_with = "option_decimal")]
     pub predicted_delivery_price: Option<Decimal>,
 }
 
+/// Changed ticker fields of a symbol; unchanged fields are `None`.
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct TickerDeltaMsg {
+    /// Symbol name.
     pub symbol: String,
+    /// Direction of the last price change.
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub tick_direction: Option<TickDirection>,
+    /// Last traded price.
     #[serde(default, deserialize_with = "option_decimal")]
     pub last_price: Option<Decimal>,
+    /// Estimated open price (pre-market contracts).
     #[serde(default, deserialize_with = "option_decimal")]
     pub pre_open_price: Option<Decimal>,
+    /// Estimated open quantity (pre-market contracts).
     #[serde(default, deserialize_with = "option_decimal")]
     pub pre_qty: Option<Decimal>,
+    /// Current phase (pre-market contracts).
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub cur_pre_listing_phase: Option<String>,
+    /// Price 24 hours ago.
     #[serde(default, deserialize_with = "option_decimal")]
     pub prev_price24h: Option<Decimal>,
+    /// Price change over 24 hours, as a ratio (0.01 = 1%).
     #[serde(default, deserialize_with = "option_decimal")]
     pub price24h_pcnt: Option<Decimal>,
+    /// Highest price in the last 24 hours.
     #[serde(default, deserialize_with = "option_decimal")]
     pub high_price24h: Option<Decimal>,
+    /// Lowest price in the last 24 hours.
     #[serde(default, deserialize_with = "option_decimal")]
     pub low_price24h: Option<Decimal>,
+    /// Price an hour ago.
     #[serde(default, deserialize_with = "option_decimal")]
     pub prev_price1h: Option<Decimal>,
+    /// Mark price.
     #[serde(default, deserialize_with = "option_decimal")]
     pub mark_price: Option<Decimal>,
+    /// Index price.
     #[serde(default, deserialize_with = "option_decimal")]
     pub index_price: Option<Decimal>,
+    /// Open interest size.
     #[serde(default, deserialize_with = "option_decimal")]
     pub open_interest: Option<Decimal>,
+    /// Open interest value.
     #[serde(default, deserialize_with = "option_decimal")]
     pub open_interest_value: Option<Decimal>,
+    /// Turnover over 24 hours.
     #[serde(default, deserialize_with = "option_decimal")]
     pub turnover24h: Option<Decimal>,
+    /// Volume over 24 hours.
     #[serde(default, deserialize_with = "option_decimal")]
     pub volume24h: Option<Decimal>,
+    /// Funding rate.
     #[serde(default, deserialize_with = "option_decimal")]
     pub funding_rate: Option<Decimal>,
+    /// Next funding time, milliseconds.
     #[serde(default, deserialize_with = "option_decimal")]
     pub next_funding_time: Option<Decimal>,
+    /// Best bid price.
     #[serde(default, deserialize_with = "option_decimal")]
     pub bid1_price: Option<Decimal>,
+    /// Best bid size.
     #[serde(default, deserialize_with = "option_decimal")]
     pub bid1_size: Option<Decimal>,
+    /// Best ask price.
     #[serde(default, deserialize_with = "option_decimal")]
     pub ask1_price: Option<Decimal>,
+    /// Best ask size.
     #[serde(default, deserialize_with = "option_decimal")]
     pub ask1_size: Option<Decimal>,
+    /// Delivery time, milliseconds (futures).
     #[serde(default, deserialize_with = "option_number")]
     pub delivery_time: Option<Timestamp>,
+    /// Basis rate (futures).
     #[serde(default, deserialize_with = "option_decimal")]
     pub basis_rate: Option<Decimal>,
+    /// Delivery fee rate (futures).
     #[serde(default, deserialize_with = "option_decimal")]
     pub delivery_fee_rate: Option<Decimal>,
+    /// Predicted delivery price (futures).
     #[serde(default, deserialize_with = "option_decimal")]
     pub predicted_delivery_price: Option<Decimal>,
 }
@@ -471,42 +568,61 @@ pub struct TickerDeltaMsg {
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum TradeMsg {
+    /// New trades.
     #[serde(rename = "snapshot")]
     Snapshot {
+        /// Message id.
         #[serde(default, deserialize_with = "empty_string_as_none")]
         id: Option<String>,
+        /// Topic of the message.
         topic: Topic,
+        /// Time the system generated the data, milliseconds.
         ts: Timestamp,
+        /// Message data.
         data: Vec<TradeSnapshotMsg>,
     },
 }
 
+/// A public trade.
 #[derive(PartialEq, Deserialize, Debug)]
 pub struct TradeSnapshotMsg {
+    /// Trade time, milliseconds.
     #[serde(rename = "T")]
     pub time: Timestamp,
+    /// Symbol name.
     #[serde(rename = "s")]
     pub symbol: String,
+    /// Taker side.
     #[serde(rename = "S")]
     pub side: Side,
+    /// Trade size.
     #[serde(rename = "v")]
     pub size: Decimal,
+    /// Trade price.
     #[serde(rename = "p")]
     pub price: Decimal,
+    /// Direction of the last price change.
     #[serde(rename = "L")]
     pub tick_direction: TickDirection,
+    /// Trade id.
     #[serde(rename = "i")]
     pub trade_id: String,
+    /// Whether it is a block trade.
     #[serde(rename = "BT")]
     pub block_trade: bool,
+    /// Whether it is an RPI (retail price improvement) trade.
     #[serde(rename = "RPI")]
     pub rpi_trade: Option<bool>,
+    /// Mark price (options).
     #[serde(rename = "mP", default, deserialize_with = "empty_string_as_none")]
     pub mark_price: Option<String>,
+    /// Index price (options).
     #[serde(rename = "iP", default, deserialize_with = "empty_string_as_none")]
     pub index_price: Option<String>,
+    /// Mark implied volatility (options).
     #[serde(rename = "mlv", default, deserialize_with = "empty_string_as_none")]
     pub mark_iv: Option<String>,
+    /// Implied volatility of the trade (options).
     #[serde(rename = "iv", default, deserialize_with = "empty_string_as_none")]
     pub iv: Option<String>,
 }
@@ -516,26 +632,42 @@ pub struct TradeSnapshotMsg {
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum KLineMsg {
+    /// Current klines.
     #[serde(rename = "snapshot")]
     Snapshot {
+        /// Topic of the message.
         topic: Topic,
+        /// Time the system generated the data, milliseconds.
         ts: Timestamp,
+        /// Message data.
         data: Vec<KLineSnapshotMsg>,
     },
 }
 
+/// A kline (candle).
 #[derive(PartialEq, Deserialize, Debug)]
 pub struct KLineSnapshotMsg {
+    /// Start time of the kline, milliseconds.
     pub start: Timestamp,
+    /// End time of the kline, milliseconds.
     pub end: Timestamp,
+    /// Kline interval.
     pub interval: Interval,
+    /// Open price.
     pub open: Decimal,
+    /// Close price (the last price while the kline is open).
     pub close: Decimal,
+    /// Highest price.
     pub high: Decimal,
+    /// Lowest price.
     pub low: Decimal,
+    /// Volume: contracts for derivatives, base coin for spot.
     pub volume: Decimal,
+    /// Turnover in the quote coin.
     pub turnover: Decimal,
+    /// Whether the kline is closed.
     pub confirm: bool,
+    /// Time of the last trade in the kline, milliseconds.
     pub timestamp: Timestamp,
 }
 
@@ -544,22 +676,33 @@ pub struct KLineSnapshotMsg {
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum OrderbookMsg {
+    /// Full order book; replace the local book.
     #[serde(rename = "snapshot")]
     Snapshot {
+        /// Topic of the message.
         topic: Topic,
+        /// Time the system generated the data, milliseconds.
         ts: Timestamp,
+        /// Message data.
         data: OrderbookDataMsg,
+        /// Matching engine timestamp, milliseconds; correlates the order book with trades.
         cts: Timestamp,
     },
+    /// Changed levels; size 0 removes a level.
     #[serde(rename = "delta")]
     Delta {
+        /// Topic of the message.
         topic: Topic,
+        /// Time the system generated the data, milliseconds.
         ts: Timestamp,
+        /// Message data.
         data: OrderbookDataMsg,
+        /// Matching engine timestamp, milliseconds; correlates the order book with trades.
         cts: Timestamp,
     },
 }
 
+/// Order book levels of a snapshot or delta.
 #[derive(PartialEq, Deserialize, Debug)]
 pub struct OrderbookDataMsg {
     /// Symbol name
@@ -587,25 +730,34 @@ pub struct OrderbookDataMsg {
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum AllLiquidationMsg {
+    /// Liquidations.
     #[serde(rename = "snapshot")]
     Snapshot {
+        /// Topic of the message.
         topic: Topic,
+        /// Time the system generated the data, milliseconds.
         ts: Timestamp,
+        /// Message data.
         data: Vec<AllLiquidationSnapshotMsg>,
     },
 }
 
+/// A liquidation.
 #[derive(PartialEq, Deserialize, Debug)]
 pub struct AllLiquidationSnapshotMsg {
+    /// Update time, milliseconds.
     #[serde(rename = "T")]
     pub time: Timestamp,
+    /// Symbol name.
     #[serde(rename = "s")]
     pub symbol: String,
     /// When you receive a Buy update, this means that a long position has been liquidated
     #[serde(rename = "S")]
     pub side: Side,
+    /// Liquidated size.
     #[serde(rename = "v")]
     pub size: Decimal,
+    /// Bankruptcy price.
     #[serde(rename = "p")]
     pub price: Decimal,
 }
@@ -616,12 +768,16 @@ pub struct AllLiquidationSnapshotMsg {
 /// variant names the topic and every data item carries its category.
 #[serde(tag = "topic")]
 pub enum TopicMessage {
+    /// Order updates (`order` topic).
     #[serde(rename = "order")]
     Order(PrivateMsg<Vec<OrderMsg>>),
+    /// Position updates (`position` topic).
     #[serde(rename = "position")]
     Position(PrivateMsg<Vec<PositionMsg>>),
+    /// Wallet updates (`wallet` topic).
     #[serde(rename = "wallet")]
     Wallet(PrivateMsg<Vec<WalletMsg>>),
+    /// Executions (`execution` topic).
     #[serde(rename = "execution")]
     Execution(PrivateMsg<Vec<ExecutionMsg>>),
     /// Fast execution: fills arrive immediately, before settlement completes.
@@ -635,6 +791,7 @@ pub enum TopicMessage {
     Dcp(PrivateMsg<DcpMsg>),
 }
 
+/// Envelope of a public stream message.
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PublicMsg<T> {
@@ -646,6 +803,7 @@ pub struct PublicMsg<T> {
     data: T,
 }
 
+/// Envelope of a private stream message.
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PrivateMsg<T> {
@@ -653,9 +811,11 @@ pub struct PrivateMsg<T> {
     pub id: String,
     /// Data created timestamp (ms)
     pub creation_time: Timestamp,
+    /// Updates.
     pub data: T,
 }
 
+/// An order update (`order` topic).
 #[derive(PartialEq, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderMsg {
@@ -803,6 +963,7 @@ pub struct OrderMsg {
     pub updated_time: Timestamp,
 }
 
+/// A position update (`position` topic).
 #[derive(PartialEq, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PositionMsg {
@@ -938,6 +1099,7 @@ pub struct PositionMsg {
     pub seq: i64,
 }
 
+/// Wallet balance of an account type (`wallet` topic).
 #[derive(PartialEq, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct WalletMsg {
@@ -984,10 +1146,12 @@ pub struct WalletMsg {
     /// You can ignore this field, and refer to totalMaintenanceMargin, which has the same calculation
     #[serde(rename = "totalMaintenanceMarginByMp")]
     pub total_maintenance_margin_by_mp: Decimal,
+    /// Balances by coin.
     #[serde(deserialize_with = "hash_map")]
     pub coin: HashMap<String, WalletCoin>,
 }
 
+/// An execution (`execution` topic).
 #[derive(PartialEq, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ExecutionMsg {
@@ -1069,13 +1233,19 @@ pub struct ExecutionMsg {
     pub fee_currency: String,
 }
 
+/// Extra fee of an execution (regional sites only).
 #[derive(PartialEq, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ExtraFee {
+    /// Coin of the fee.
     pub fee_coin: String,
+    /// Fee type.
     pub fee_type: ExtraFeeType,
+    /// Fee subtype.
     pub sub_fee_type: ExtraSubFeeType,
+    /// Fee rate.
     pub fee_rate: Decimal,
+    /// Fee amount.
     pub fee: Decimal,
 }
 
@@ -1087,31 +1257,51 @@ pub struct ExtraFee {
 #[derive(PartialEq, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct FastExecutionMsg {
+    /// Product type.
     pub category: Category,
+    /// Symbol name.
     pub symbol: String,
+    /// Execution id.
     pub exec_id: String,
+    /// Execution price.
     pub exec_price: Decimal,
+    /// Execution quantity.
     pub exec_qty: Decimal,
+    /// Order side.
     pub side: Side,
+    /// Order quantity.
     pub order_qty: Decimal,
+    /// Order id.
     pub order_id: String,
+    /// Client order id (`orderLinkId`).
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub order_link_id: Option<String>,
+    /// Whether the execution was a maker trade.
     pub is_maker: bool,
+    /// Coin in which the fee is charged.
     pub fee_currency: String,
+    /// Fee rate.
     pub fee_rate: Decimal,
+    /// Fee charged for the execution.
     pub exec_fee: Decimal,
+    /// Implied volatility of the trade (options).
     #[serde(default, deserialize_with = "option_decimal")]
     pub trade_iv: Option<Decimal>,
+    /// Mark implied volatility (options).
     #[serde(default, deserialize_with = "option_decimal")]
     pub mark_iv: Option<Decimal>,
+    /// Mark price.
     pub mark_price: Decimal,
+    /// Index price.
     #[serde(default, deserialize_with = "option_decimal")]
     pub index_price: Option<Decimal>,
+    /// Underlying price (options).
     #[serde(default, deserialize_with = "option_decimal")]
     pub underlying_price: Option<Decimal>,
+    /// Block trade id.
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub block_trade_id: Option<String>,
+    /// Execution time, milliseconds.
     #[serde(deserialize_with = "number")]
     pub exec_time: Timestamp,
 }
@@ -1123,10 +1313,15 @@ pub struct FastExecutionMsg {
 #[derive(PartialEq, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct GreekMsg {
+    /// Base coin.
     pub base_coin: String,
+    /// Delta of all option positions of the base coin.
     pub total_delta: Decimal,
+    /// Gamma of all option positions of the base coin.
     pub total_gamma: Decimal,
+    /// Vega of all option positions of the base coin.
     pub total_vega: Decimal,
+    /// Theta of all option positions of the base coin.
     pub total_theta: Decimal,
 }
 
