@@ -28,14 +28,9 @@ async fn main() -> anyhow::Result<()> {
     let cfg = Config::for_env(env).credentials(api_key, api_secret);
     let client = Client::new(cfg)?;
 
-    let params = GetPositionInfoParams {
-        category: Category::Linear,
-        symbol: None,
-        base_coin: None,
-        settle_coin: Some(String::from("USDT")),
-        limit: Some(10),
-        cursor: None,
-    };
+    let params = GetPositionInfoParams::new(Category::Linear)
+        .with_settle_coin("USDT")
+        .with_limit(10);
     let response = client.get_position_info(&params).await?;
     info!(?response);
 

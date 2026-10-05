@@ -28,18 +28,9 @@ async fn main() -> anyhow::Result<()> {
     let cfg = Config::for_env(env).credentials(api_key, api_secret);
     let client = Client::new(cfg)?;
 
-    let params = GetOpenClosedOrdersParams {
-        category: Category::Linear,
-        symbol: None,
-        base_coin: None,
-        settle_coin: Some(String::from("USDT")),
-        order_id: None,
-        order_link_id: None,
-        open_only: None,
-        order_filter: None,
-        limit: Some(10),
-        cursor: None,
-    };
+    let params = GetOpenClosedOrdersParams::new(Category::Linear)
+        .with_settle_coin("USDT")
+        .with_limit(10);
     let response = client.get_open_closed_orders(&params).await?;
     info!(?response);
 

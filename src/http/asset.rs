@@ -30,12 +30,14 @@ pub struct InternalTransferRequest {
 
 impl InternalTransferRequest {
     pub fn new(
-        transfer_id: String,
-        coin: String,
+        transfer_id: impl Into<String>,
+        coin: impl Into<String>,
         amount: Decimal,
         from_account_type: AccountType,
         to_account_type: AccountType,
     ) -> Self {
+        let transfer_id: String = transfer_id.into();
+        let coin: String = coin.into();
         Self {
             transfer_id,
             coin,
@@ -93,12 +95,12 @@ impl GetInternalTransferRecordsParams {
         }
     }
 
-    pub fn with_transfer_id(mut self, v: String) -> Self {
-        self.transfer_id = Some(v);
+    pub fn with_transfer_id(mut self, v: impl Into<String>) -> Self {
+        self.transfer_id = Some(v.into());
         self
     }
-    pub fn with_coin(mut self, v: String) -> Self {
-        self.coin = Some(v);
+    pub fn with_coin(mut self, v: impl Into<String>) -> Self {
+        self.coin = Some(v.into());
         self
     }
     pub fn with_status(mut self, v: TransferStatus) -> Self {
@@ -117,8 +119,8 @@ impl GetInternalTransferRecordsParams {
         self.limit = Some(v);
         self
     }
-    pub fn with_cursor(mut self, v: String) -> Self {
-        self.cursor = Some(v);
+    pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
+        self.cursor = Some(v.into());
         self
     }
 }
@@ -168,14 +170,16 @@ pub struct UniversalTransferRequest {
 
 impl UniversalTransferRequest {
     pub fn new(
-        transfer_id: String,
-        coin: String,
+        transfer_id: impl Into<String>,
+        coin: impl Into<String>,
         amount: Decimal,
         from_member_id: i64,
         to_member_id: i64,
         from_account_type: AccountType,
         to_account_type: AccountType,
     ) -> Self {
+        let transfer_id: String = transfer_id.into();
+        let coin: String = coin.into();
         Self {
             transfer_id,
             coin,
@@ -226,12 +230,12 @@ impl GetUniversalTransferRecordsParams {
         }
     }
 
-    pub fn with_transfer_id(mut self, v: String) -> Self {
-        self.transfer_id = Some(v);
+    pub fn with_transfer_id(mut self, v: impl Into<String>) -> Self {
+        self.transfer_id = Some(v.into());
         self
     }
-    pub fn with_coin(mut self, v: String) -> Self {
-        self.coin = Some(v);
+    pub fn with_coin(mut self, v: impl Into<String>) -> Self {
+        self.coin = Some(v.into());
         self
     }
     pub fn with_status(mut self, v: TransferStatus) -> Self {
@@ -250,8 +254,8 @@ impl GetUniversalTransferRecordsParams {
         self.limit = Some(v);
         self
     }
-    pub fn with_cursor(mut self, v: String) -> Self {
-        self.cursor = Some(v);
+    pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
+        self.cursor = Some(v.into());
         self
     }
 }
@@ -313,7 +317,8 @@ pub struct SaveTransferSubMemberRequest {
 }
 
 impl SaveTransferSubMemberRequest {
-    pub fn new(sub_member_ids: String) -> Self {
+    pub fn new(sub_member_ids: impl Into<String>) -> Self {
+        let sub_member_ids: String = sub_member_ids.into();
         Self { sub_member_ids }
     }
 }
@@ -365,7 +370,8 @@ pub struct GetAccountCoinBalanceParams {
 }
 
 impl GetAccountCoinBalanceParams {
-    pub fn new(account_type: AccountType, coin: String) -> Self {
+    pub fn new(account_type: AccountType, coin: impl Into<String>) -> Self {
+        let coin: String = coin.into();
         Self {
             account_type,
             coin,
@@ -378,12 +384,12 @@ impl GetAccountCoinBalanceParams {
         }
     }
 
-    pub fn with_member_id(mut self, v: String) -> Self {
-        self.member_id = Some(v);
+    pub fn with_member_id(mut self, v: impl Into<String>) -> Self {
+        self.member_id = Some(v.into());
         self
     }
-    pub fn with_to_member_id(mut self, v: String) -> Self {
-        self.to_member_id = Some(v);
+    pub fn with_to_member_id(mut self, v: impl Into<String>) -> Self {
+        self.to_member_id = Some(v.into());
         self
     }
     pub fn with_to_account_type(mut self, v: AccountType) -> Self {
@@ -447,8 +453,8 @@ impl GetAssetInfoParams {
         }
     }
 
-    pub fn with_coin(mut self, v: String) -> Self {
-        self.coin = Some(v);
+    pub fn with_coin(mut self, v: impl Into<String>) -> Self {
+        self.coin = Some(v.into());
         self
     }
 }
@@ -511,20 +517,20 @@ impl GetDepositAllowedCoinInfoParams {
         }
     }
 
-    pub fn with_coin(mut self, v: String) -> Self {
-        self.coin = Some(v);
+    pub fn with_coin(mut self, v: impl Into<String>) -> Self {
+        self.coin = Some(v.into());
         self
     }
-    pub fn with_chain(mut self, v: String) -> Self {
-        self.chain = Some(v);
+    pub fn with_chain(mut self, v: impl Into<String>) -> Self {
+        self.chain = Some(v.into());
         self
     }
     pub fn with_limit(mut self, v: u64) -> Self {
         self.limit = Some(v);
         self
     }
-    pub fn with_cursor(mut self, v: String) -> Self {
-        self.cursor = Some(v);
+    pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
+        self.cursor = Some(v.into());
         self
     }
 }
@@ -592,16 +598,16 @@ impl GetDepositRecordsParams {
         }
     }
 
-    pub fn with_id(mut self, v: String) -> Self {
-        self.id = Some(v);
+    pub fn with_id(mut self, v: impl Into<String>) -> Self {
+        self.id = Some(v.into());
         self
     }
-    pub fn with_tx_id(mut self, v: String) -> Self {
-        self.tx_id = Some(v);
+    pub fn with_tx_id(mut self, v: impl Into<String>) -> Self {
+        self.tx_id = Some(v.into());
         self
     }
-    pub fn with_coin(mut self, v: String) -> Self {
-        self.coin = Some(v);
+    pub fn with_coin(mut self, v: impl Into<String>) -> Self {
+        self.coin = Some(v.into());
         self
     }
     pub fn with_start_time(mut self, v: Timestamp) -> Self {
@@ -616,8 +622,8 @@ impl GetDepositRecordsParams {
         self.limit = Some(v);
         self
     }
-    pub fn with_cursor(mut self, v: String) -> Self {
-        self.cursor = Some(v);
+    pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
+        self.cursor = Some(v.into());
         self
     }
 }
@@ -652,7 +658,8 @@ pub struct GetSubDepositRecordsParams {
 }
 
 impl GetSubDepositRecordsParams {
-    pub fn new(sub_member_id: String) -> Self {
+    pub fn new(sub_member_id: impl Into<String>) -> Self {
+        let sub_member_id: String = sub_member_id.into();
         Self {
             sub_member_id,
             id: None,
@@ -665,16 +672,16 @@ impl GetSubDepositRecordsParams {
         }
     }
 
-    pub fn with_id(mut self, v: String) -> Self {
-        self.id = Some(v);
+    pub fn with_id(mut self, v: impl Into<String>) -> Self {
+        self.id = Some(v.into());
         self
     }
-    pub fn with_tx_id(mut self, v: String) -> Self {
-        self.tx_id = Some(v);
+    pub fn with_tx_id(mut self, v: impl Into<String>) -> Self {
+        self.tx_id = Some(v.into());
         self
     }
-    pub fn with_coin(mut self, v: String) -> Self {
-        self.coin = Some(v);
+    pub fn with_coin(mut self, v: impl Into<String>) -> Self {
+        self.coin = Some(v.into());
         self
     }
     pub fn with_start_time(mut self, v: Timestamp) -> Self {
@@ -689,8 +696,8 @@ impl GetSubDepositRecordsParams {
         self.limit = Some(v);
         self
     }
-    pub fn with_cursor(mut self, v: String) -> Self {
-        self.cursor = Some(v);
+    pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
+        self.cursor = Some(v.into());
         self
     }
 }
@@ -753,15 +760,16 @@ pub struct GetDepositAddressParams {
 }
 
 impl GetDepositAddressParams {
-    pub fn new(coin: String) -> Self {
+    pub fn new(coin: impl Into<String>) -> Self {
+        let coin: String = coin.into();
         Self {
             coin,
             chain_type: None,
         }
     }
 
-    pub fn with_chain_type(mut self, v: String) -> Self {
-        self.chain_type = Some(v);
+    pub fn with_chain_type(mut self, v: impl Into<String>) -> Self {
+        self.chain_type = Some(v.into());
         self
     }
 }
@@ -781,7 +789,14 @@ pub struct GetSubDepositAddressParams {
 }
 
 impl GetSubDepositAddressParams {
-    pub fn new(coin: String, chain_type: String, sub_member_id: String) -> Self {
+    pub fn new(
+        coin: impl Into<String>,
+        chain_type: impl Into<String>,
+        sub_member_id: impl Into<String>,
+    ) -> Self {
+        let coin: String = coin.into();
+        let chain_type: String = chain_type.into();
+        let sub_member_id: String = sub_member_id.into();
         Self {
             coin,
             chain_type,
@@ -855,16 +870,16 @@ impl GetWithdrawalRecordsParams {
         }
     }
 
-    pub fn with_withdraw_id(mut self, v: String) -> Self {
-        self.withdraw_id = Some(v);
+    pub fn with_withdraw_id(mut self, v: impl Into<String>) -> Self {
+        self.withdraw_id = Some(v.into());
         self
     }
-    pub fn with_tx_id(mut self, v: String) -> Self {
-        self.tx_id = Some(v);
+    pub fn with_tx_id(mut self, v: impl Into<String>) -> Self {
+        self.tx_id = Some(v.into());
         self
     }
-    pub fn with_coin(mut self, v: String) -> Self {
-        self.coin = Some(v);
+    pub fn with_coin(mut self, v: impl Into<String>) -> Self {
+        self.coin = Some(v.into());
         self
     }
     pub fn with_withdraw_type(mut self, v: i64) -> Self {
@@ -883,8 +898,8 @@ impl GetWithdrawalRecordsParams {
         self.limit = Some(v);
         self
     }
-    pub fn with_cursor(mut self, v: String) -> Self {
-        self.cursor = Some(v);
+    pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
+        self.cursor = Some(v.into());
         self
     }
 }
@@ -974,12 +989,15 @@ pub struct WithdrawRequest {
 
 impl WithdrawRequest {
     pub fn new(
-        coin: String,
-        address: String,
+        coin: impl Into<String>,
+        address: impl Into<String>,
         amount: Decimal,
         timestamp: i64,
-        account_type: String,
+        account_type: impl Into<String>,
     ) -> Self {
+        let coin: String = coin.into();
+        let address: String = address.into();
+        let account_type: String = account_type.into();
         Self {
             coin,
             address,
@@ -994,12 +1012,12 @@ impl WithdrawRequest {
         }
     }
 
-    pub fn with_chain(mut self, v: String) -> Self {
-        self.chain = Some(v);
+    pub fn with_chain(mut self, v: impl Into<String>) -> Self {
+        self.chain = Some(v.into());
         self
     }
-    pub fn with_tag(mut self, v: String) -> Self {
-        self.tag = Some(v);
+    pub fn with_tag(mut self, v: impl Into<String>) -> Self {
+        self.tag = Some(v.into());
         self
     }
     pub fn with_force_chain(mut self, v: i64) -> Self {
@@ -1010,8 +1028,8 @@ impl WithdrawRequest {
         self.fee_type = Some(v);
         self
     }
-    pub fn with_request_id(mut self, v: String) -> Self {
-        self.request_id = Some(v);
+    pub fn with_request_id(mut self, v: impl Into<String>) -> Self {
+        self.request_id = Some(v.into());
         self
     }
 }
@@ -1030,7 +1048,8 @@ pub struct CancelWithdrawalRequest {
 }
 
 impl CancelWithdrawalRequest {
-    pub fn new(id: String) -> Self {
+    pub fn new(id: impl Into<String>) -> Self {
+        let id: String = id.into();
         Self { id }
     }
 }
@@ -1053,7 +1072,8 @@ pub struct GetWithdrawableAmountParams {
 }
 
 impl GetWithdrawableAmountParams {
-    pub fn new(coin: String) -> Self {
+    pub fn new(coin: impl Into<String>) -> Self {
+        let coin: String = coin.into();
         Self { coin }
     }
 }
@@ -1106,8 +1126,8 @@ impl GetCoinInfoParams {
         Self { coin: None }
     }
 
-    pub fn with_coin(mut self, v: String) -> Self {
-        self.coin = Some(v);
+    pub fn with_coin(mut self, v: impl Into<String>) -> Self {
+        self.coin = Some(v.into());
         self
     }
 }
@@ -1186,20 +1206,20 @@ impl GetExchangeOrderRecordParams {
         }
     }
 
-    pub fn with_from_coin(mut self, v: String) -> Self {
-        self.from_coin = Some(v);
+    pub fn with_from_coin(mut self, v: impl Into<String>) -> Self {
+        self.from_coin = Some(v.into());
         self
     }
-    pub fn with_to_coin(mut self, v: String) -> Self {
-        self.to_coin = Some(v);
+    pub fn with_to_coin(mut self, v: impl Into<String>) -> Self {
+        self.to_coin = Some(v.into());
         self
     }
     pub fn with_limit(mut self, v: u64) -> Self {
         self.limit = Some(v);
         self
     }
-    pub fn with_cursor(mut self, v: String) -> Self {
-        self.cursor = Some(v);
+    pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
+        self.cursor = Some(v.into());
         self
     }
 }
@@ -1271,8 +1291,8 @@ impl GetDeliveryRecordParams {
         }
     }
 
-    pub fn with_symbol(mut self, v: String) -> Self {
-        self.symbol = Some(v);
+    pub fn with_symbol(mut self, v: impl Into<String>) -> Self {
+        self.symbol = Some(v.into());
         self
     }
     pub fn with_start_time(mut self, v: Timestamp) -> Self {
@@ -1283,16 +1303,16 @@ impl GetDeliveryRecordParams {
         self.end_time = Some(v);
         self
     }
-    pub fn with_exp_date(mut self, v: String) -> Self {
-        self.exp_date = Some(v);
+    pub fn with_exp_date(mut self, v: impl Into<String>) -> Self {
+        self.exp_date = Some(v.into());
         self
     }
     pub fn with_limit(mut self, v: u64) -> Self {
         self.limit = Some(v);
         self
     }
-    pub fn with_cursor(mut self, v: String) -> Self {
-        self.cursor = Some(v);
+    pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
+        self.cursor = Some(v.into());
         self
     }
 }
@@ -1348,8 +1368,8 @@ impl GetSettlementRecordParams {
         }
     }
 
-    pub fn with_symbol(mut self, v: String) -> Self {
-        self.symbol = Some(v);
+    pub fn with_symbol(mut self, v: impl Into<String>) -> Self {
+        self.symbol = Some(v.into());
         self
     }
     pub fn with_start_time(mut self, v: Timestamp) -> Self {
@@ -1364,8 +1384,8 @@ impl GetSettlementRecordParams {
         self.limit = Some(v);
         self
     }
-    pub fn with_cursor(mut self, v: String) -> Self {
-        self.cursor = Some(v);
+    pub fn with_cursor(mut self, v: impl Into<String>) -> Self {
+        self.cursor = Some(v.into());
         self
     }
 }
@@ -1398,8 +1418,8 @@ impl GetCoinGreeksParams {
         Self { base_coin: None }
     }
 
-    pub fn with_base_coin(mut self, v: String) -> Self {
-        self.base_coin = Some(v);
+    pub fn with_base_coin(mut self, v: impl Into<String>) -> Self {
+        self.base_coin = Some(v.into());
         self
     }
 }

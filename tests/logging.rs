@@ -73,7 +73,7 @@ async fn api_errors_are_logged_at_debug_without_request_parameters() {
     let client =
         Client::new(Config::new(spawn_failing_server().await).credentials("key", "secret"))
             .unwrap();
-    let params = GetOrderHistoryParams::new(Category::Linear).with_symbol("SECRETUSDT".into());
+    let params = GetOrderHistoryParams::new(Category::Linear).with_symbol("SECRETUSDT");
     assert!(client.get_order_history(&params).await.is_err());
 
     let output = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();

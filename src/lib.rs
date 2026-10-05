@@ -32,12 +32,7 @@
 //!
 //! # async fn run() -> Result<(), bybit::Error> {
 //! let client = Client::new(Config::for_env(Environment::Mainnet))?;
-//! let params = GetTickersParams {
-//!     category: Category::Linear,
-//!     symbol: Some(String::from("BTCUSDT")),
-//!     base_coin: None,
-//!     exp_date: None,
-//! };
+//! let params = GetTickersParams::new(Category::Linear).with_symbol("BTCUSDT");
 //! let tickers = client.get_tickers(&params).await?;
 //! println!("{:?}", tickers.result);
 //! # Ok(())
