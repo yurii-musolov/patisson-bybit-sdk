@@ -7,7 +7,10 @@ use crate::{
     TickDirection, TimeInForce, Timestamp, Topic, TpslMode, TriggerBy, TriggerDirection,
     http::{OrderbookLevel, WalletCoin},
     serde::{deserialize_json, hash_map},
-    serde::{empty_string_as_none, int_to_bool, string_to_bool, string_to_option_bool},
+    serde::{
+        empty_string_as_none, empty_string_or_vec, int_to_bool, string_to_bool,
+        string_to_option_bool,
+    },
 };
 
 use rust_decimal::{Decimal, serde::str_option::deserialize as option_decimal};
@@ -40,6 +43,31 @@ struct Envelope<'a> {
     op: Option<Cow<'a, str>>,
     #[serde(borrow, default)]
     topic: Option<Cow<'a, str>>,
+    #[serde(borrow, default, rename = "type")]
+    kind: Option<Cow<'a, str>>,
+}
+
+/// Fields shared by public stream messages. Deserializing into this plain
+/// struct (instead of the `#[serde(tag = "type")]` enums) keeps the path to a
+/// bad field in the error, e.g. `data.b[0]`.
+#[derive(Deserialize)]
+struct Frame<D> {
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    id: Option<String>,
+    topic: Topic,
+    #[serde(default, deserialize_with = "option_number")]
+    cs: Option<u64>,
+    ts: Timestamp,
+    data: D,
+}
+
+/// [`Frame`] of the order book stream, which also carries `cts`.
+#[derive(Deserialize)]
+struct BookFrame {
+    topic: Topic,
+    ts: Timestamp,
+    data: OrderbookDataMsg,
+    cts: Timestamp,
 }
 
 impl IncomingMessage {
@@ -62,11 +90,87 @@ impl IncomingMessage {
         let (kind, rest) = topic.split_once('.').unwrap_or((&topic, ""));
 
         match kind {
-            "tickers" => deserialize_json(json).map(|msg| Self::Ticker(Box::new(msg))),
-            "publicTrade" => deserialize_json(json).map(Self::Trade),
-            "kline" => deserialize_json(json).map(Self::KLine),
-            "orderbook" => deserialize_json(json).map(Self::Orderbook),
-            "allLiquidation" => deserialize_json(json).map(Self::AllLiquidation),
+            "tickers" => match envelope.kind.as_deref() {
+                Some("snapshot") => deserialize_json::<Frame<TickerSnapshotMsg>>(json).map(|f| {
+                    Self::Ticker(Box::new(TickerMsg::Snapshot {
+                        topic: f.topic,
+                        cs: f.cs,
+                        ts: f.ts,
+                        data: f.data,
+                    }))
+                }),
+                Some("delta") => deserialize_json::<Frame<TickerDeltaMsg>>(json).map(|f| {
+                    Self::Ticker(Box::new(TickerMsg::Delta {
+                        topic: f.topic,
+                        cs: f.cs,
+                        ts: f.ts,
+                        data: f.data,
+                    }))
+                }),
+                _ => deserialize_json(json).map(|msg| Self::Ticker(Box::new(msg))),
+            },
+            "publicTrade" => match envelope.kind.as_deref() {
+                Some("snapshot") => {
+                    deserialize_json::<Frame<Vec<TradeSnapshotMsg>>>(json).map(|f| {
+                        Self::Trade(TradeMsg::Snapshot {
+                            id: f.id,
+                            topic: f.topic,
+                            ts: f.ts,
+                            data: f.data,
+                        })
+                    })
+                }
+                _ => deserialize_json(json).map(Self::Trade),
+            },
+            "kline" => match envelope.kind.as_deref() {
+                Some("snapshot") => {
+                    deserialize_json::<Frame<Vec<KLineSnapshotMsg>>>(json).map(|f| {
+                        Self::KLine(KLineMsg::Snapshot {
+                            topic: f.topic,
+                            ts: f.ts,
+                            data: f.data,
+                        })
+                    })
+                }
+                _ => deserialize_json(json).map(Self::KLine),
+            },
+            "orderbook" => {
+                let book = |f: BookFrame| (f.topic, f.ts, f.data, f.cts);
+                match envelope.kind.as_deref() {
+                    Some("snapshot") => deserialize_json::<BookFrame>(json).map(book).map(
+                        |(topic, ts, data, cts)| {
+                            Self::Orderbook(OrderbookMsg::Snapshot {
+                                topic,
+                                ts,
+                                data,
+                                cts,
+                            })
+                        },
+                    ),
+                    Some("delta") => deserialize_json::<BookFrame>(json).map(book).map(
+                        |(topic, ts, data, cts)| {
+                            Self::Orderbook(OrderbookMsg::Delta {
+                                topic,
+                                ts,
+                                data,
+                                cts,
+                            })
+                        },
+                    ),
+                    _ => deserialize_json(json).map(Self::Orderbook),
+                }
+            }
+            "allLiquidation" => match envelope.kind.as_deref() {
+                Some("snapshot") => deserialize_json::<Frame<Vec<AllLiquidationSnapshotMsg>>>(json)
+                    .map(|f| {
+                        Self::AllLiquidation(AllLiquidationMsg::Snapshot {
+                            topic: f.topic,
+                            ts: f.ts,
+                            data: f.data,
+                        })
+                    }),
+                _ => deserialize_json(json).map(Self::AllLiquidation),
+            },
             "order" => deserialize_json(json)
                 .map(TopicMessage::Order)
                 .map(Self::Topic),
@@ -174,7 +278,8 @@ pub enum CommandMsg {
     },
 }
 
-// TODO: Use PublicMsg<T>
+/// `from_json` parses this message through a plain struct (see `Frame`) so
+/// that errors keep the field path; the derived impl is the fallback.
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum TickerMsg {
@@ -294,7 +399,8 @@ pub struct TickerDeltaMsg {
     pub predicted_delivery_price: Option<Decimal>,
 }
 
-// TODO: Use PublicMsg<T>
+/// `from_json` parses this message through a plain struct (see `Frame`) so
+/// that errors keep the field path; the derived impl is the fallback.
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum TradeMsg {
@@ -338,7 +444,8 @@ pub struct TradeSnapshotMsg {
     pub iv: Option<String>,
 }
 
-// TODO: Use PublicMsg<T>
+/// `from_json` parses this message through a plain struct (see `Frame`) so
+/// that errors keep the field path; the derived impl is the fallback.
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum KLineMsg {
@@ -365,7 +472,8 @@ pub struct KLineSnapshotMsg {
     pub timestamp: Timestamp,
 }
 
-// TODO: Use PublicMsg<T>
+/// `from_json` parses this message through a plain struct (see `Frame`) so
+/// that errors keep the field path; the derived impl is the fallback.
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum OrderbookMsg {
@@ -407,7 +515,8 @@ pub struct OrderbookDataMsg {
     pub seq: i64,
 }
 
-// TODO: Use PublicMsg<T>
+/// `from_json` parses this message through a plain struct (see `Frame`) so
+/// that errors keep the field path; the derived impl is the fallback.
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(tag = "type")]
 pub enum AllLiquidationMsg {
@@ -435,7 +544,10 @@ pub struct AllLiquidationSnapshotMsg {
 }
 
 #[derive(PartialEq, Deserialize, Debug)]
-#[serde(tag = "topic")] // TODO: Use field topic
+/// The derived impl only accepts the bare topic names; `IncomingMessage::from_json`
+/// also accepts topics with a category suffix (e.g. `order.linear`). The
+/// variant names the topic and every data item carries its category.
+#[serde(tag = "topic")]
 pub enum TopicMessage {
     #[serde(rename = "order")]
     Order(PrivateMsg<Vec<OrderMsg>>),
@@ -470,7 +582,6 @@ pub struct PublicMsg<T> {
 #[derive(PartialEq, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PrivateMsg<T> {
-    // TODO: pub topic: Topic, /// Topic name
     /// Message ID
     pub id: String,
     /// Data created timestamp (ms)
@@ -881,7 +992,8 @@ pub struct ExecutionMsg {
     /// Closed position size
     pub closed_size: Decimal,
     /// Extra trading fee information. Currently, this data is returned only for kyc=Indian user or spot orders placed on the Indonesian site or spot fiat currency orders placed on the EU site. In other cases, an empty string is returned. Enum: feeType, subFeeType
-    pub extra_fees: Option<Vec<ExtraFee>>, // TODO: !!! ignore if empty string !!!
+    #[serde(default, deserialize_with = "empty_string_or_vec")]
+    pub extra_fees: Option<Vec<ExtraFee>>,
     /// Cross sequence, used to associate each fill and each position update
     /// The seq will be the same when conclude multiple transactions at the same time
     /// Different symbols may have the same seq, please use seq + symbol to check unique
@@ -2332,5 +2444,77 @@ mod tests {
 
         assert!(untagged.contains("did not match any variant"), "{untagged}");
         assert!(!fast.contains("did not match any variant"), "{fast}");
+    }
+
+    #[test]
+    fn from_json_error_points_at_the_offending_field() {
+        let json = r#"{
+            "topic":"orderbook.50.BTCUSDT",
+            "type":"delta",
+            "ts":1687940967466,
+            "data":{"s":"BTCUSDT","b":[["30247.20","30.028"],["abc","1"]],"a":[],"u":1,"seq":1},
+            "cts":1687940967464
+        }"#;
+
+        let err = IncomingMessage::from_json(json).unwrap_err();
+
+        assert!(
+            err.path().to_string().starts_with("data.b[1]"),
+            "unexpected path: {}",
+            err.path()
+        );
+    }
+
+    #[test]
+    fn execution_with_empty_extra_fees_string() {
+        let json = r#"{
+            "topic": "execution",
+            "id": "386825804_BTCUSDT_140612148849382",
+            "creationTime": 1746270400355,
+            "data": [
+                {
+                    "category": "linear",
+                    "symbol": "BTCUSDT",
+                    "closedSize": "0.5",
+                    "execFee": "26.3725275",
+                    "execId": "0ab1bdf7-4219-438b-b30a-32ec863018f7",
+                    "execPrice": "95900.1",
+                    "execQty": "0.5",
+                    "execType": "Trade",
+                    "execValue": "47950.05",
+                    "feeRate": "0.00055",
+                    "tradeIv": "",
+                    "markIv": "",
+                    "blockTradeId": "",
+                    "markPrice": "95901.48",
+                    "indexPrice": "",
+                    "underlyingPrice": "",
+                    "leavesQty": "0",
+                    "orderId": "9aac161b-8ed6-450d-9cab-c5cc67c21784",
+                    "orderLinkId": "",
+                    "orderPrice": "94942.5",
+                    "orderQty": "0.5",
+                    "orderType": "Market",
+                    "stopOrderType": "UNKNOWN",
+                    "side": "Sell",
+                    "execTime": "1746270400353",
+                    "isLeverage": "0",
+                    "isMaker": false,
+                    "seq": 140612148849382,
+                    "marketUnit": "",
+                    "execPnl": "0.05",
+                    "createType": "CreateByUser",
+                    "extraFees":"",
+                    "feeCurrency": "USDT"
+                }
+            ]
+        }"#;
+
+        let message = parse(json);
+
+        let IncomingMessage::Topic(TopicMessage::Execution(msg)) = message else {
+            panic!("not an execution: {message:?}");
+        };
+        assert_eq!(msg.data[0].extra_fees, None);
     }
 }

@@ -74,7 +74,10 @@ impl GetPositionInfoParams {
     }
 }
 
-// TODO: check fields
+/// A position from `GET /v5/position/list`.
+///
+/// Fields checked against the Bybit docs (2026-10); the deprecated
+/// `tpslMode`, `bustPrice`, `positionBalance` and `tradeMode` are omitted.
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Position {
@@ -165,6 +168,15 @@ pub struct Position {
     /// USDC contract session avg price, it is the same figure as avg entry price shown in the web UI
     #[serde(default, deserialize_with = "option_decimal")]
     pub session_avg_price: Option<Decimal>,
+    /// Break even price (linear and inverse only).
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub break_even_price: Option<Decimal>,
+    /// Net delta ratio; option delta is excluded from the calculation.
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub net_delta_ratio: Option<Decimal>,
+    /// Position open timestamp (ms); `None` when not provided or 0.
+    #[serde(default, deserialize_with = "option_number")]
+    pub open_time: Option<Timestamp>,
     /// Delta
     #[serde(default, deserialize_with = "empty_string_as_none")]
     pub delta: Option<String>,
@@ -254,6 +266,10 @@ impl From<PositionMsg> for Position {
             stop_loss: Some(msg.stop_loss),
             trailing_stop: Some(msg.trailing_stop),
             session_avg_price: msg.session_avg_price,
+            // Not sent by the position stream.
+            break_even_price: None,
+            net_delta_ratio: None,
+            open_time: None,
             delta: msg.delta,
             gamma: msg.gamma,
             vega: msg.vega,

@@ -52,6 +52,30 @@ where
     deserializer.deserialize_option(OptVisitor(std::marker::PhantomData))
 }
 
+/// `Option<Vec<T>>` for fields that Bybit sends either as an array or as
+/// an empty string (`""` -> `None`).
+pub fn empty_string_or_vec<'de, D, T>(deserializer: D) -> Result<Option<Vec<T>>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum Repr<T> {
+        Vec(Vec<T>),
+        Str(String),
+    }
+
+    match Option::<Repr<T>>::deserialize(deserializer)? {
+        None => Ok(None),
+        Some(Repr::Vec(v)) => Ok(Some(v)),
+        Some(Repr::Str(s)) if s.is_empty() => Ok(None),
+        Some(Repr::Str(s)) => Err(de::Error::custom(format!(
+            "expected an array or an empty string, got {s:?}"
+        ))),
+    }
+}
+
 pub fn int_to_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>
 where
     D: Deserializer<'de>,

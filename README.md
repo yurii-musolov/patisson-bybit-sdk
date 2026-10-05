@@ -90,6 +90,9 @@ let client = Client::new(cfg)?;
 Calling a private endpoint on a client without credentials returns
 `Error::MissingCredentials`.
 
+REST requests honour the `HTTP(S)_PROXY` environment variables; set a proxy
+explicitly with `Config::proxy("http://127.0.0.1:8080")`.
+
 ### Clock synchronization
 
 Bybit rejects signed requests whose timestamp is more than `recv_window` behind
