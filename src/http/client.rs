@@ -78,6 +78,11 @@ pub struct Config {
     pub timeout: Option<Duration>,
     /// Timeout of establishing a connection. `None` disables it.
     pub connect_timeout: Option<Duration>,
+    /// When Bybit rejects a signed request's timestamp (`retCode` 10002),
+    /// call [`Client::sync_time`] and send the request once more, signed with
+    /// the server time. Safe: the rejected request was not executed.
+    /// Enabled by default.
+    pub resync_time_on_timestamp_error: bool,
 }
 
 impl Config {
@@ -92,6 +97,7 @@ impl Config {
             rate_limiter: None,
             timeout: Some(DEFAULT_TIMEOUT),
             connect_timeout: Some(DEFAULT_CONNECT_TIMEOUT),
+            resync_time_on_timestamp_error: true,
         }
     }
 
@@ -136,6 +142,12 @@ impl Config {
         self.connect_timeout = connect_timeout;
         self
     }
+
+    /// See [`Config::resync_time_on_timestamp_error`].
+    pub fn resync_time_on_timestamp_error(mut self, enabled: bool) -> Self {
+        self.resync_time_on_timestamp_error = enabled;
+        self
+    }
 }
 
 /// Bybit V5 REST client.
@@ -153,6 +165,7 @@ pub struct Client {
     rate_limiter: Option<Arc<RateLimiter>>,
     /// Offset to the server clock (see [`Client::sync_time`]).
     clock: ServerClock,
+    resync_time_on_timestamp_error: bool,
 }
 
 impl Client {
@@ -210,6 +223,7 @@ impl Client {
             signer,
             rate_limiter,
             clock: ServerClock::new(),
+            resync_time_on_timestamp_error: cfg.resync_time_on_timestamp_error,
         })
     }
 
@@ -225,8 +239,14 @@ impl Client {
     /// is at most half the round trip.
     #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn sync_time(&self) -> Result<i64, Error> {
+        // Not via `get_server_time`: `send_weighted` may itself call
+        // `sync_time` when a timestamp is rejected.
+        let url = format!("{}{}", self.base_url, Path::MarketServerTime);
+        let request = self.client.request(Method::GET, url).build()?;
+        let key = RateLimitKey::new(Path::MarketServerTime);
+
         let sent_at = timestamp();
-        let response = self.get_server_time().await?;
+        let response: Response<ServerTime> = self.execute_once(key, 1, request).await?;
         let received_at = timestamp();
 
         let server_ms = response.result.time_nano / 1_000_000;
@@ -2005,7 +2025,36 @@ impl Client {
         T: serde::de::DeserializeOwned,
     {
         let key = RateLimitKey { path, category };
+        let request = request.build()?;
+        let signed = request.headers().contains_key(HEADER_X_BAPI_SIGN);
+        let retry = (signed && self.resync_time_on_timestamp_error)
+            .then(|| request.try_clone())
+            .flatten();
 
+        match self.execute_once(key, cost, request).await {
+            Err(e) if e.is_timestamp_error() && retry.is_some() => {
+                let mut retry = retry.expect("checked above");
+                let offset_ms = self.sync_time().await?;
+                tracing::debug!(%path, offset_ms, "timestamp rejected, retrying with server time");
+                self.resign(&mut retry)?;
+                self.execute_once(key, cost, retry).await
+            }
+            result => result,
+        }
+    }
+
+    /// Rate-limit check, send, rate-limit bookkeeping and response parsing for
+    /// one attempt.
+    async fn execute_once<T>(
+        &self,
+        key: RateLimitKey,
+        cost: u32,
+        request: reqwest::Request,
+    ) -> Result<Response<T>, Error>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        let path = key.path;
         if let Some(rl) = &self.rate_limiter {
             rl.check(key, cost).map_err(|rejection| match rejection {
                 Rejection::RetryAfter(retry_after_ms) => Error::RateLimited { retry_after_ms },
@@ -2016,7 +2065,7 @@ impl Client {
         }
 
         let start = std::time::Instant::now();
-        let response = request.send().await?;
+        let response = self.client.execute(request).await?;
         let elapsed_ms = start.elapsed().as_millis();
         let status = response.status();
         let headers = parse_headers(response.headers());
@@ -2042,6 +2091,22 @@ impl Client {
             Err(e) => tracing::debug!(%path, elapsed_ms, error = %e, "api call failed"),
         }
         result
+    }
+
+    /// Sign `request` again with the current server time. The signed payload
+    /// is what is actually sent: the body of a POST, the query of a GET.
+    fn resign(&self, request: &mut reqwest::Request) -> Result<(), Error> {
+        let signer = self.signer.as_ref().ok_or(Error::MissingCredentials)?;
+        let payload = match request.body().and_then(|body| body.as_bytes()) {
+            Some(body) => String::from_utf8_lossy(body).into_owned(),
+            None => request.url().query().unwrap_or_default().to_owned(),
+        };
+        let timestamp = self.server_timestamp();
+        let signature = signer.sign_at(&payload, timestamp);
+        let headers = request.headers_mut();
+        headers.insert(HEADER_X_BAPI_SIGN, signature.parse()?);
+        headers.insert(HEADER_X_BAPI_TIMESTAMP, timestamp.to_string().parse()?);
+        Ok(())
     }
 }
 
@@ -2283,6 +2348,8 @@ mod tests {
 
     /// Minimal HTTP server: answers every request with `body_for(path)` and
     /// records the request heads it received.
+    /// Minimal HTTP server: answers every request with `body_for(request)`
+    /// (request line, headers and body) and records the requests.
     async fn spawn_http_server(
         body_for: fn(&str) -> String,
     ) -> (String, std::sync::Arc<std::sync::Mutex<Vec<String>>>) {
@@ -2302,10 +2369,28 @@ mod tests {
                         Ok(n) => head.extend_from_slice(&buf[..n]),
                     }
                 }
-                let head = String::from_utf8_lossy(&head).into_owned();
-                let path = head.split_whitespace().nth(1).unwrap_or("").to_owned();
-                recorded.lock().unwrap().push(head);
-                let body = body_for(&path);
+                let text = String::from_utf8_lossy(&head).into_owned();
+                let content_length: usize = text
+                    .lines()
+                    .find_map(|line| {
+                        let (name, value) = line.split_once(':')?;
+                        name.eq_ignore_ascii_case("content-length")
+                            .then(|| value.trim().parse().unwrap_or(0))
+                    })
+                    .unwrap_or(0);
+                let header_len = head
+                    .windows(4)
+                    .position(|w| w == b"\r\n\r\n")
+                    .map_or(head.len(), |i| i + 4);
+                while head.len() < header_len + content_length {
+                    match tcp.read(&mut buf).await {
+                        Ok(0) | Err(_) => break,
+                        Ok(n) => head.extend_from_slice(&buf[..n]),
+                    }
+                }
+                let request = String::from_utf8_lossy(&head).into_owned();
+                recorded.lock().unwrap().push(request.clone());
+                let body = body_for(&request);
                 let response = format!(
                     "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
                     body.len()
@@ -2319,17 +2404,129 @@ mod tests {
     /// The fake server's clock runs this far ahead of the local one.
     const SERVER_AHEAD_MS: u64 = 60_000;
 
-    fn fake_bybit(path: &str) -> String {
+    fn request_path(request: &str) -> &str {
+        request.split_whitespace().nth(1).unwrap_or_default()
+    }
+
+    fn header<'a>(request: &'a str, name: &str) -> Option<&'a str> {
+        request.lines().find_map(|line| {
+            let (n, value) = line.split_once(':')?;
+            n.eq_ignore_ascii_case(name).then(|| value.trim())
+        })
+    }
+
+    fn server_time_body() -> String {
+        let server_ms = timestamp() + SERVER_AHEAD_MS;
+        format!(
+            r#"{{"retCode":0,"retMsg":"OK","result":{{"timeSecond":"{}","timeNano":"{}"}},"retExtInfo":{{}},"time":{server_ms}}}"#,
+            server_ms / 1000,
+            server_ms * 1_000_000
+        )
+    }
+
+    /// Like Bybit with key "key" / secret "secret": rejects signed requests
+    /// whose timestamp is off the (60 s ahead) server clock or whose
+    /// signature does not match the query (GET) or body (POST).
+    fn strict_bybit(request: &str) -> String {
+        let path = request_path(request);
         if path.starts_with("/v5/market/time") {
-            let server_ms = timestamp() + SERVER_AHEAD_MS;
-            format!(
-                r#"{{"retCode":0,"retMsg":"OK","result":{{"timeSecond":"{}","timeNano":"{}"}},"retExtInfo":{{}},"time":{server_ms}}}"#,
-                server_ms / 1000,
-                server_ms * 1_000_000
-            )
+            return server_time_body();
+        }
+        let server_ms = (timestamp() + SERVER_AHEAD_MS) as i64;
+        let ts: i64 = header(request, HEADER_X_BAPI_TIMESTAMP)
+            .unwrap()
+            .parse()
+            .unwrap();
+        let payload = match path.split_once('?') {
+            Some((_, query)) => query.to_owned(),
+            None => request
+                .split_once("\r\n\r\n")
+                .map(|(_, b)| b.to_owned())
+                .unwrap_or_default(),
+        };
+        let expected = crate::hmac_sha256("secret", format!("{ts}key5000{payload}"));
+        let sign_ok = header(request, HEADER_X_BAPI_SIGN) == Some(expected.as_str());
+        if (ts - server_ms).abs() > 5_000 {
+            r#"{"retCode":10002,"retMsg":"timestamp","result":{},"retExtInfo":{},"time":1}"#
+                .to_owned()
+        } else if !sign_ok {
+            r#"{"retCode":10004,"retMsg":"sign","result":{},"retExtInfo":{},"time":1}"#.to_owned()
+        } else {
+            r#"{"retCode":0,"retMsg":"OK","result":{"list":[],"nextPageCursor":""},"retExtInfo":{},"time":1}"#.to_owned()
+        }
+    }
+
+    fn fake_bybit(request: &str) -> String {
+        if request_path(request).starts_with("/v5/market/time") {
+            server_time_body()
         } else {
             r#"{"retCode":10001,"retMsg":"test","result":{},"retExtInfo":{},"time":1}"#.to_owned()
         }
+    }
+
+    fn paths(requests: &std::sync::Mutex<Vec<String>>) -> Vec<String> {
+        requests
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|r| request_path(r).split('?').next().unwrap().to_owned())
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn get_is_resigned_and_retried_after_a_timestamp_error() {
+        let (url, requests) = spawn_http_server(strict_bybit).await;
+        let client = Client::new(Config::new(url).credentials("key", "secret")).unwrap();
+
+        let params =
+            GetOpenClosedOrdersParams::new(Category::Linear).with_symbol(String::from("BTCUSDT"));
+        let result = client.get_open_closed_orders(&params).await;
+
+        assert!(result.is_ok(), "{result:?}");
+        assert_eq!(
+            paths(&requests),
+            [
+                "/v5/order/realtime",
+                "/v5/market/time",
+                "/v5/order/realtime"
+            ]
+        );
+        assert!((client.time_offset() - SERVER_AHEAD_MS as i64).abs() < 1000);
+    }
+
+    #[tokio::test]
+    async fn post_is_resigned_and_retried_after_a_timestamp_error() {
+        let (url, requests) = spawn_http_server(strict_bybit).await;
+        let client = Client::new(Config::new(url).credentials("key", "secret")).unwrap();
+
+        let request = SetLeverageRequest::new(Category::Linear, String::from("BTCUSDT"), 10.into());
+        let result = client.set_leverage(&request).await;
+
+        assert!(result.is_ok(), "{result:?}");
+        assert_eq!(
+            paths(&requests),
+            [
+                "/v5/position/set-leverage",
+                "/v5/market/time",
+                "/v5/position/set-leverage"
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn timestamp_errors_are_returned_when_resync_is_disabled() {
+        let (url, requests) = spawn_http_server(strict_bybit).await;
+        let config = Config::new(url)
+            .credentials("key", "secret")
+            .resync_time_on_timestamp_error(false);
+        let client = Client::new(config).unwrap();
+
+        let params =
+            GetOpenClosedOrdersParams::new(Category::Linear).with_symbol(String::from("BTCUSDT"));
+        let err = client.get_open_closed_orders(&params).await.unwrap_err();
+
+        assert!(err.is_timestamp_error());
+        assert_eq!(paths(&requests), ["/v5/order/realtime"]);
     }
 
     #[tokio::test]
