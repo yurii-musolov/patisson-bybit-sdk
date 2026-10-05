@@ -90,7 +90,7 @@ impl Headers {
 }
 
 /// Result of one item of a batch request.
-#[derive(Debug, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Deserialize, PartialEq)]
 pub struct BatchItemResult {
     /// Item `retCode`, 0 on success.
     pub code: i64,
@@ -100,7 +100,7 @@ pub struct BatchItemResult {
 
 /// Per-item status for batch trade endpoints.
 /// For all other endpoints `retExtInfo` is `{}` — the `list` defaults to empty.
-#[derive(Debug, Default, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Default, Deserialize, PartialEq)]
 pub struct RetExtInfo {
     /// One result per item of the batch, in request order.
     #[serde(default)]
