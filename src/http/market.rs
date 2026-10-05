@@ -93,6 +93,7 @@ pub struct KLineRow {
 }
 
 #[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct GetTickersParams {
     pub category: Category,
     pub symbol: Option<String>,
@@ -489,6 +490,7 @@ pub struct ServerTime {
 }
 
 #[derive(Debug, Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct GetInstrumentsInfoParams {
     pub category: Category,
     pub symbol: Option<String>,
@@ -592,34 +594,50 @@ pub struct InverseLinearInstrumentsInfo {
     pub pre_listing_info: Option<PreListingInfo>,
 }
 
+/// An option of `GET /v5/market/instruments-info`.
 #[derive(Debug, Deserialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct OptionInstrumentsInfo {
+    /// Symbol name, e.g. `ETH-25JUN27-7000-P-USDT`.
     pub symbol: String,
-    pub contract_type: ContractType,
+    /// Display name in the UI.
+    #[serde(default)]
+    pub display_name: Option<String>,
+    /// Trading status.
     pub status: Status,
+    /// Base coin.
     pub base_coin: String,
+    /// Quote coin.
     pub quote_coin: String,
-    #[serde(deserialize_with = "number")]
-    pub launch_time: i64,
-    #[serde(deserialize_with = "number")]
-    pub delivery_time: i64,
-    #[serde(deserialize_with = "option_decimal")]
-    pub delivery_fee_rate: Option<Decimal>,
-    #[serde(deserialize_with = "number")]
-    pub price_scale: i64,
-    pub leverage_filter: LeverageFilter,
-    pub price_filter: PriceFilter,
-    pub lot_size_filter: LotSizeFilter,
-    pub unified_margin_trade: bool,
-    pub funding_interval: i64,
+    /// Settle coin.
     pub settle_coin: String,
-    pub copy_trading: CopyTrading,
-    pub upper_funding_rate: Decimal,
-    pub lower_funding_rate: Decimal,
-    pub risk_parameters: RiskParameters,
-    pub is_pre_listing: bool,
-    pub pre_listing_info: Option<PreListingInfo>,
+    /// Call or put.
+    pub options_type: OptionType,
+    /// Launch time, milliseconds.
+    #[serde(deserialize_with = "number")]
+    pub launch_time: Timestamp,
+    /// Delivery time, milliseconds.
+    #[serde(deserialize_with = "number")]
+    pub delivery_time: Timestamp,
+    /// Delivery fee rate.
+    #[serde(default, deserialize_with = "option_decimal")]
+    pub delivery_fee_rate: Option<Decimal>,
+    /// Price limits and tick size.
+    pub price_filter: PriceFilter,
+    /// Order quantity limits.
+    pub lot_size_filter: OptionLotSizeFilter,
+}
+
+/// Order quantity limits of an option.
+#[derive(Debug, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct OptionLotSizeFilter {
+    /// Maximum order quantity.
+    pub max_order_qty: Decimal,
+    /// Minimum order quantity.
+    pub min_order_qty: Decimal,
+    /// Quantity step.
+    pub qty_step: Decimal,
 }
 
 #[derive(Debug, Deserialize, PartialEq)]
@@ -1104,5 +1122,54 @@ mod tests {
         let query = serialize_query(&params).unwrap();
 
         assert_eq!(query, "category=option&baseCoin=BTC&optionType=Put");
+    }
+
+    #[test]
+    fn base_coin_and_exp_date_are_sent_in_camel_case() {
+        let tickers = GetTickersParams::new(Category::Option)
+            .with_base_coin("ETH")
+            .with_exp_date("25DEC26");
+        let instruments = GetInstrumentsInfoParams::new(Category::Option).with_base_coin("ETH");
+
+        assert_eq!(
+            serialize_query(&tickers).unwrap(),
+            "category=option&baseCoin=ETH&expDate=25DEC26"
+        );
+        assert_eq!(
+            serialize_query(&instruments).unwrap(),
+            "category=option&baseCoin=ETH"
+        );
+    }
+
+    #[test]
+    fn option_instruments_info_parses() {
+        let json = r#"{
+            "category": "option",
+            "nextPageCursor": "",
+            "list": [{
+                "symbolId": 379919,
+                "symbol": "ETH-25JUN27-7000-P-USDT",
+                "status": "Trading",
+                "baseCoin": "ETH",
+                "quoteCoin": "USDT",
+                "settleCoin": "USDT",
+                "optionsType": "Put",
+                "launchTime": "1787350800000",
+                "deliveryTime": "1813910400000",
+                "deliveryFeeRate": "0.00015",
+                "priceFilter": {"minPrice": "0.1", "maxPrice": "41000", "tickSize": "0.1"},
+                "lotSizeFilter": {"maxOrderQty": "5000", "minOrderQty": "0.1", "qtyStep": "0.1"},
+                "displayName": "ETHUSDT-25JUN27-7000-P"
+            }]
+        }"#;
+
+        let info: InstrumentsInfo = serde_json::from_str(json).unwrap();
+
+        let InstrumentsInfo::Option { list, .. } = info else {
+            panic!("not an option list");
+        };
+        assert_eq!(list[0].options_type, OptionType::Put);
+        assert_eq!(list[0].lot_size_filter.qty_step, rust_decimal::dec!(0.1));
+        assert_eq!(list[0].delivery_time, 1813910400000);
     }
 }
