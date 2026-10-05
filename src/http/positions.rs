@@ -14,7 +14,7 @@ use crate::{
     AdlRankIndicator, ExecType, OrderType, PositionIdx, PositionMode, PositionStatus, Side,
     Timestamp, TpslMode, TradeMode, TriggerBy,
     enums::{Category, StopOrderType},
-    serde::{empty_string_as_none, int_to_bool},
+    serde::{decimal_or_zero, empty_string_as_none, int_to_bool, timestamp_or_zero},
     ws::PositionMsg,
 };
 
@@ -109,6 +109,7 @@ pub struct Position {
     pub size: Decimal,
     /// Average entry price
     /// For USDC Perp & Futures, it indicates average entry price, and it will not be changed with 8-hour session settlement
+    #[serde(deserialize_with = "decimal_or_zero")]
     pub avg_price: Decimal,
     /// Position value
     #[serde(default, deserialize_with = "option_decimal")]
@@ -119,11 +120,13 @@ pub struct Position {
     #[serde(deserialize_with = "int_to_bool")]
     pub auto_add_margin: bool,
     /// Position status. Normal, Liq, Adl
-    pub position_status: PositionStatus,
+    #[serde(default, deserialize_with = "empty_string_as_none")]
+    pub position_status: Option<PositionStatus>,
     /// Position leverage
     /// for portfolio margin mode, this field returns "", which means leverage rules are invalid
     pub leverage: Decimal,
     /// Mark price
+    #[serde(deserialize_with = "decimal_or_zero")]
     pub mark_price: Decimal,
     /// Position liquidation price
     /// UTA2.0(isolated margin), UTA1.0(isolated margin), UTA1.0(inverse), Classic account:
@@ -198,18 +201,20 @@ pub struct Position {
     #[serde(default, deserialize_with = "option_decimal")]
     pub unrealised_pnl: Option<Decimal>,
     /// The realised PnL for the current holding position
+    #[serde(deserialize_with = "decimal_or_zero")]
     pub cur_realised_pnl: Decimal,
     /// Cumulative realised pnl
     /// Futures & Perpetuals: it is the all time cumulative realised P&L
     /// Option: always "", meaningless
+    #[serde(deserialize_with = "decimal_or_zero")]
     pub cum_realised_pnl: Decimal,
     /// Auto-deleverage rank indicator. What is Auto-Deleveraging?
     pub adl_rank_indicator: AdlRankIndicator,
     /// Timestamp of the first time a position was created on this symbol (ms)
-    #[serde(deserialize_with = "number")]
+    #[serde(deserialize_with = "timestamp_or_zero")]
     pub created_time: Timestamp,
     /// Position updated timestamp (ms)
-    #[serde(deserialize_with = "number")]
+    #[serde(deserialize_with = "timestamp_or_zero")]
     pub updated_time: Timestamp,
     /// Cross sequence, used to associate each fill and each position update
     /// Different symbols may have the same seq, please use seq + symbol to check unique
@@ -259,7 +264,7 @@ impl From<PositionMsg> for Position {
             avg_price: msg.entry_price,
             position_value: Some(msg.position_value),
             auto_add_margin: msg.auto_add_margin,
-            position_status: msg.position_status,
+            position_status: Some(msg.position_status),
             leverage: msg.leverage,
             mark_price: msg.mark_price,
             liq_price: msg.liq_price,

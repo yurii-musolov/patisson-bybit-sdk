@@ -626,7 +626,7 @@ mod tests {
                     avg_price: dec!(27464.50441675),
                     position_value: Some(dec!(0.01092319)),
                     auto_add_margin: true,
-                    position_status: PositionStatus::Normal,
+                    position_status: Some(PositionStatus::Normal),
                     leverage: dec!(10),
                     mark_price: dec!(28224.50),
                     liq_price: None,
@@ -968,5 +968,19 @@ mod tests {
         assert_eq!(position.break_even_price, Some(rust_decimal::dec!(26500.5)));
         assert_eq!(position.net_delta_ratio, None);
         assert_eq!(position.open_time, Some(1697673600000));
+    }
+
+    #[test]
+    fn deserialize_position_placeholder_without_a_position() {
+        // A symbol without a position: Bybit sends most fields as "".
+        let json = r#"{"retCode":0,"retMsg":"OK","result":{"nextPageCursor":"","category":"inverse","list":[{"symbol":"BTCUSD","leverage":"10","autoAddMargin":0,"avgPrice":"","liqPrice":"","riskLimitValue":"150","takeProfit":"","positionValue":"","tpslMode":"","isReduceOnly":false,"riskId":1,"trailingStop":"","unrealisedPnl":"","markPrice":"","adlRankIndicator":0,"cumRealisedPnl":"","positionMM":"","createdTime":"","positionIdx":0,"positionIM":"","seq":-1,"updatedTime":"","side":"","bustPrice":"","positionBalance":"","leverageSysUpdatedTime":"","curRealisedPnl":"","size":"0","positionStatus":"","mmrSysUpdatedTime":"","stopLoss":"","tradeMode":0,"sessionAvgPrice":""}]},"retExtInfo":{},"time":1791225338294}"#;
+
+        let response: Resp<CursorPagination<Position>> = deserialize_json(json).unwrap();
+
+        let position = &response.result.list[0];
+        assert!(position.size.is_zero());
+        assert!(position.avg_price.is_zero());
+        assert_eq!(position.position_status, None);
+        assert_eq!(position.created_time, 0);
     }
 }

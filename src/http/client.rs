@@ -27,7 +27,7 @@ use crate::{
         HistoricalVolatilityEntry, InstrumentsInfo, Insurance, InternalTransferEntry,
         InternalTransferRequest, KLine, LeverageTokenInfo, LeverageTokenMarket,
         LeverageTokenOrderRecord, List, OpenInterest, Order, Orderbook, PlaceOrderBatchRequest,
-        PlaceOrderBatchResult, PlaceOrderRequest, PlaceOrderResponse, Position,
+        PlaceOrderBatchResult, PlaceOrderRequest, PlaceOrderResponse, Position, PriceKLine,
         PurchaseLeverageTokenRequest, PurchaseLeverageTokenResult, RedeemLeverageTokenRequest,
         RedeemLeverageTokenResult, Resp, Response, RiskLimit, SaveTransferSubMemberRequest,
         ServerTime, SetAutoAddMarginRequest, SetLeverageRequest, SetMarginModeRequest,
@@ -354,7 +354,7 @@ impl Client {
     pub async fn get_mark_price_kline(
         &self,
         params: &GetKLinesParams,
-    ) -> Result<Response<KLine>, Error> {
+    ) -> Result<Response<PriceKLine>, Error> {
         let url = format!("{}{}", self.base_url, Path::MarketMarkPriceKline);
 
         let request = self.client.request(Method::GET, url).query(params);
@@ -371,7 +371,7 @@ impl Client {
     pub async fn get_index_price_kline(
         &self,
         params: &GetKLinesParams,
-    ) -> Result<Response<KLine>, Error> {
+    ) -> Result<Response<PriceKLine>, Error> {
         let url = format!("{}{}", self.base_url, Path::MarketIndexPriceKline);
 
         let request = self.client.request(Method::GET, url).query(params);
@@ -388,7 +388,7 @@ impl Client {
     pub async fn get_premium_index_price_kline(
         &self,
         params: &GetKLinesParams,
-    ) -> Result<Response<KLine>, Error> {
+    ) -> Result<Response<PriceKLine>, Error> {
         let url = format!("{}{}", self.base_url, Path::MarketPremiumIndexPriceKline);
 
         let request = self.client.request(Method::GET, url).query(params);
