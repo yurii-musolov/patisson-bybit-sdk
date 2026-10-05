@@ -306,7 +306,7 @@ impl Order {
         self.trigger_direction = msg.trigger_direction;
         self.trigger_by = msg.trigger_by;
         self.last_price_on_created = msg.last_price_on_created;
-        // TODO: self.base_price
+        // `base_price` is not sent by the order stream: keep the snapshot value.
         self.reduce_only = msg.reduce_only;
         self.close_on_trigger = msg.close_on_trigger;
         self.place_type = msg.place_type;

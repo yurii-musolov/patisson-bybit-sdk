@@ -638,6 +638,9 @@ mod tests {
                     stop_loss: Some(dec!(0.00)),
                     trailing_stop: Some(dec!(0.00)),
                     session_avg_price: None,
+                    break_even_price: None,
+                    net_delta_ratio: None,
+                    open_time: None,
                     delta: None,
                     gamma: None,
                     vega: None,
@@ -902,5 +905,68 @@ mod tests {
         let message = deserialize_json(json).unwrap();
 
         assert_eq!(expected, message);
+    }
+
+    #[test]
+    fn deserialize_position_break_even_price_and_open_time() {
+        let json = r#"{
+            "retCode": 0,
+            "retMsg": "OK",
+            "result": {
+                "list": [
+                    {
+                        "breakEvenPrice": "26500.5",
+                        "netDeltaRatio": "",
+                        "openTime": "1697673600000",
+                        "positionIdx": 0,
+                        "riskId": 1,
+                        "riskLimitValue": "150",
+                        "symbol": "BTCUSD",
+                        "side": "Sell",
+                        "size": "300",
+                        "avgPrice": "27464.50441675",
+                        "positionValue": "0.01092319",
+                        "tradeMode": 0,
+                        "positionStatus": "Normal",
+                        "autoAddMargin": 1,
+                        "adlRankIndicator": 2,
+                        "leverage": "10",
+                        "positionBalance": "0.00139186",
+                        "markPrice": "28224.50",
+                        "liqPrice": "",
+                        "bustPrice": "999999.00",
+                        "positionMM": "0.0000015",
+                        "positionMMByMp": "0.0000015",
+                        "positionIM": "0.00010923",
+                        "positionIMByMp": "0.00010923",
+                        "tpslMode": "Full",
+                        "takeProfit": "0.00",
+                        "stopLoss": "0.00",
+                        "trailingStop": "0.00",
+                        "unrealisedPnl": "-0.00029413",
+                        "curRealisedPnl": "0.00013123",
+                        "cumRealisedPnl": "-0.00096902",
+                        "seq": 5723621632,
+                        "isReduceOnly": false,
+                        "mmrSysUpdatedTime": "",
+                        "leverageSysUpdatedTime": "",
+                        "sessionAvgPrice": "",
+                        "createdTime": "1676538056258",
+                        "updatedTime": "1697673600012"
+                    }
+                ],
+                "nextPageCursor": "",
+                "category": "inverse"
+            },
+            "retExtInfo": {},
+            "time": 1697684980172
+        }"#;
+
+        let response: Resp<CursorPagination<Position>> = deserialize_json(json).unwrap();
+
+        let position = &response.result.list[0];
+        assert_eq!(position.break_even_price, Some(rust_decimal::dec!(26500.5)));
+        assert_eq!(position.net_delta_ratio, None);
+        assert_eq!(position.open_time, Some(1697673600000));
     }
 }

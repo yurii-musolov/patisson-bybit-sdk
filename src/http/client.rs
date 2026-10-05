@@ -78,6 +78,10 @@ pub struct Config {
     pub timeout: Option<Duration>,
     /// Timeout of establishing a connection. `None` disables it.
     pub connect_timeout: Option<Duration>,
+    /// HTTP(S) proxy for REST requests, e.g. `http://127.0.0.1:8080`. `None`
+    /// uses the system proxy settings (`HTTP(S)_PROXY`). WebSocket streams do
+    /// not use it.
+    pub proxy: Option<String>,
     /// When Bybit rejects a signed request's timestamp (`retCode` 10002),
     /// call [`Client::sync_time`] and send the request once more, signed with
     /// the server time. Safe: the rejected request was not executed.
@@ -98,6 +102,7 @@ impl Config {
             timeout: Some(DEFAULT_TIMEOUT),
             connect_timeout: Some(DEFAULT_CONNECT_TIMEOUT),
             resync_time_on_timestamp_error: true,
+            proxy: None,
         }
     }
 
@@ -143,6 +148,12 @@ impl Config {
         self
     }
 
+    /// See [`Config::proxy`].
+    pub fn proxy(mut self, url: impl Into<String>) -> Self {
+        self.proxy = Some(url.into());
+        self
+    }
+
     /// See [`Config::resync_time_on_timestamp_error`].
     pub fn resync_time_on_timestamp_error(mut self, enabled: bool) -> Self {
         self.resync_time_on_timestamp_error = enabled;
@@ -155,7 +166,6 @@ impl Config {
 /// Cloning is cheap, and clones share the connection pool, the rate limiter
 /// state and the clock offset measured by [`Client::sync_time`]: clone the
 /// client into tasks instead of wrapping it in `Arc`.
-// TODO: use proxy
 #[derive(Debug, Clone)]
 pub struct Client {
     base_url: String,
@@ -214,6 +224,9 @@ impl Client {
         }
         if let Some(connect_timeout) = cfg.connect_timeout {
             builder = builder.connect_timeout(connect_timeout);
+        }
+        if let Some(proxy) = &cfg.proxy {
+            builder = builder.proxy(reqwest::Proxy::all(proxy)?);
         }
 
         Ok(Self {
@@ -2574,6 +2587,36 @@ mod tests {
             clone.get_server_time().await,
             Err(Error::RateLimitUnsatisfiable { .. })
         ));
+    }
+
+    #[tokio::test]
+    async fn requests_go_through_the_configured_proxy() {
+        fn answer_time(_: &str) -> String {
+            server_time_body()
+        }
+        let (proxy, requests) = spawn_http_server(answer_time).await;
+        // The host does not resolve: only the proxy can answer.
+        let config = Config::new("http://bybit.invalid").proxy(proxy);
+        let client = Client::new(config).unwrap();
+
+        client.get_server_time().await.unwrap();
+
+        let request_line = requests.lock().unwrap()[0]
+            .lines()
+            .next()
+            .unwrap()
+            .to_owned();
+        assert_eq!(
+            request_line,
+            "GET http://bybit.invalid/v5/market/time HTTP/1.1"
+        );
+    }
+
+    #[test]
+    fn invalid_proxy_url_is_an_error() {
+        let config = Config::new("http://bybit.invalid").proxy("not a url");
+
+        assert!(Client::new(config).is_err());
     }
 
     #[tokio::test]
