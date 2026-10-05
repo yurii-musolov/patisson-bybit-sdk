@@ -95,9 +95,14 @@ Calling a private endpoint on a client without credentials returns
 Bybit rejects signed requests whose timestamp is more than `recv_window` behind
 (or 1 s ahead of) its own clock (`retCode` 10002). `Client::sync_time` measures
 the offset to the server clock and applies it to every signed request; call it
-after creating the client, periodically in long-running programs and after a
-10002 error. `Client::clock()` shares that offset with WebSocket streams (see
-below).
+after creating the client and periodically in long-running programs. When a
+signed request is rejected with 10002 anyway, the client re-synchronizes and
+retries it once (`Config::resync_time_on_timestamp_error`, enabled by default).
+`Client::clock()` shares the offset with WebSocket streams (see below).
+
+`Error` has helpers for common decisions: `api_code()` (compare with the
+constants in `bybit::ret_code`), `is_retryable()`, `is_rate_limited()`,
+`is_timestamp_error()` and `is_not_modified()`.
 
 ```rust
 let offset_ms = client.sync_time().await?;

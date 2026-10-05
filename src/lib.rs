@@ -123,6 +123,7 @@ mod serde;
 mod url;
 
 pub mod http;
+pub mod ret_code;
 pub mod ws;
 
 pub use account_state::*;
