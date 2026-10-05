@@ -2,73 +2,97 @@
 //!
 //! Ref: <https://bybit-exchange.github.io/docs/v5/enum>
 
-// Data model mirroring the Bybit V5 API (request parameters, responses,
-// stream messages): field and variant docs are added module by module; see
-// https://bybit-exchange.github.io/docs/v5/intro for the meaning of each field.
-#![allow(missing_docs)]
-
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_repr::*;
 use std::fmt;
 
+/// Language of announcements (`locale`).
 #[derive(Debug, Deserialize, Serialize)]
 pub enum Locale {
+    /// German.
     #[serde(rename = "de-DE")]
     DeDe,
+    /// English (US).
     #[serde(rename = "en-US")]
     EnUs,
+    /// Spanish (Argentina).
     #[serde(rename = "es-AR")]
     EsAr,
+    /// Spanish (Spain).
     #[serde(rename = "es-ES")]
     EsEs,
+    /// Spanish (Mexico).
     #[serde(rename = "es-MX")]
     EsMx,
+    /// French.
     #[serde(rename = "fr-FR")]
     FrFr,
+    /// Kazakh.
     #[serde(rename = "kk-KZ")]
     KkKz,
+    /// Indonesian.
     #[serde(rename = "id-ID")]
     IdId,
+    /// Ukrainian.
     #[serde(rename = "uk-UA")]
     UkUa,
+    /// Japanese.
     #[serde(rename = "ja-JP")]
     JaJp,
+    /// Russian.
     #[serde(rename = "ru-RU")]
     RuRu,
+    /// Thai.
     #[serde(rename = "th-TH")]
     ThTh,
+    /// Portuguese (Brazil).
     #[serde(rename = "pt-BR")]
     PtBr,
+    /// Turkish.
     #[serde(rename = "tr-TR")]
     TrTr,
+    /// Vietnamese.
     #[serde(rename = "vi-VN")]
     ViVn,
+    /// Chinese (Traditional).
     #[serde(rename = "zh-TW")]
     ZhTw,
+    /// Arabic.
     #[serde(rename = "ar-SA")]
     ArSa,
+    /// Hindi.
     #[serde(rename = "hi-IN")]
     HiIn,
+    /// Filipino.
     #[serde(rename = "fil-PH")]
     FilPh,
 }
 
+/// Announcement category (`announcementType`).
 #[derive(Debug, Deserialize, Serialize)]
 pub enum AnnouncementType {
+    /// New crypto listings.
     #[serde(rename = "new_crypto")]
     NewCrypto,
+    /// Latest Bybit news.
     #[serde(rename = "latest_bybit_news")]
     LatestBybitNews,
+    /// Delistings.
     #[serde(rename = "delistings")]
     Delistings,
+    /// Latest activities and campaigns.
     #[serde(rename = "latest_activities")]
     LatestActivities,
+    /// Product updates.
     #[serde(rename = "product_updates")]
     ProductUpdates,
+    /// Maintenance updates.
     #[serde(rename = "maintenance_updates")]
     MaintenanceUpdates,
+    /// New fiat listings.
     #[serde(rename = "new_fiat_listings")]
     NewFiatListings,
+    /// Other announcements.
     #[serde(rename = "other")]
     Other,
 }
@@ -82,7 +106,9 @@ pub enum Category {
     Inverse,
     /// USDT perpetual, and USDC contract, including USDC perp, USDC futures.
     Linear,
+    /// Options.
     Option,
+    /// Spot.
     Spot,
 }
 
@@ -98,18 +124,22 @@ impl fmt::Display for Category {
     }
 }
 
+/// Order status (`orderStatus`).
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
 pub enum OrderStatus {
     // open status
     /// order has been placed successfully
     New,
+    /// Partially filled; the rest is still open.
     PartiallyFilled,
     /// Conditional orders are created
     Untriggered,
     // closed status
+    /// Rejected (a closed status).
     Rejected,
     /// Only spot has this order status
     PartiallyFilledCanceled,
+    /// Fully filled (a closed status).
     Filled,
     /// In derivatives, orders with this status may have an executed qty
     Cancelled,
@@ -120,9 +150,11 @@ pub enum OrderStatus {
 }
 
 impl OrderStatus {
+    /// The order is still active (`New`, `PartiallyFilled` or `Untriggered`).
     pub fn is_open(&self) -> bool {
         matches!(self, Self::New | Self::PartiallyFilled | Self::Untriggered)
     }
+    /// The order reached a final status.
     pub fn is_closed(&self) -> bool {
         matches!(
             self,
@@ -136,6 +168,7 @@ impl OrderStatus {
     }
 }
 
+/// How long an order stays active (`timeInForce`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum TimeInForce {
     /// GoodTillCancel
@@ -144,6 +177,7 @@ pub enum TimeInForce {
     IOC,
     /// FillOrKill
     FOK,
+    /// Maker only: the order is cancelled if it would execute immediately.
     PostOnly,
     /// features:
     /// Exclusive Matching: Only match non-algorithmic users; no execution against orders from Open API.
@@ -154,11 +188,14 @@ pub enum TimeInForce {
     RPI,
 }
 
+/// What created the order (`createType`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum CreateType {
+    /// Placed by the user.
     CreateByUser,
     /// Spread order
     CreateByFutureSpread,
+    /// Closing order placed by Bybit (admin).
     CreateByAdminClosing,
     /// USDC Futures delivery; position closed as a result of the delisting of a contract. This is recorded as a trade but not an order.
     CreateBySettle,
@@ -212,8 +249,10 @@ pub enum CreateType {
     CreateByDdh,
 }
 
+/// Kind of execution (`execType`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum ExecType {
+    /// A regular trade.
     Trade,
     /// Auto-Deleveraging
     AdlTrade,
@@ -225,7 +264,9 @@ pub enum ExecType {
     Delivery,
     /// Inverse futures settlement; Position closed due to delisting
     Settle,
+    /// A block trade.
     BlockTrade,
+    /// A position moved between accounts.
     MovePosition,
     /// Spread leg execution
     FutureSpread,
@@ -233,21 +274,31 @@ pub enum ExecType {
     UNKNOWN,
 }
 
+/// Order type (`orderType`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum OrderType {
+    /// Market order.
     Market,
+    /// Limit order.
     Limit,
     /// is not a valid request parameter value. Is only used in some responses. Mainly, it is used when execType is Funding.
     UNKNOWN,
 }
 
+/// Type of a conditional or TP/SL order (`stopOrderType`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum StopOrderType {
+    /// Take profit for the whole position.
     TakeProfit,
+    /// Stop loss for the whole position.
     StopLoss,
+    /// Trailing stop.
     TrailingStop,
+    /// Conditional order triggered by price.
     Stop,
+    /// Take profit for part of the position.
     PartialTakeProfit,
+    /// Stop loss for part of the position.
     PartialStopLoss,
     /// spot TP/SL order
     #[serde(rename = "tpslOrder")]
@@ -258,9 +309,11 @@ pub enum StopOrderType {
     MmRateClose,
     /// Spot bidirectional tpsl order
     BidirectionalTpslOrder,
+    /// Not a conditional order, or an unknown value.
     UNKNOWN,
 }
 
+/// Direction of the last price change (`tickDirection`).
 #[derive(Debug, PartialEq, Deserialize, Clone, Copy)]
 pub enum TickDirection {
     /// price rise
@@ -273,32 +326,46 @@ pub enum TickDirection {
     ZeroMinusTick,
 }
 
+/// Kline interval (`interval`).
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
 pub enum Interval {
+    /// 1 minute.
     #[serde(rename = "1")]
     Minute1,
+    /// 3 minutes.
     #[serde(rename = "3")]
     Minute3,
+    /// 5 minutes.
     #[serde(rename = "5")]
     Minute5,
+    /// 15 minutes.
     #[serde(rename = "15")]
     Minute15,
+    /// 30 minutes.
     #[serde(rename = "30")]
     Minute30,
+    /// 1 hour.
     #[serde(rename = "60")]
     Hour1,
+    /// 2 hours.
     #[serde(rename = "120")]
     Hour2,
+    /// 4 hours.
     #[serde(rename = "240")]
     Hour4,
+    /// 6 hours.
     #[serde(rename = "360")]
     Hour6,
+    /// 12 hours.
     #[serde(rename = "720")]
     Hour12,
+    /// 1 day.
     #[serde(rename = "D")]
     Day1,
+    /// 1 week.
     #[serde(rename = "W")]
     Week1,
+    /// 1 month.
     #[serde(rename = "M")]
     Month1,
 }
@@ -324,22 +391,30 @@ impl fmt::Display for Interval {
     }
 }
 
+/// Interval of open interest data (`intervalTime`).
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
 pub enum IntervalTime {
+    /// 5 minutes.
     #[serde(rename = "5min")]
     Minute5,
+    /// 15 minutes.
     #[serde(rename = "15min")]
     Minute15,
+    /// 30 minutes.
     #[serde(rename = "30min")]
     Minute30,
+    /// 1 hour.
     #[serde(rename = "1h")]
     Hour1,
+    /// 4 hours.
     #[serde(rename = "4h")]
     Hour4,
+    /// 1 day.
     #[serde(rename = "1d")]
     Day1,
 }
 
+/// Position index: one-way mode or a side of hedge mode (`positionIdx`).
 #[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Eq, Hash, Clone, Copy)]
 #[repr(u8)]
 pub enum PositionIdx {
@@ -351,6 +426,7 @@ pub enum PositionIdx {
     Sell = 2,
 }
 
+/// Position mode of a symbol or settle coin (`mode`).
 #[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum PositionMode {
@@ -360,8 +436,10 @@ pub enum PositionMode {
     Hedge = 3,
 }
 
+/// Position status (`positionStatus`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum PositionStatus {
+    /// Normal.
     Normal,
     /// in the liquidation progress
     Liq,
@@ -369,109 +447,159 @@ pub enum PositionStatus {
     Adl,
 }
 
+/// Why an order was rejected or cancelled by the matching engine (`rejectReason`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum RejectReason {
+    /// No error.
     #[serde(rename = "EC_NoError")]
     EcNoError,
+    /// Other reason.
     #[serde(rename = "EC_Others")]
     EcOthers,
+    /// Unknown message type.
     #[serde(rename = "EC_UnknownMessageType")]
     EcUnknownMessageType,
+    /// Missing client order id.
     #[serde(rename = "EC_MissingClOrdID")]
     EcMissingClOrdId,
+    /// Missing original client order id.
     #[serde(rename = "EC_MissingOrigClOrdID")]
     EcMissingOrigClOrdId,
+    /// Client order id and original client order id are the same.
     #[serde(rename = "EC_ClOrdIDOrigClOrdIDAreTheSame")]
     EcClOrdIdorigClOrdIdareTheSame,
+    /// Duplicated client order id.
     #[serde(rename = "EC_DuplicatedClOrdID")]
     EcDuplicatedClOrdId,
+    /// Original client order id does not exist.
     #[serde(rename = "EC_OrigClOrdIDDoesNotExist")]
     EcOrigClOrdIddoesNotExist,
+    /// Too late to cancel.
     #[serde(rename = "EC_TooLateToCancel")]
     EcTooLateToCancel,
+    /// Unknown order type.
     #[serde(rename = "EC_UnknownOrderType")]
     EcUnknownOrderType,
+    /// Unknown side.
     #[serde(rename = "EC_UnknownSide")]
     EcUnknownSide,
+    /// Unknown time in force.
     #[serde(rename = "EC_UnknownTimeInForce")]
     EcUnknownTimeInForce,
+    /// Wrongly routed.
     #[serde(rename = "EC_WronglyRouted")]
     EcWronglyRouted,
+    /// A market order has a non-zero price.
     #[serde(rename = "EC_MarketOrderPriceIsNotZero")]
     EcMarketOrderPriceIsNotZero,
+    /// Invalid limit price.
     #[serde(rename = "EC_LimitOrderInvalidPrice")]
     EcLimitOrderInvalidPrice,
+    /// Not enough quantity to fill.
     #[serde(rename = "EC_NoEnoughQtyToFill")]
     EcNoEnoughQtyToFill,
+    /// No maker could be found to fill the order.
     #[serde(rename = "EC_NoImmediateQtyToFill")]
     EcNoImmediateQtyToFill,
+    /// Cancelled by request.
     #[serde(rename = "EC_PerCancelRequest")]
     EcPerCancelRequest,
+    /// A market order cannot be post-only.
     #[serde(rename = "EC_MarketOrderCannotBePostOnly")]
     EcMarketOrderCannotBePostOnly,
+    /// The post-only order would have executed as a taker.
     #[serde(rename = "EC_PostOnlyWillTakeLiquidity")]
     EcPostOnlyWillTakeLiquidity,
+    /// Cancelled by a replace (amend).
     #[serde(rename = "EC_CancelReplaceOrder")]
     EcCancelReplaceOrder,
+    /// The symbol status does not allow it.
     #[serde(rename = "EC_InvalidSymbolStatus")]
     EcInvalidSymbolStatus,
+    /// Cancelled because it could not be filled completely (FOK).
     #[serde(rename = "EC_CancelForNoFullFill")]
     EcCancelForNoFullFill,
+    /// Cancelled by self-match prevention.
     #[serde(rename = "EC_BySelfMatch")]
     EcBySelfMatch,
     /// used for pre-market order operation, e.g., during 2nd phase of call auction, cancel order is not allowed, when the cancel request is failed to be rejected by trading server, the request will be rejected by matching box finally
     #[serde(rename = "EC_InCallAuctionStatus")]
     EcInCallAuctionStatus,
+    /// Quantity cannot be zero.
     #[serde(rename = "EC_QtyCannotBeZero")]
     EcQtyCannotBeZero,
+    /// Market orders do not support this time in force.
     #[serde(rename = "EC_MarketOrderNoSupportTIF")]
     EcMarketOrderNoSupportTif,
+    /// Maximum number of trades reached.
     #[serde(rename = "EC_ReachMaxTradeNum")]
     EcReachMaxTradeNum,
+    /// Invalid price precision.
     #[serde(rename = "EC_InvalidPriceScale")]
     EcInvalidPriceScale,
+    /// Invalid bit index.
     #[serde(rename = "EC_BitIndexInvalid")]
     EcBitIndexInvalid,
+    /// Stopped by self-match prevention.
     #[serde(rename = "EC_StopBySelfMatch")]
     EcStopBySelfMatch,
+    /// Invalid self-match prevention type.
     #[serde(rename = "EC_InvalidSmpType")]
     EcInvalidSmpType,
+    /// Cancelled by market maker protection.
     #[serde(rename = "EC_CancelByMMP")]
     EcCancelByMmp,
+    /// Invalid user type.
     #[serde(rename = "EC_InvalidUserType")]
     EcInvalidUserType,
+    /// Invalid mirror order id.
     #[serde(rename = "EC_InvalidMirrorOid")]
     EcInvalidMirrorOid,
+    /// Invalid mirror user id.
     #[serde(rename = "EC_InvalidMirrorUid")]
     EcInvalidMirrorUid,
+    /// Invalid quantity.
     #[serde(rename = "EC_EcInvalidQty")]
     EcEcInvalidQty,
+    /// Invalid amount.
     #[serde(rename = "EC_InvalidAmount")]
     EcInvalidAmount,
+    /// Cancelled while loading the order.
     #[serde(rename = "EC_LoadOrderCancel")]
     EcLoadOrderCancel,
+    /// Market orders in quote quantity do not support sell.
     #[serde(rename = "EC_MarketQuoteNoSuppSell")]
     EcMarketQuoteNoSuppSell,
+    /// Out-of-order order id.
     #[serde(rename = "EC_DisorderOrderID")]
     EcDisorderOrderId,
+    /// Invalid base value.
     #[serde(rename = "EC_InvalidBaseValue")]
     EcInvalidBaseValue,
+    /// The loaded order can match.
     #[serde(rename = "EC_LoadOrderCanMatch")]
     EcLoadOrderCanMatch,
+    /// Security status check failed.
     #[serde(rename = "EC_SecurityStatusFail")]
     EcSecurityStatusFail,
+    /// Risk price limit reached.
     #[serde(rename = "EC_ReachRiskPriceLimit")]
     EcReachRiskPriceLimit,
+    /// The order does not exist.
     #[serde(rename = "EC_OrderNotExist")]
     EcOrderNotExist,
+    /// Cancelled because its remaining value is zero.
     #[serde(rename = "EC_CancelByOrderValueZero")]
     EcCancelByOrderValueZero,
+    /// Cancelled because the order it matched with has a remaining value of zero.
     #[serde(rename = "EC_CancelByMatchValueZero")]
     EcCancelByMatchValueZero,
+    /// Market price limit reached.
     #[serde(rename = "EC_ReachMarketPriceLimit")]
     EcReachMarketPriceLimit,
 }
 
+/// Account type (`accountType`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum AccountType {
     /// Inverse Derivatives Account | Derivatives Account
@@ -485,68 +613,98 @@ pub enum AccountType {
 }
 
 impl AccountType {
+    /// Account type used by UTA 2.0 accounts.
     pub fn is_uta_2(&self) -> bool {
         matches!(self, Self::UNIFIED | Self::FUND)
     }
+    /// Account type used by UTA 1.0 accounts.
     pub fn is_uta_1(&self) -> bool {
         matches!(self, Self::CONTRACT | Self::UNIFIED | Self::FUND)
     }
+    /// Account type used by classic accounts.
     pub fn is_classic(&self) -> bool {
         matches!(self, Self::SPOT | Self::CONTRACT | Self::FUND)
     }
 }
 
+/// Status of a transfer (`transferStatus`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum TransferStatus {
+    /// Completed.
     SUCCESS,
+    /// In progress.
     PENDING,
+    /// Failed.
     FAILED,
 }
 
+/// Status of a deposit (`depositStatus`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum DepositStatus {
+    /// Unknown.
     #[serde(rename = "0")]
     Unknown,
+    /// Waiting for confirmations.
     #[serde(rename = "1")]
     ToBeConfirmed,
+    /// Processing.
     #[serde(rename = "2")]
     Processing,
     /// (finalised status of a success deposit)
     #[serde(rename = "3")]
     Success,
+    /// Failed.
     #[serde(rename = "4")]
     DepositFailed,
+    /// Pending to be credited to the funding pool.
     #[serde(rename = "10011")]
     PendingToBeCreditedToFundingPool,
+    /// Credited to the funding pool.
     #[serde(rename = "10012")]
     CreditedToFundingPoolSuccessfully,
 }
 
+/// Status of a withdrawal (`withdrawStatus`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum WithdrawStatus {
+    /// Under security check.
     SecurityCheck,
+    /// Pending.
     Pending,
+    /// Completed.
     #[serde(rename = "success")]
     Success,
+    /// Cancelled by the user.
     CancelByUser,
+    /// Rejected.
     Reject,
+    /// Failed.
     Fail,
+    /// Confirmed on the blockchain.
     BlockchainConfirmed,
+    /// More information is required.
     MoreInformationRequired,
     /// a rare status
     Unknown,
 }
 
+/// Price used to trigger a conditional order or TP/SL (`triggerBy`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum TriggerBy {
+    /// Last traded price.
     LastPrice,
+    /// Index price.
     IndexPrice,
+    /// Mark price.
     MarkPrice,
+    /// Not set, or an unknown value.
     UNKNOWN,
 }
 
+/// Why an order was cancelled (`cancelType`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum CancelType {
+    /// Cancelled by the user.
     CancelByUser,
     /// cancelled by reduceOnly
     CancelByReduceOnly,
@@ -558,6 +716,7 @@ pub enum CancelType {
     CancelByPrepareAdl,
     /// cancelled due to ADL
     CancelAllBeforeAdl,
+    /// Cancelled by Bybit (admin).
     CancelByAdmin,
     /// cancelled due to delisting contract
     CancelBySettle,
@@ -571,71 +730,104 @@ pub enum CancelType {
     CancelByRebalance,
 
     // Options:
+    /// Cancelled because the account cannot afford the order cost.
     CancelByCannotAffordOrderCost,
+    /// Cancelled because portfolio margin trial maintenance margin exceeded equity.
     CancelByPmTrialMmOverEquity,
+    /// Cancelled because the account is blocked.
     CancelByAccountBlocking,
+    /// Cancelled by delivery.
     CancelByDelivery,
+    /// Cancelled by market maker protection.
     CancelByMmpTriggered,
+    /// Cancelled by cross self-match.
     CancelByCrossSelfMuch,
+    /// Cancelled because the cross reached the maximum number of trades.
     CancelByCrossReachMaxTradeNum,
 
     /// Not documented
     UNKNOWN,
 }
 
+/// Period of option historical volatility, days (`period`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum OptionPeriod {
+    /// 7 days.
     #[serde(rename = "7")]
     Day7,
+    /// 14 days.
     #[serde(rename = "14")]
     Day14,
+    /// 21 days.
     #[serde(rename = "21")]
     Day21,
+    /// 30 days.
     #[serde(rename = "30")]
     Day30,
+    /// 60 days.
     #[serde(rename = "60")]
     Day60,
+    /// 90 days.
     #[serde(rename = "90")]
     Day90,
+    /// 180 days.
     #[serde(rename = "180")]
     Day180,
+    /// 270 days.
     #[serde(rename = "270")]
     Day270,
 }
 
+/// Data recording period of long/short ratio data (`period`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum DataRecordingPeriod {
+    /// 5 minutes.
     #[serde(rename = "5min")]
     Minute5,
+    /// 15 minutes.
     #[serde(rename = "15min")]
     Minute15,
+    /// 30 minutes.
     #[serde(rename = "30min")]
     Minute30,
+    /// 1 hour.
     #[serde(rename = "1h")]
     Hour1,
+    /// 4 hours.
     #[serde(rename = "4h")]
     Hour4,
+    /// 4 days.
     #[serde(rename = "4d")]
     Day4,
 }
 
+/// Contract type of a derivatives instrument (`contractType`).
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
 pub enum ContractType {
+    /// Inverse perpetual.
     InversePerpetual,
+    /// Linear (USDT/USDC) perpetual.
     LinearPerpetual,
     /// USDT/USDC Futures
     LinearFutures,
+    /// Inverse futures.
     InverseFutures,
 }
 
+/// Trading status of an instrument (`status`).
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
 pub enum Status {
+    /// Pre-market (pre-launch) contract.
     PreLaunch,
+    /// Trading.
     Trading,
+    /// Being delivered (futures and options).
     Delivering,
+    /// Closed.
     Closed,
 }
 
+/// Whether a spot pair supports margin trading (`marginTrading`).
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
 #[serde(rename_all = "camelCase")]
 pub enum MarginTrading {
@@ -649,6 +841,7 @@ pub enum MarginTrading {
     NormalSpotOnly,
 }
 
+/// Whether a symbol supports copy trading (`copyTrading`).
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
 #[serde(rename_all = "camelCase")]
 pub enum CopyTrading {
@@ -662,6 +855,7 @@ pub enum CopyTrading {
     NormalOnly,
 }
 
+/// Type of a transaction log entry (`type`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Type {
@@ -669,6 +863,7 @@ pub enum Type {
     TransferIn,
     /// Assets that transferred out from Unified | (inverse) derivatives wallet
     TransferOut,
+    /// Trade.
     Trade,
     /// USDT Perp funding settlement, and USDC Perp funding settlement + USDC 8-hour session settlement
     /// USDT / Inverse Perp funding settlement
@@ -679,6 +874,7 @@ pub enum Type {
     Liquidation,
     /// Auto-Deleveraging
     ADL,
+    /// Airdrop.
     Airdrop,
     /// Bonus claimed
     Bonus,
@@ -692,14 +888,19 @@ pub enum Type {
     CurrencyBuy,
     /// Currency convert, and the liquidation for borrowing asset(UTA loan)
     CurrencySell,
+    /// Amount borrowed by an institutional loan.
     BorrowedAmountInsLoan,
+    /// Principal repayment of an institutional loan.
     PrincipleRepaymentInsLoan,
+    /// Interest repayment of an institutional loan.
     InterestRepaymentInsLoan,
     /// the liquidation for borrowing asset(INS loan)
     AutoSoldCollateralInsLoan,
     /// the liquidation for borrowing asset(INS loan)
     AutoBuyLiabilityInsLoan,
+    /// Automatic principal repayment of an institutional loan.
     AutoPrincipleRepaymentInsLoan,
+    /// Automatic interest repayment of an institutional loan.
     AutoInterestRepaymentInsLoan,
     /// Transfer In when in the liquidation of OTC loan
     TransferInInsLoan,
@@ -721,12 +922,19 @@ pub enum Type {
     FlexibleStakingRedemption,
     /// Byfi fixed stake subscription
     FixedStakingSubscription,
+    /// Transfer out for pre-market trading.
     PremarketTransferOut,
+    /// Pre-market delivery: new coins sold.
     PremarketDeliverySellNewCoin,
+    /// Pre-market delivery: new coins bought.
     PremarketDeliveryBuyNewCoin,
+    /// Pre-market delivery: pledge paid to the seller.
     PremarketDeliveryPledgePaySeller,
+    /// Pre-market delivery: pledge returned.
     PremarketDeliveryPledgeBack,
+    /// Pre-market rollback: pledge returned.
     PremarketRollbackPledgeBack,
+    /// Pre-market rollback: pledge penalty paid to the buyer.
     PremarketRollbackPledgePenaltyToBuyer,
     /// fireblocks business
     CustodyNetworkFee,
@@ -742,16 +950,23 @@ pub enum Type {
     LoansBorrowFunds,
     /// crypto loan repayment
     LoansPledgeAsset,
+    /// Bonus transferred in.
     BonusTransferIn,
+    /// Bonus transferred out.
     BonusTransferOut,
+    /// Transfer in for PEF.
     PefTransferIn,
+    /// Transfer out for PEF.
     PefTransferOut,
+    /// PEF profit share.
     PefProfitShare,
+    /// Any type not covered by the other variants.
     #[serde(rename = "Others")]
     Others,
 }
 
 impl Type {
+    /// Transaction type that appears in the unified account log.
     pub fn is_uta(&self) -> bool {
         matches!(
             self,
@@ -807,6 +1022,7 @@ impl Type {
                 | Self::PefProfitShare
         )
     }
+    /// Transaction type that appears in the contract (classic) account log.
     pub fn is_contract(&self) -> bool {
         matches!(
             self,
@@ -829,9 +1045,11 @@ impl Type {
     }
 }
 
+/// Account mode (`unifiedMarginStatus`).
 #[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum UnifiedMarginStatus {
+    /// Classic account.
     ClassicAccount = 1,
     /// 1.0
     UnifiedTradingAccount1 = 3,
@@ -843,30 +1061,40 @@ pub enum UnifiedMarginStatus {
     UnifiedTradingAccount2Pro = 6,
 }
 
+/// Margin mode of a unified account (`marginMode`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum MarginMode {
+    /// Isolated margin.
     IsolatedMargin,
+    /// Regular (cross) margin.
     RegularMargin,
+    /// Portfolio margin.
     PortfolioMargin,
 }
 
 /// Whether Spot Margin Trade (UTA) is turned on for the account.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum SpotMarginMode {
+    /// Spot margin trading off.
     #[serde(rename = "0")]
     Disabled,
+    /// Spot margin trading on.
     #[serde(rename = "1")]
     Enabled,
 }
 
+/// Whether spot hedging is on (`spotHedgingStatus`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum SpotHedgingStatus {
+    /// On.
     On,
+    /// Off.
     Off,
 }
 
+/// Status of a leveraged token (`ltStatus`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum LtStatus {
     /// LT can be purchased and redeemed
@@ -889,10 +1117,13 @@ pub enum LtStatus {
 /// Status of a leveraged token purchase or redemption order.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum LtOrderStatus {
+    /// Completed.
     #[serde(rename = "1")]
     Completed,
+    /// In progress.
     #[serde(rename = "2")]
     InProgress,
+    /// Failed.
     #[serde(rename = "3")]
     Failed,
 }
@@ -901,10 +1132,13 @@ pub enum LtOrderStatus {
 #[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum LtOrderType {
+    /// Purchase.
     Purchase = 1,
+    /// Redemption.
     Redemption = 2,
 }
 
+/// Account type of a convert (`accountType`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum ConvertAccountType {
     /// Unified Trading Account
@@ -924,58 +1158,83 @@ pub enum ConvertAccountType {
     Contract,
 }
 
+/// VIP or PRO level of the account (`vipLevel`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum VipLevel {
+    /// No VIP level.
     #[serde(rename = "No VIP")]
     NoVIP,
+    /// VIP level 1.
     #[serde(rename = "VIP-1")]
     VIP1,
+    /// VIP level 2.
     #[serde(rename = "VIP-2")]
     VIP2,
+    /// VIP level 3.
     #[serde(rename = "VIP-3")]
     VIP3,
+    /// VIP level 4.
     #[serde(rename = "VIP-4")]
     VIP4,
+    /// VIP level 5.
     #[serde(rename = "VIP-5")]
     VIP5,
+    /// VIP Supreme.
     #[serde(rename = "VIP-Supreme")]
     VIPSupreme,
+    /// PRO level 1.
     #[serde(rename = "PRO-1")]
     PRO1,
+    /// PRO level 2.
     #[serde(rename = "PRO-2")]
     PRO2,
+    /// PRO level 3.
     #[serde(rename = "PRO-3")]
     PRO3,
+    /// PRO level 4.
     #[serde(rename = "PRO-4")]
     PRO4,
+    /// PRO level 5.
     #[serde(rename = "PRO-5")]
     PRO5,
 }
 
+/// Auto-deleveraging rank, 0 (lowest priority) to 5 (`adlRankIndicator`).
 #[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum AdlRankIndicator {
     /// default value of empty position
     Zero = 0,
+    /// Rank 1.
     One = 1,
+    /// Rank 2.
     Two = 2,
+    /// Rank 3.
     Three = 3,
+    /// Rank 4.
     Four = 4,
+    /// Rank 5.
     Five = 5,
 }
 
+/// Self-match prevention type (`smpType`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum SmpType {
     /// default
     None,
+    /// Cancel the maker order.
     CancelMaker,
+    /// Cancel the taker order.
     CancelTaker,
+    /// Cancel both orders.
     CancelBoth,
 }
 
+/// Type of an extra fee (`feeType`), charged only on some regional sites.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ExtraFeeType {
+    /// Unknown.
     Unknown,
     /// Government tax. Only for Indonesian site
     Tax,
@@ -989,9 +1248,11 @@ pub enum ExtraFeeType {
     Vat,
 }
 
+/// Subtype of an extra fee (`subFeeType`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ExtraSubFeeType {
+    /// Unknown.
     Unknown,
     /// Tax fee, fiat currency to digital currency. Only for Indonesian site
     TaxPnn,
@@ -1007,15 +1268,21 @@ pub enum ExtraSubFeeType {
     AreVat,
 }
 
+/// State of a system maintenance (`state`).
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum State {
+    /// Scheduled.
     Scheduled,
+    /// In progress.
     Ongoing,
+    /// Completed.
     Completed,
+    /// Cancelled.
     Canceled,
 }
 
+/// Service affected by a maintenance (`serviceTypes`).
 #[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum ServiceTypes {
@@ -1031,20 +1298,29 @@ pub enum ServiceTypes {
     MarketDataService = 5,
 }
 
+/// Product affected by a maintenance (`product`).
 #[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum Product {
+    /// Futures.
     Futures = 1,
+    /// Spot.
     Spot = 2,
+    /// Option.
     Option = 3,
+    /// Spread.
     Spread = 4,
 }
 
+/// Product of Disconnection Cancellation Protection (`product`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum DCPProduct {
+    /// Spot.
     Spot,
+    /// Derivatives.
     Derivatives,
+    /// Options.
     Option,
 }
 
@@ -1052,51 +1328,74 @@ pub enum DCPProduct {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum UnifiedUpdateStatus {
+    /// The upgrade failed.
     Fail,
+    /// The upgrade is in progress.
     Process,
+    /// The upgrade succeeded.
     Success,
 }
 
+/// Kind of system maintenance (`maintainType`).
 #[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum MaintainType {
+    /// Planned maintenance.
     PlannedMaintenance = 1,
+    /// Temporary maintenance.
     TemporaryMaintenance = 2,
+    /// Incident.
     Incident = 3,
 }
 
+/// Environment affected by a maintenance (`env`).
 #[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum Env {
+    /// Production.
     Product = 1,
+    /// Production demo service.
     ProductDemoService = 2,
 }
 
+/// TP/SL mode (`tpslMode`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum TpslMode {
+    /// TP/SL for the whole position.
     Full,
+    /// TP/SL for part of the position.
     Partial,
+    /// Not set, or an unknown value.
     UNKNOWN,
 }
 
+/// Which leg triggered a spot OCO order (`ocoTriggerBy`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum OcoTriggerBy {
+    /// Not triggered, or an unknown value.
     #[serde(rename = "OcoTriggerByUnknown")]
     Unknown,
+    /// Triggered by the take profit.
     #[serde(rename = "OcoTriggerByTp")]
     Tp,
+    /// Triggered by the stop loss.
     #[serde(rename = "OcoTriggerByBySl")]
     BySl,
 }
 
+/// Direction the price must move to trigger a conditional order (`triggerDirection`).
 #[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum TriggerDirection {
+    /// Not a conditional order.
     UNKNOWN = 0,
+    /// Triggered when the price rises to the trigger price.
     Rise = 1,
+    /// Triggered when the price falls to the trigger price.
     Fall = 2,
 }
 
+/// Auction phase of a pre-market contract (`curAuctionPhase`).
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
 pub enum CurAuctionPhase {
     /// Pre-market trading is not started
@@ -1127,12 +1426,16 @@ pub enum CurAuctionPhase {
     ContinuousTrading,
 }
 
+/// How an option order is placed (`placeType`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum PlaceType {
+    /// Default.
     #[serde(rename = "option")]
     Option,
+    /// By implied volatility.
     #[serde(rename = "iv")]
     Iv,
+    /// By price.
     #[serde(rename = "price")]
     Price,
 }
@@ -1140,16 +1443,22 @@ pub enum PlaceType {
 /// Option type.
 #[derive(Debug, Deserialize, Serialize, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum OptionType {
+    /// Call option.
     Call,
+    /// Put option.
     Put,
 }
 
+/// Order or trade side (`side`).
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
 pub enum Side {
+    /// Buy.
     Buy,
+    /// Sell.
     Sell,
 }
 impl Side {
+    /// The opposite side.
     pub fn reverse(&self) -> Self {
         match self {
             Side::Buy => Self::Sell,
@@ -1158,52 +1467,81 @@ impl Side {
     }
 }
 
+/// Coin of a spot pair in which a fee is charged (see [`spot_fee_currency`]).
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Pair {
     // example of BTCUSDT
-    Base,  // BTC
+    /// Base coin, e.g. BTC of BTCUSDT.
+    Base, // BTC
+    /// Quote coin, e.g. USDT of BTCUSDT.
     Quote, // USDT
 }
 
+/// Unit of the slippage tolerance of a market order (`slippageToleranceType`).
 #[derive(Debug, Deserialize, PartialEq, Clone, Copy)]
 pub enum SlippageToleranceType {
+    /// Number of ticks.
     TickSize,
+    /// Percentage.
     Percent,
     /// default
     UNKNOWN,
 }
 
+/// Margin mode of a classic account position (`tradeMode`).
 #[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Clone, Copy)]
 #[repr(u8)]
 pub enum TradeMode {
+    /// Cross margin.
     CrossMargin = 0,
+    /// Isolated margin.
     IsolatedMargin = 1,
 }
 
+/// A WebSocket topic; serialized as Bybit expects, e.g. `tickers.BTCUSDT` or `order.linear`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Topic {
+    /// Order book of a symbol (`orderbook.{depth}.{symbol}`).
     Orderbook {
+        /// Symbol, e.g. `BTCUSDT`.
         symbol: String,
+        /// Depth.
         depth: DepthLevel,
     },
+    /// Public trades of a symbol (`publicTrade.{symbol}`).
     Trade(String),
+    /// Ticker of a symbol (`tickers.{symbol}`).
     Ticker(String),
+    /// Klines of a symbol (`kline.{interval}.{symbol}`).
     Kline {
+        /// Symbol, e.g. `BTCUSDT`.
         symbol: String,
+        /// Kline interval.
         interval: Interval,
     },
+    /// All liquidations of a symbol (`allLiquidation.{symbol}`).
     AllLiquidation(String),
+    /// Positions of a category (`position.{category}`).
     Position(Category),
+    /// Positions of all categories (`position`).
     PositionAllCategory,
+    /// Executions of a category (`execution.{category}`).
     Execution(Category),
+    /// Executions of all categories (`execution`).
     ExecutionAllCategory,
+    /// Fast executions of a category (`execution.fast.{category}`).
     FastExecution(Category),
+    /// Fast executions of all categories (`execution.fast`).
     FastExecutionAllCategory,
+    /// Orders of a category (`order.{category}`).
     Order(Category),
+    /// Orders of all categories (`order`).
     OrderAllCategory,
+    /// Wallet balance (`wallet`).
     Wallet,
     /// option only.
     Greek,
+    /// Disconnection Cancellation Protection status (`dcp.{function}`).
     Dcp(DcpFunction),
 }
 
@@ -1330,11 +1668,15 @@ impl<'de> Deserialize<'de> for Topic {
     }
 }
 
+/// Product of a DCP topic (`dcp.{function}`).
 #[derive(Debug, Deserialize, Serialize, PartialEq, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum DcpFunction {
+    /// Futures.
     Future,
+    /// Options.
     Option,
+    /// Spot.
     Spot,
 }
 
@@ -1349,16 +1691,22 @@ impl fmt::Display for DcpFunction {
     }
 }
 
+/// Depth of the order book stream (`orderbook.{depth}.{symbol}`).
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, Copy)]
 pub enum DepthLevel {
+    /// 1 levels.
     #[serde(rename = "1")]
     Level1,
+    /// 25 levels.
     #[serde(rename = "25")]
     Level25,
+    /// 50 levels.
     #[serde(rename = "50")]
     Level50,
+    /// 100 levels.
     #[serde(rename = "100")]
     Level100,
+    /// 200 levels.
     #[serde(rename = "200")]
     Level200,
     /// Perpetuals and futures only.
@@ -1384,6 +1732,9 @@ impl fmt::Display for DepthLevel {
     }
 }
 
+/// Coin in which the fee of a spot trade is charged: normally the coin
+/// received; with a negative maker fee rate (rebate), a maker receives the
+/// rebate in the coin paid.
 pub fn spot_fee_currency(side: Side, is_maker_order: bool, maker_fee_rate: f64) -> Pair {
     if maker_fee_rate >= 0.0 {
         match side {
