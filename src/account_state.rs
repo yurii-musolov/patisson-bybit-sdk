@@ -25,10 +25,69 @@
 use std::collections::{HashMap, HashSet, VecDeque};
 
 use crate::{
-    AccountType, Category, PositionIdx, Timestamp,
-    http::{Order, Position, WalletBalance},
+    AccountType, Category, Error, PositionIdx, Timestamp,
+    http::{
+        Client, GetOpenClosedOrdersParams, GetPositionInfoParams, GetWalletBalanceParams, Order,
+        Position, WalletBalance,
+    },
     ws::{OrderMsg, PositionMsg, TopicMessage, WalletMsg},
 };
+
+/// What [`AccountState::load`] and [`AccountState::reload`] fetch.
+///
+/// ```
+/// use bybit::{AccountScope, AccountType};
+///
+/// // USDT perpetuals, spot orders and the unified wallet.
+/// let scope = AccountScope::new()
+///     .linear("USDT")
+///     .spot()
+///     .wallet(AccountType::UNIFIED);
+/// ```
+#[derive(Debug, Clone, Default)]
+pub struct AccountScope {
+    categories: Vec<(Category, Option<String>)>,
+    wallet: Option<AccountType>,
+}
+
+impl AccountScope {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Linear contracts settled in `settle_coin` (Bybit requires a settle
+    /// coin to list all linear orders and positions), e.g. "USDT" or "USDC".
+    pub fn linear(self, settle_coin: impl Into<String>) -> Self {
+        self.category(Category::Linear, Some(settle_coin.into()))
+    }
+
+    /// Inverse contracts (all settle coins).
+    pub fn inverse(self) -> Self {
+        self.category(Category::Inverse, None)
+    }
+
+    /// Spot open orders (spot has no positions).
+    pub fn spot(self) -> Self {
+        self.category(Category::Spot, None)
+    }
+
+    /// Options.
+    pub fn option(self) -> Self {
+        self.category(Category::Option, None)
+    }
+
+    /// Any category, with an optional settle coin filter.
+    pub fn category(mut self, category: Category, settle_coin: Option<String>) -> Self {
+        self.categories.push((category, settle_coin));
+        self
+    }
+
+    /// Also load the wallet balance of `account_type`.
+    pub fn wallet(mut self, account_type: AccountType) -> Self {
+        self.wallet = Some(account_type);
+        self
+    }
+}
 
 /// Maximum number of closed orders remembered to reject late stream updates
 /// and stale snapshot entries for them.
@@ -84,6 +143,52 @@ impl AccountState {
     }
 
     // -- Snapshots ----------------------------------------------------------
+
+    /// Create a state from REST snapshots of everything in `scope`.
+    pub async fn load(client: &Client, scope: &AccountScope) -> Result<Self, Error> {
+        let mut state = Self::new();
+        state.reload(client, scope).await?;
+        Ok(state)
+    }
+
+    /// Fetch fresh REST snapshots of everything in `scope` and merge them
+    /// (see [`set_orders`](Self::set_orders) and
+    /// [`set_positions`](Self::set_positions)). Call it after every
+    /// (re)connect of the private stream and after
+    /// [`Event::Lagged`](crate::ws::Event::Lagged).
+    ///
+    /// The snapshot time is the server clock of `client` before the first
+    /// request, so stream updates made meanwhile are kept. On error the
+    /// categories loaded so far stay merged.
+    pub async fn reload(&mut self, client: &Client, scope: &AccountScope) -> Result<(), Error> {
+        let snapshot_time = client.server_timestamp();
+
+        for (category, settle_coin) in &scope.categories {
+            let mut params = GetOpenClosedOrdersParams::new(*category);
+            if let Some(coin) = settle_coin {
+                params = params.with_settle_coin(coin.clone());
+            }
+            let orders = client.get_open_closed_orders_all(&params).await?;
+            self.set_orders(*category, orders, snapshot_time);
+
+            if *category != Category::Spot {
+                let mut params = GetPositionInfoParams::new(*category);
+                if let Some(coin) = settle_coin {
+                    params = params.with_settle_coin(coin.clone());
+                }
+                let positions = client.get_position_info_all(&params).await?;
+                self.set_positions(*category, positions, snapshot_time);
+            }
+        }
+
+        if let Some(account_type) = scope.wallet {
+            let params = GetWalletBalanceParams::new(account_type);
+            for balance in client.get_wallet_balance(&params).await?.result.list {
+                self.set_wallet(balance);
+            }
+        }
+        Ok(())
+    }
 
     /// Replace the balance of `balance.account_type` with a REST snapshot.
     pub fn set_wallet(&mut self, balance: WalletBalance) {
@@ -756,5 +861,84 @@ mod tests {
             [Change::WalletUpdated(AccountType::UNIFIED)]
         ));
         assert!(state.wallet(AccountType::UNIFIED).is_some());
+    }
+
+    /// HTTP server answering the snapshot endpoints with fixtures; records
+    /// the request targets.
+    async fn spawn_snapshot_server() -> (String, std::sync::Arc<std::sync::Mutex<Vec<String>>>) {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        const ORDERS: &str = r#"{"retCode": 0, "retMsg": "OK", "result": {"list": [{"orderId": "fd4300ae-7847-404e-b947-b46980a4d140", "orderLinkId": "test-000005", "blockTradeId": "", "symbol": "ETHUSDT", "price": "1600.00", "qty": "0.10", "side": "Buy", "isLeverage": "", "positionIdx": 1, "orderStatus": "New", "cancelType": "UNKNOWN", "rejectReason": "EC_NoError", "avgPrice": "0", "leavesQty": "0.10", "leavesValue": "160", "cumExecQty": "0.00", "cumExecValue": "0", "cumExecFee": "0", "timeInForce": "GTC", "orderType": "Limit", "stopOrderType": "UNKNOWN", "orderIv": "", "triggerPrice": "0.00", "takeProfit": "2500.00", "stopLoss": "1500.00", "tpTriggerBy": "LastPrice", "slTriggerBy": "LastPrice", "triggerDirection": 0, "triggerBy": "UNKNOWN", "lastPriceOnCreated": "", "reduceOnly": false, "closeOnTrigger": false, "smpType": "None", "smpGroup": 0, "smpOrderId": "", "tpslMode": "Full", "tpLimitPrice": "", "slLimitPrice": "", "placeType": "", "createdTime": "1684738540559", "updatedTime": "1684738540561"}], "nextPageCursor": "", "category": "linear"}, "retExtInfo": {}, "time": 1684765770483}"#;
+        const POSITIONS: &str = r#"{"retCode": 0, "retMsg": "OK", "result": {"list": [{"positionIdx": 0, "riskId": 1, "riskLimitValue": "150", "symbol": "BTCUSD", "side": "Sell", "size": "300", "avgPrice": "27464.50441675", "positionValue": "0.01092319", "tradeMode": 0, "positionStatus": "Normal", "autoAddMargin": 1, "adlRankIndicator": 2, "leverage": "10", "positionBalance": "0.00139186", "markPrice": "28224.50", "liqPrice": "", "bustPrice": "999999.00", "positionMM": "0.0000015", "positionMMByMp": "0.0000015", "positionIM": "0.00010923", "positionIMByMp": "0.00010923", "tpslMode": "Full", "takeProfit": "0.00", "stopLoss": "0.00", "trailingStop": "0.00", "unrealisedPnl": "-0.00029413", "curRealisedPnl": "0.00013123", "cumRealisedPnl": "-0.00096902", "seq": 5723621632, "isReduceOnly": false, "mmrSysUpdatedTime": "", "leverageSysUpdatedTime": "", "sessionAvgPrice": "", "createdTime": "1676538056258", "updatedTime": "1697673600012"}], "nextPageCursor": "", "category": "inverse"}, "retExtInfo": {}, "time": 1697684980172}"#;
+        const WALLET: &str = r#"{"retCode": 0, "retMsg": "OK", "result": {"list": [{"totalEquity": "3.31216591", "accountIMRate": "0", "accountIMRateByMp": "0", "totalMarginBalance": "3.00326056", "totalInitialMargin": "0", "totalInitialMarginByMp": "0", "accountType": "UNIFIED", "totalAvailableBalance": "3.00326056", "accountMMRate": "0", "accountMMRateByMp": "0", "totalPerpUPL": "0", "totalWalletBalance": "3.00326056", "accountLTV": "0", "totalMaintenanceMargin": "0", "totalMaintenanceMarginByMp": "0", "coin": [{"availableToBorrow": "3", "bonus": "0", "accruedInterest": "0", "availableToWithdraw": "0", "totalOrderIM": "0", "equity": "0", "totalPositionMM": "0", "usdValue": "0", "spotHedgingQty": "0.01592413", "unrealisedPnl": "0", "collateralSwitch": true, "borrowAmount": "0.0", "totalPositionIM": "0", "walletBalance": "0", "cumRealisedPnl": "0", "locked": "0", "marginCollateral": true, "coin": "BTC", "spotBorrow": "0"}]}]}, "retExtInfo": {}, "time": 1690872862481}"#;
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let requests = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let recorded = requests.clone();
+        tokio::spawn(async move {
+            while let Ok((mut tcp, _)) = listener.accept().await {
+                let mut head = Vec::new();
+                let mut buf = [0u8; 1024];
+                while !head.windows(4).any(|w| w == b"\r\n\r\n") {
+                    match tcp.read(&mut buf).await {
+                        Ok(0) | Err(_) => break,
+                        Ok(n) => head.extend_from_slice(&buf[..n]),
+                    }
+                }
+                let head = String::from_utf8_lossy(&head).into_owned();
+                let target = head
+                    .split_whitespace()
+                    .nth(1)
+                    .unwrap_or_default()
+                    .to_owned();
+                recorded.lock().unwrap().push(target.clone());
+                let body = if target.starts_with("/v5/order/realtime") {
+                    ORDERS
+                } else if target.starts_with("/v5/position/list") {
+                    POSITIONS
+                } else {
+                    WALLET
+                };
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                    body.len()
+                );
+                let _ = tcp.write_all(response.as_bytes()).await;
+            }
+        });
+        (format!("http://{addr}"), requests)
+    }
+
+    #[tokio::test]
+    async fn load_fetches_every_part_of_the_scope() {
+        let (url, requests) = spawn_snapshot_server().await;
+        let config = crate::http::Config::new(url).credentials("key", "secret");
+        let client = Client::new(config).unwrap();
+        let scope = AccountScope::new()
+            .linear("USDT")
+            .spot()
+            .wallet(AccountType::UNIFIED);
+
+        let state = AccountState::load(&client, &scope).await.unwrap();
+
+        // The orders fixture is served for both categories.
+        assert_eq!(state.orders().count(), 2);
+        let order_id = "fd4300ae-7847-404e-b947-b46980a4d140";
+        assert!(state.order(Category::Linear, order_id).is_some());
+        assert!(state.order(Category::Spot, order_id).is_some());
+        // Positions only for linear (spot has none).
+        assert_eq!(state.open_positions().count(), 1);
+        assert!(state.wallet(AccountType::UNIFIED).is_some());
+
+        let requests = requests.lock().unwrap().clone();
+        assert_eq!(requests.len(), 4, "{requests:?}");
+        assert!(requests[0].starts_with("/v5/order/realtime"));
+        assert!(requests[0].contains("category=linear") && requests[0].contains("settleCoin=USDT"));
+        assert!(requests[1].starts_with("/v5/position/list"));
+        assert!(requests[1].contains("settleCoin=USDT"));
+        assert!(requests[2].starts_with("/v5/order/realtime"));
+        assert!(requests[2].contains("category=spot"));
+        assert!(requests[3].starts_with("/v5/account/wallet-balance"));
     }
 }
