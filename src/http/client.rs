@@ -1878,12 +1878,17 @@ impl Client {
     }
 }
 
-// Spot Leveraged Token.
+// Spot Leveraged Token: shut down by Bybit on 2025-07-04 (changelog of
+// 2025-06-30); the methods are deprecated and will be removed.
 impl Client {
     /// Get Leverage Token Info.
     /// Query leveraged token information, such as purchase/redeem limits and fees.
     ///
     /// No authentication required.
+    #[deprecated(
+        since = "0.3.0",
+        note = "Bybit shut down the leveraged token API on 2025-07-04; the endpoint returns HTTP 404"
+    )]
     #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_leverage_token_info(
         &self,
@@ -1901,6 +1906,10 @@ impl Client {
     /// Query the leveraged token market data, such as net asset value and real leverage.
     ///
     /// No authentication required.
+    #[deprecated(
+        since = "0.3.0",
+        note = "Bybit shut down the leveraged token API on 2025-07-04; the endpoint returns HTTP 404"
+    )]
     #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_leverage_token_market(
         &self,
@@ -1918,6 +1927,10 @@ impl Client {
     /// Purchase a leveraged token.
     ///
     /// Requires authentication.
+    #[deprecated(
+        since = "0.3.0",
+        note = "Bybit shut down the leveraged token API on 2025-07-04; the endpoint returns HTTP 404"
+    )]
     #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn purchase_leverage_token(
         &self,
@@ -1941,6 +1954,10 @@ impl Client {
     /// Redeem a leveraged token.
     ///
     /// Requires authentication.
+    #[deprecated(
+        since = "0.3.0",
+        note = "Bybit shut down the leveraged token API on 2025-07-04; the endpoint returns HTTP 404"
+    )]
     #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn redeem_leverage_token(
         &self,
@@ -1963,6 +1980,10 @@ impl Client {
     /// Get Purchase/Redemption Records.
     ///
     /// Requires authentication.
+    #[deprecated(
+        since = "0.3.0",
+        note = "Bybit shut down the leveraged token API on 2025-07-04; the endpoint returns HTTP 404"
+    )]
     #[tracing::instrument(level = "debug", skip_all, err(level = "debug"))]
     pub async fn get_leverage_token_order_records(
         &self,
