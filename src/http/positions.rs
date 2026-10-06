@@ -501,10 +501,10 @@ pub struct SwitchCrossIsolatedMarginRequest {
 
 impl SwitchCrossIsolatedMarginRequest {
     /// Switch to cross margin with the given leverage.
-    pub fn cross(category: Category, symbol: String, leverage: Decimal) -> Self {
+    pub fn cross(category: Category, symbol: impl Into<String>, leverage: Decimal) -> Self {
         Self {
             category,
-            symbol,
+            symbol: symbol.into(),
             trade_mode: TradeMode::CrossMargin,
             buy_leverage: leverage,
             sell_leverage: leverage,
@@ -514,13 +514,13 @@ impl SwitchCrossIsolatedMarginRequest {
     /// Switch to isolated margin with the given buy and sell leverage.
     pub fn isolated(
         category: Category,
-        symbol: String,
+        symbol: impl Into<String>,
         buy_leverage: Decimal,
         sell_leverage: Decimal,
     ) -> Self {
         Self {
             category,
-            symbol,
+            symbol: symbol.into(),
             trade_mode: TradeMode::IsolatedMargin,
             buy_leverage,
             sell_leverage,
@@ -548,20 +548,20 @@ pub struct SwitchPositionModeRequest {
 
 impl SwitchPositionModeRequest {
     /// Switch to one-way mode.
-    pub fn one_way(category: Category, symbol: String) -> Self {
+    pub fn one_way(category: Category, symbol: impl Into<String>) -> Self {
         Self {
             category,
-            symbol: Some(symbol),
+            symbol: Some(symbol.into()),
             coin: None,
             mode: PositionMode::OneWay,
         }
     }
 
     /// Switch to hedge mode (separate buy and sell positions).
-    pub fn hedge(category: Category, symbol: String) -> Self {
+    pub fn hedge(category: Category, symbol: impl Into<String>) -> Self {
         Self {
             category,
-            symbol: Some(symbol),
+            symbol: Some(symbol.into()),
             coin: None,
             mode: PositionMode::Hedge,
         }
@@ -939,4 +939,45 @@ pub struct ExecutionEntry {
     pub seq: i64,
     /// Is maker order. true: maker, false: taker.
     pub is_maker: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use rust_decimal::dec;
+
+    use super::*;
+
+    #[test]
+    fn mode_constructors_accept_a_str_symbol() {
+        let req = SwitchCrossIsolatedMarginRequest::cross(Category::Linear, "BTCUSDT", dec!(10));
+        assert_eq!(
+            serde_json::to_value(&req).unwrap(),
+            serde_json::json!({
+                "category": "linear",
+                "symbol": "BTCUSDT",
+                "tradeMode": 0,
+                "buyLeverage": "10",
+                "sellLeverage": "10",
+            })
+        );
+        let req = SwitchCrossIsolatedMarginRequest::isolated(
+            Category::Linear,
+            "ETHUSDT",
+            dec!(5),
+            dec!(3),
+        );
+        assert_eq!(
+            (req.symbol.as_str(), req.trade_mode),
+            ("ETHUSDT", TradeMode::IsolatedMargin)
+        );
+
+        let req = SwitchPositionModeRequest::hedge(Category::Linear, "BTCUSDT");
+        assert_eq!(
+            serde_json::to_value(&req).unwrap(),
+            serde_json::json!({ "category": "linear", "symbol": "BTCUSDT", "mode": 3 })
+        );
+        let req = SwitchPositionModeRequest::one_way(Category::Inverse, String::from("BTCUSD"));
+        assert_eq!(req.symbol.as_deref(), Some("BTCUSD"));
+        assert_eq!(req.mode, PositionMode::OneWay);
+    }
 }
