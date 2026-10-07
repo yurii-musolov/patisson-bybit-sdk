@@ -17,7 +17,7 @@ Every version change must be treated as a breaking change, including minor and p
 Users are strongly advised to pin an exact version, for example:
 
 ```rs
-patisson-bybit-sdk = "=0.2.6"
+patisson-bybit-sdk = "=0.3.0"
 ```
 
 ### Maintenance Policy
@@ -181,6 +181,12 @@ demo trading (use testnet or mainnet). A reply only means Bybit accepted the
 request; the order stream confirms the status. Requests in flight when the
 connection drops fail with `ws::Error::ConnectionLost` and are not resent.
 
+> **Not yet tested on a live account.** `TradeClient` is covered by tests
+> against a local server that speaks the order entry protocol, but it has not
+> been run against Bybit itself (mainnet or testnet). Try it with small,
+> far-from-market post-only orders first (`examples/ws-trade.rs`) and please
+> report any problem.
+
 ```rust
 use bybit::{
     Category, Environment, OrderType, Side,
@@ -231,6 +237,39 @@ while let Some(event) = events.recv().await {
 ```
 
 See `examples/account-state.rs` for a complete program.
+
+## Migration from 0.2
+
+0.3.0 has breaking changes:
+
+- **TLS features.** REST and WebSocket now share one TLS backend. `rustls` is
+  the default; 0.2 built WebSocket with native-tls. To keep the platform TLS
+  library, use `default-features = false, features = ["native-tls"]`.
+- **`Environment`.** Pick URLs with `http::Config::for_env(env)`,
+  `ws::Config::public(env, category)` and `ws::Config::private(env)` instead of
+  `BASE_URL_*` + `Path`. The `BASE_URL_*` constants are deprecated.
+- **WebSocket subscriptions and auth.** Use `Handle::subscribe` /
+  `Handle::unsubscribe` and `ws::Config::credentials`: the driver
+  authenticates and restores the subscriptions on every reconnect, so there
+  is no need to resend them after `Event::Connected`. `ws::Command` and
+  `ws::Event` have new variants (`Authenticated`, `AuthFailed`,
+  `SubscribeFailed`, `Lagged`); add a `_` arm to exhaustive matches.
+- **String parameters.** `with_*` setters and `new(..)` constructors take
+  `impl Into<String>`: pass `"BTCUSDT"` directly; `"BTCUSDT".into()` no longer
+  infers a type.
+- **Response models aligned with the live API.**
+  `get_mark_price_kline`, `get_index_price_kline` and
+  `get_premium_index_price_kline` return `PriceKLine` (rows of five values);
+  `Position::position_status` and the withdrawal fees and limits of
+  `CoinChain` are `Option`; `DepositCoinConfig::block_confirm_number` is a
+  number; `OptionInstrumentsInfo` follows the option instruments response.
+- **Deprecated:** the spot leveraged token methods (Bybit shut that API down
+  on 2025-07-04).
+
+New: `ws::TradeClient` (order entry over WebSocket), `AccountState::load` /
+`reload` with `AccountScope`, automatic retry of timestamp errors (10002)
+after `sync_time`, `Error` helpers and the `ret_code` constants, and
+documentation for every public item.
 
 ## License
 
